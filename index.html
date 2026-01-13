@@ -3,67 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Диалоговый тренажер | Новогоднее обновление 🎄</title>
+    <title>Диалоговый тренажер</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Подключаем наши файлы -->
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* Дополнительные новогодние стили */
-        .christmas-theme {
-            color: #155d27;
-        }
-        
-        .snowflake {
-            position: fixed;
-            color: white;
-            font-size: 12px;
-            z-index: 1000;
-            pointer-events: none;
-            animation: fall linear infinite;
-        }
-        
-        @keyframes fall {
-            to {
-                transform: translateY(100vh);
-            }
-        }
-    </style>
 </head>
-<body class="christmas-theme">
-    <!-- Генерируем снежинки через JS -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Создаем снежинки
-            for (let i = 0; i < 30; i++) {
-                createSnowflake();
-            }
-            
-            function createSnowflake() {
-                const snowflake = document.createElement('div');
-                snowflake.classList.add('snowflake');
-                snowflake.innerHTML = '❄';
-                snowflake.style.left = Math.random() * 100 + 'vw';
-                snowflake.style.animationDuration = Math.random() * 3 + 2 + 's';
-                snowflake.style.opacity = Math.random() * 0.5 + 0.3;
-                snowflake.style.fontSize = Math.random() * 10 + 10 + 'px';
-                document.body.appendChild(snowflake);
-                
-                // Удаляем снежинку после завершения анимации
-                setTimeout(() => {
-                    snowflake.remove();
-                    createSnowflake(); // Создаем новую
-                }, 5000);
-            }
-        });
-    </script>
-
+<body>
     <!-- Модальное окно авторизации -->
     <div class="modal" id="authModal">
         <div class="modal-content">
-            <div class="result-icon">🎄</div>
+            <div class="result-icon">👤</div>
             <h2 class="result-title">Диалоговый тренажер</h2>
-            <p style="margin-bottom: 20px; color: #666; font-size: 14px;">С новым годом! 🎅</p>
+            <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Войдите в систему для начала тренировок</p>
             
             <div id="loginForm">
                 <div class="form-group">
@@ -78,7 +29,7 @@
                     </div>
                     <div class="error-message" id="loginError"></div>
                 </div>
-                <button class="btn btn-primary btn-newyear" onclick="handleLogin()" style="width: 100%; margin-bottom: 10px;">
+                <button class="btn btn-primary" onclick="handleLogin()" style="width: 100%; margin-bottom: 10px;">
                     Войти
                 </button>
                 <button class="btn btn-secondary" onclick="showRegisterForm()" style="width: 100%; margin-bottom: 10px;">
@@ -88,24 +39,23 @@
                     Забыли пароль?
                 </button>
                 <p style="text-align: center; margin: 15px 0; color: #666; font-size: 14px;">или</p>
-                <button class="btn btn-secondary btn-newyear" onclick="showTrainerLogin()" style="width: 100%;">
-                    🎓 Войти как тренер/СВ
+                <button class="btn btn-secondary" onclick="showTrainerLogin()" style="width: 100%;">
+                    Войти как тренер/СВ
                 </button>
             </div>
             
             <div id="registerForm" style="display: none;">
-                 <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
-            <i class="fas fa-exclamation-triangle" style="color: #856404;"></i>
-            <strong style="color: #856404; font-size: 13px;">ВНИМАНИЕ!</strong>
-        </div>
-        <p style="font-size: 12px; color: #856404; margin: 0;">
-            <strong>Запрещено:</strong> использовать реальные фамилии, матерные или оскорбительные слова в никнейме.<br>
-            <strong>Рекомендуем:</strong> Оператор_1, Спец_Иван, Агент_007
-        </p>
-    </div>
-    
-    <!-- Дальше все остальные поля как есть -->
+                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                        <i class="fas fa-exclamation-triangle" style="color: #856404;"></i>
+                        <strong style="color: #856404; font-size: 13px;">ВНИМАНИЕ!</strong>
+                    </div>
+                    <p style="font-size: 12px; color: #856404; margin: 0;">
+                        <strong>Запрещено:</strong> использовать реальные фамилии, матерные или оскорбительные слова в никнейме.<br>
+                        <strong>Рекомендуем:</strong> Оператор_1, Спец_Иван, Агент_007
+                    </p>
+                </div>
+                
                 <div class="form-group">
                     <label>Никнейм (будет отображаться в системе):</label>
                     <input type="text" id="registerUsername" placeholder="Придумайте никнейм (от 3 символов)">
@@ -160,7 +110,7 @@
                     </div>
                 </div>
                 
-                <button class="btn btn-primary btn-newyear" onclick="handleRegister()" style="width: 100%; margin-bottom: 10px;">
+                <button class="btn btn-primary" onclick="handleRegister()" style="width: 100%; margin-bottom: 10px;">
                     Зарегистрироваться
                 </button>
                 <button class="btn btn-secondary" onclick="showLoginForm()" style="width: 100%;">
@@ -188,7 +138,7 @@
                     </div>
                     <div class="error-message" id="resetPasswordError"></div>
                 </div>
-                <button class="btn btn-primary btn-newyear" onclick="handleResetPassword()" style="width: 100%; margin-bottom: 10px;">
+                <button class="btn btn-primary" onclick="handleResetPassword()" style="width: 100%; margin-bottom: 10px;">
                     Сбросить пароль
                 </button>
                 <button class="btn btn-secondary" onclick="showLoginForm()" style="width: 100%;">
@@ -196,11 +146,10 @@
                 </button>
             </div>
 
-            <!-- Форма входа тренера -->
             <div id="trainerLoginForm" style="display: none;">
-                <div class="result-icon">🎅</div>
+                <div class="result-icon">👨‍🏫</div>
                 <h2 class="result-title">Режим тренера</h2>
-                <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Новогодний контроль качества 🎁</p>
+                <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Панель управления тренировками</p>
                 
                 <div class="form-group">
                     <label>Логин тренера:</label>
@@ -215,11 +164,29 @@
                     <div class="error-message" id="trainerLoginError"></div>
                 </div>
                 
-                <button class="btn btn-primary btn-newyear" onclick="handleTrainerLogin()" style="width: 100%; margin-bottom: 10px;">
+                <button class="btn btn-primary" onclick="handleTrainerLogin()" style="width: 100%; margin-bottom: 10px;">
                     Войти как тренер/СВ
                 </button>
                 <button class="btn btn-secondary" onclick="showLoginForm()" style="width: 100%;">
                     Назад к обычному входу
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно фидбэка -->
+    <div class="modal" id="feedbackModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="result-icon">📝</div>
+            <h2 class="result-title">Пожалуйста, поделитесь впечатлениями от тренажера</h2>
+            <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Ваше мнение поможет улучшить тренажер</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn btn-primary" onclick="openFeedbackForm()" style="width: 100%;">
+                    Заполнить форму
+                </button>
+                <button class="btn btn-secondary" onclick="closeFeedbackModal()" style="width: 100%;">
+                    Сделаю позже
                 </button>
             </div>
         </div>
@@ -243,9 +210,7 @@
                 </div>
             </div>
             
-            <div class="chat-modal-messages" id="chatModalMessages">
-                <!-- Сообщения чата будут загружены сюда -->
-            </div>
+            <div class="chat-modal-messages" id="chatModalMessages"></div>
             
             <div class="chat-modal-footer">
                 <div class="storage-info">
@@ -261,12 +226,10 @@
     <!-- Модальное окно результата -->
     <div class="modal" id="resultModal">
         <div class="modal-content">
-            <div class="result-icon" id="resultIcon">🎁</div>
+            <div class="result-icon" id="resultIcon">🏆</div>
             <div class="result-title" id="resultTitle">Тренировка завершена!</div>
             <div class="result-xp" id="resultXP">+0 XP</div>
-            <div id="resultDetails" style="text-align: left; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
-                <!-- Детали оценки будут добавлены через JS -->
-            </div>
+            <div id="resultDetails" style="text-align: left; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;"></div>
             
             <div id="aiFeedbackContainer" style="display: none;">
                 <div class="ai-feedback-section">
@@ -274,13 +237,11 @@
                         <i class="fas fa-robot"></i>
                         <span>Полная обратная связь от DeepSeek</span>
                     </div>
-                    <div class="ai-feedback-content" id="aiFeedbackContent">
-                        <!-- Полный текст обратной связи от нейросети будет здесь -->
-                    </div>
+                    <div class="ai-feedback-content" id="aiFeedbackContent"></div>
                 </div>
             </div>
             
-            <button class="btn btn-primary btn-newyear" onclick="closeResultModal()" style="margin-top: 10px; width: 100%;">
+            <button class="btn btn-primary" onclick="closeResultModal()" style="margin-top: 10px; width: 100%;">
                 Продолжить
             </button>
         </div>
@@ -293,23 +254,28 @@
                     <span id="currentUserName"></span>
                     <span class="group-badge" id="userGroupBadge"></span>
                 </div>
-                <button class="logout-btn btn-newyear" onclick="logout()">Выйти</button>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
             </div>
             
-            <h1>🎄 Диалоговый тренажер</h1>
-            <p id="headerSubtitle">Новогодняя тренировка работы с клиентами 🎅</p>
+            <h1>Диалоговый тренажер</h1>
+            <p id="headerSubtitle">Тренировка работы с клиентами</p>
         </div>
 
         <div class="content">
-            <!-- Боковая навигация -->
-            <div class="sidebar" id="sidebar">
-                <!-- Навигация будет заполнена в зависимости от роли -->
-            </div>
-
-            <!-- Основной контент -->
-            <div class="main-content">
-                <!-- Вкладки будут заполнены в зависимости от роли -->
-            </div>
+            <div class="sidebar" id="sidebar"></div>
+            <div class="main-content"></div>
+        </div>
+        
+        <div class="footer-links">
+            <a href="https://forms.yandex.ru/u/696634f8d046880022dab232" target="_blank" class="footer-link">
+                Обратная связь по тренажеру
+            </a>
+            <a href="https://forms.yandex.ru/u/69663c041f1eb503751e7994" target="_blank" class="footer-link">
+                Сообщить об ошибке
+            </a>
+            <a href="https://forms.yandex.ru/u/69663c46e010db02b85ec117" target="_blank" class="footer-link">
+                Предложить идею
+            </a>
         </div>
     </div>
 
@@ -328,7 +294,7 @@
             <div id="existingComments" style="margin-bottom: 15px;"></div>
             
             <div style="display: flex; gap: 10px;">
-                <button class="btn btn-primary btn-newyear" onclick="submitComment()" style="flex: 1;">
+                <button class="btn btn-primary" onclick="submitComment()" style="flex: 1;">
                     Отправить комментарий
                 </button>
                 <button class="btn btn-secondary" onclick="closeCommentModal()" style="flex: 1;">
@@ -338,7 +304,6 @@
         </div>
     </div>
 
-    <!-- Подключаем наш JS файл -->
     <script src="app.js"></script>
 </body>
 </html>
