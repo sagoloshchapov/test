@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Диалоговый тренажер | Новогоднее обновление 🎄</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Подключаем наши файлы -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Дополнительные новогодние стили */
+        .christmas-theme {
+            color: #155d27;
+        }
+        
+        .snowflake {
+            position: fixed;
+            color: white;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            animation: fall linear infinite;
+        }
+        
+        @keyframes fall {
+            to {
+                transform: translateY(100vh);
+            }
+        }
+    </style>
+</head>
+<body class="christmas-theme">
+    <!-- Генерируем снежинки через JS -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Создаем снежинки
+            for (let i = 0; i < 30; i++) {
+                createSnowflake();
+            }
+            
+            function createSnowflake() {
+                const snowflake = document.createElement('div');
+                snowflake.classList.add('snowflake');
+                snowflake.innerHTML = '❄';
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.animationDuration = Math.random() * 3 + 2 + 's';
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3;
+                snowflake.style.fontSize = Math.random() * 10 + 10 + 'px';
+                document.body.appendChild(snowflake);
+                
+                // Удаляем снежинку после завершения анимации
+                setTimeout(() => {
+                    snowflake.remove();
+                    createSnowflake(); // Создаем новую
+                }, 5000);
+            }
+        });
+    </script>
+
+    <!-- Модальное окно авторизации -->
+    <div class="modal" id="authModal">
+        <div class="modal-content">
+            <div class="result-icon">🎄</div>
+            <h2 class="result-title">Диалоговый тренажер</h2>
+            <p style="margin-bottom: 20px; color: #666; font-size: 14px;">С новым годом! 🎅</p>
+            
+            <div id="loginForm">
+                <div class="form-group">
+                    <label>Никнейм:</label>
+                    <input type="text" id="loginUsername" placeholder="Введите ваш никнейм">
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <div class="password-container">
+                        <input type="password" id="loginPassword" placeholder="Введите пароль">
+                        <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
+                    </div>
+                    <div class="error-message" id="loginError"></div>
+                </div>
+                <button class="btn btn-primary btn-newyear" onclick="handleLogin()" style="width: 100%; margin-bottom: 10px;">
+                    Войти
+                </button>
+                <button class="btn btn-secondary" onclick="showRegisterForm()" style="width: 100%; margin-bottom: 10px;">
+                    Создать аккаунт
+                </button>
+                <button class="btn btn-secondary" onclick="showResetPasswordForm()" style="width: 100%;">
+                    Забыли пароль?
+                </button>
+                <p style="text-align: center; margin: 15px 0; color: #666; font-size: 14px;">или</p>
+                <button class="btn btn-secondary btn-newyear" onclick="showTrainerLogin()" style="width: 100%;">
+                    🎓 Войти как тренер/СВ
+                </button>
+            </div>
+            
+            <div id="registerForm" style="display: none;">
+                 <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+            <i class="fas fa-exclamation-triangle" style="color: #856404;"></i>
+            <strong style="color: #856404; font-size: 13px;">ВНИМАНИЕ!</strong>
+        </div>
+        <p style="font-size: 12px; color: #856404; margin: 0;">
+            <strong>Запрещено:</strong> использовать реальные фамилии, матерные или оскорбительные слова в никнейме.<br>
+            <strong>Рекомендуем:</strong> Оператор_1, Спец_Иван, Агент_007
+        </p>
+    </div>
+    
+    <!-- Дальше все остальные поля как есть -->
+                <div class="form-group">
+                    <label>Никнейм (будет отображаться в системе):</label>
+                    <input type="text" id="registerUsername" placeholder="Придумайте никнейм (от 3 символов)">
+                </div>
+                <div class="form-group">
+                    <label>Вертикаль (отдел):</label>
+                    <select id="registerGroup" required>
+                        <option value="">Выберите вашу вертикаль</option>
+                        <option value="Программа лояльности">Программа лояльности</option>
+                        <option value="ОПК">ОПК</option>
+                        <option value="Фудтех">Фудтех</option>
+                        <option value="Маркет">Маркет</option>
+                        <option value="Аптека">Аптека</option>
+                        <option value="Сборка">Сборка</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <div class="password-container">
+                        <input type="password" id="registerPassword" placeholder="Пароль (от 6 символов)">
+                        <span class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Подтвердите пароль:</label>
+                    <div class="password-container">
+                        <input type="password" id="registerPasswordConfirm" placeholder="Повторите пароль">
+                        <span class="password-toggle" onclick="togglePassword('registerPasswordConfirm', this)">👁️</span>
+                    </div>
+                    <div class="error-message" id="passwordMatchError"></div>
+                </div>
+                
+                <div class="confidentiality-warning">
+                    <h4><i class="fas fa-exclamation-triangle"></i> ВНИМАНИЕ: Конфиденциальность данных</h4>
+                    <div class="confidentiality-list">
+                        <div class="prohibited">
+                            <strong>ЗАПРЕЩЕНО:</strong>
+                            <ul style="margin: 5px 0 0 15px; padding: 0;">
+                                <li>Конфиденциальная информация компании</li>
+                                <li>Персональные данные клиентов</li>
+                                <li>Банковские и паспортные данные</li>
+                            </ul>
+                        </div>
+                        <div class="recommended">
+                            <strong>РЕКОМЕНДАЦИИ:</strong>
+                            <ul style="margin: 5px 0 0 15px; padding: 0;">
+                                <li>Используйте вымышленные данные</li>
+                                <li>Не указывайте реальные номера</li>
+                                <li>Сохраняйте конфиденциальность</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary btn-newyear" onclick="handleRegister()" style="width: 100%; margin-bottom: 10px;">
+                    Зарегистрироваться
+                </button>
+                <button class="btn btn-secondary" onclick="showLoginForm()" style="width: 100%;">
+                    Назад ко входу
+                </button>
+            </div>
+
+            <div id="resetPasswordForm" style="display: none;">
+                <div class="form-group">
+                    <label>Никнейм:</label>
+                    <input type="text" id="resetUsername" placeholder="Введите никнейм">
+                </div>
+                <div class="form-group">
+                    <label>Новый пароль:</label>
+                    <div class="password-container">
+                        <input type="password" id="resetNewPassword" placeholder="Новый пароль (от 6 символов)">
+                        <span class="password-toggle" onclick="togglePassword('resetNewPassword', this)">👁️</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Подтвердите пароль:</label>
+                    <div class="password-container">
+                        <input type="password" id="resetPasswordConfirm" placeholder="Повторите пароль">
+                        <span class="password-toggle" onclick="togglePassword('resetPasswordConfirm', this)">👁️</span>
+                    </div>
+                    <div class="error-message" id="resetPasswordError"></div>
+                </div>
+                <button class="btn btn-primary btn-newyear" onclick="handleResetPassword()" style="width: 100%; margin-bottom: 10px;">
+                    Сбросить пароль
+                </button>
+                <button class="btn btn-secondary" onclick="showLoginForm()" style="width: 100%;">
+                    Назад ко входу
+                </button>
+            </div>
+
+            <!-- Форма входа тренера -->
+            <div id="trainerLoginForm" style="display: none;">
+                <div class="result-icon">🎅</div>
+                <h2 class="result-title">Режим тренера</h2>
+                <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Новогодний контроль качества 🎁</p>
+                
+                <div class="form-group">
+                    <label>Логин тренера:</label>
+                    <input type="text" id="trainerUsername" placeholder="Введите логин тренера">
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <div class="password-container">
+                        <input type="password" id="trainerPassword" placeholder="Введите пароль тренера">
+                        <span class="password-toggle" onclick="togglePassword('trainerPassword', this)">👁️</span>
+                    </div>
+                    <div class="error-message" id="trainerLoginError"></div>
+                </div>
+                
+                <button class="btn btn-primary btn-newyear" onclick="handleTrainerLogin()" style="width: 100%; margin-bottom: 10px;">
+                    Войти как тренер/СВ
+                </button>
+                <button class="btn btn-secondary" onclick="showLoginForm()" style="width: 100%;">
+                    Назад к обычному входу
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно просмотра чата -->
+    <div class="modal chat-modal" id="chatModal">
+        <div class="modal-content">
+            <div class="chat-modal-header">
+                <h3 id="chatModalTitle">Диалог с клиентом</h3>
+                <div class="chat-modal-info">
+                    <div>
+                        <strong>Тип клиента:</strong> <span id="chatModalClientType">-</span>
+                    </div>
+                    <div>
+                        <strong>Дата:</strong> <span id="chatModalDate">  </span>
+                    </div>
+                    <div>
+                        <strong>Оценка:</strong> <span id="chatModalScore">-</span>/5
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-modal-messages" id="chatModalMessages">
+                <!-- Сообщения чата будут загружены сюда -->
+            </div>
+            
+            <div class="chat-modal-footer">
+                <div class="storage-info">
+                    <i class="fas fa-info-circle"></i> История чатов хранится 30 дней
+                </div>
+                <button class="btn btn-secondary" onclick="closeChatModal()">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно результата -->
+    <div class="modal" id="resultModal">
+        <div class="modal-content">
+            <div class="result-icon" id="resultIcon">🎁</div>
+            <div class="result-title" id="resultTitle">Тренировка завершена!</div>
+            <div class="result-xp" id="resultXP">+0 XP</div>
+            <div id="resultDetails" style="text-align: left; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 13px;">
+                <!-- Детали оценки будут добавлены через JS -->
+            </div>
+            
+            <div id="aiFeedbackContainer" style="display: none;">
+                <div class="ai-feedback-section">
+                    <div class="ai-feedback-title">
+                        <i class="fas fa-robot"></i>
+                        <span>Полная обратная связь от DeepSeek</span>
+                    </div>
+                    <div class="ai-feedback-content" id="aiFeedbackContent">
+                        <!-- Полный текст обратной связи от нейросети будет здесь -->
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary btn-newyear" onclick="closeResultModal()" style="margin-top: 10px; width: 100%;">
+                Продолжить
+            </button>
+        </div>
+    </div>
+
+    <div class="container" id="mainContainer" style="display: none;">
+        <div class="header">
+            <div class="user-panel" id="userPanel">
+                <div class="user-info">
+                    <span id="currentUserName"></span>
+                    <span class="group-badge" id="userGroupBadge"></span>
+                </div>
+                <button class="logout-btn btn-newyear" onclick="logout()">Выйти</button>
+            </div>
+            
+            <h1>🎄 Диалоговый тренажер</h1>
+            <p id="headerSubtitle">Новогодняя тренировка работы с клиентами 🎅</p>
+        </div>
+
+        <div class="content">
+            <!-- Боковая навигация -->
+            <div class="sidebar" id="sidebar">
+                <!-- Навигация будет заполнена в зависимости от роли -->
+            </div>
+
+            <!-- Основной контент -->
+            <div class="main-content">
+                <!-- Вкладки будут заполнены в зависимости от роли -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно комментария тренера -->
+    <div class="modal" id="commentModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="result-icon">💬</div>
+            <h2 class="result-title" id="commentModalTitle">Комментарий тренера</h2>
+            <div id="commentModalStudentInfo" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;"></div>
+            
+            <div class="form-group">
+                <label>Комментарий:</label>
+                <textarea class="comment-input" id="commentText" placeholder="Введите комментарий к диалогу..."></textarea>
+            </div>
+            
+            <div id="existingComments" style="margin-bottom: 15px;"></div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary btn-newyear" onclick="submitComment()" style="flex: 1;">
+                    Отправить комментарий
+                </button>
+                <button class="btn btn-secondary" onclick="closeCommentModal()" style="flex: 1;">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключаем наш JS файл -->
+    <script src="app.js"></script>
+</body>
+</html>
