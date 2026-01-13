@@ -1,5 +1,3 @@
-[file name]: style.css
-[file content begin]
 * {
     margin: 0;
     padding: 0;
@@ -8,34 +6,10 @@
 
 body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(135deg, #1a472a 0%, #0d2818 100%);
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     min-height: 100vh;
     padding: 20px;
     overflow-y: auto;
-    position: relative;
-}
-
-/* Новогодние снежинки */
-body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: 
-        radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-        radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-        radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-    background-size: 100px 100px;
-    z-index: -1;
-    animation: snowFall 20s linear infinite;
-}
-
-@keyframes snowFall {
-    0% { transform: translateY(-100px); }
-    100% { transform: translateY(100vh); }
 }
 
 .container {
@@ -52,95 +26,30 @@ body::before {
     overflow: hidden;
 }
 
-/* Новогодние украшения по углам */
-.container::before,
-.container::after {
-    content: '';
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    z-index: 1;
-}
-
-.container::before {
-    top: -10px;
-    left: -10px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230d8c6c'%3E%3Cpath d='M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z'/%3E%3C/svg%3E");
-}
-
-.container::after {
-    bottom: -10px;
-    right: -10px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310a37f'%3E%3Cpath d='M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z'/%3E%3C/svg%3E");
-    transform: rotate(180deg);
-}
-
 .header {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
     padding: 20px 30px;
     position: relative;
     border-radius: 16px 16px 0 0;
 }
 
-/* Елочка в заголовке */
-.header::before {
-    content: '🎄';
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 28px;
-    animation: treeShake 2s ease-in-out infinite;
-}
-
-@keyframes treeShake {
-    0%, 100% { transform: rotate(0deg); }
-    25% { transform: rotate(-5deg); }
-    75% { transform: rotate(5deg); }
-}
-
 .header h1 {
     font-size: 22px;
     margin-bottom: 5px;
     font-weight: 600;
-    margin-left: 40px;
     color: white;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .header p {
     opacity: 0.9;
     font-size: 14px;
-    margin-left: 40px;
-}
-
-/* Новогодние огоньки */
-.header::after {
-    content: '';
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    width: 60px;
-    height: 20px;
-    background-image: 
-        radial-gradient(circle at 10px 10px, #ffd700 3px, transparent 3px),
-        radial-gradient(circle at 30px 5px, #ff4500 3px, transparent 3px),
-        radial-gradient(circle at 50px 15px, #00ff00 3px, transparent 3px);
-    background-repeat: no-repeat;
-    animation: lights 1.5s ease-in-out infinite alternate;
-}
-
-@keyframes lights {
-    0% { opacity: 0.5; }
-    100% { opacity: 1; }
 }
 
 .user-panel {
     position: absolute;
     top: 20px;
-    right: 90px;
+    right: 30px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -196,19 +105,6 @@ body::before {
     color: #555;
     text-decoration: none;
     font-weight: 500;
-    position: relative;
-}
-
-.nav-item::before {
-    content: '❄️';
-    position: absolute;
-    right: 10px;
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.nav-item:hover::before {
-    opacity: 1;
 }
 
 .nav-item:hover {
@@ -217,7 +113,7 @@ body::before {
 }
 
 .nav-item.active {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
 }
 
@@ -244,23 +140,12 @@ body::before {
     flex-direction: column;
 }
 
-/* Новогодняя карточка приветствия */
 .welcome-section {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+    background: #f8f9fa;
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 20px;
-    border: 2px dashed #10a37f;
-    position: relative;
-}
-
-.welcome-section::before {
-    content: '🎅';
-    position: absolute;
-    top: -15px;
-    right: -15px;
-    font-size: 40px;
-    opacity: 0.3;
+    border: 1px solid #e9ecef;
 }
 
 .section-title {
@@ -286,23 +171,13 @@ body::before {
     padding: 15px;
     text-align: center;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    border-top: 3px solid #10a37f;
-    position: relative;
-    overflow: hidden;
-}
-
-.stat-card::before {
-    content: '✨';
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    font-size: 12px;
+    border-top: 3px solid #4a6491;
 }
 
 .stat-card .value {
     font-size: 24px;
     font-weight: 700;
-    color: #10a37f;
+    color: #2c3e50;
     margin: 5px 0;
 }
 
@@ -342,11 +217,11 @@ body::before {
     border-radius: 10px;
     padding: 15px;
     margin-bottom: 20px;
-    border-left: 4px solid #10a37f;
+    border-left: 4px solid #4a6491;
 }
 
 .vertical-info h3 {
-    color: #0d8c6c;
+    color: #2c3e50;
     margin-bottom: 5px;
     font-size: 15px;
     display: flex;
@@ -371,16 +246,14 @@ body::before {
     margin-top: 8px;
     cursor: pointer;
     transition: all 0.3s;
-    position: relative;
 }
 
 .client-type-badge:hover {
     transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(25, 118, 210, 0.2);
 }
 
 .client-type-badge.selected {
-    background: linear-gradient(135deg, #1976d2 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #1976d2 0%, #4a6491 100%);
     color: white;
 }
 
@@ -390,7 +263,7 @@ body::before {
     padding: 20px;
     margin-top: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    border-left: 4px solid #10a37f;
+    border-left: 4px solid #4a6491;
     flex: 1;
 }
 
@@ -437,7 +310,7 @@ body::before {
 .chat-messages {
     flex: 1;
     padding: 20px;
-    overflow-y: auto !important;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -461,7 +334,7 @@ body::before {
 }
 
 .message.user {
-    background: linear-gradient(135deg, #10a37f 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #4a6491 0%, #2c3e50 100%);
     color: white;
     align-self: flex-end;
     border-bottom-right-radius: 4px;
@@ -491,7 +364,7 @@ body::before {
 }
 
 .send-btn {
-    background: linear-gradient(135deg, #10a37f 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #4a6491 0%, #2c3e50 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -502,7 +375,7 @@ body::before {
 }
 
 .send-btn:hover:not(:disabled) {
-    background: #0d8c6c;
+    background: #2c3e50;
     transform: translateY(-1px);
 }
 
@@ -533,13 +406,13 @@ body::before {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 5px 15px rgba(16, 163, 127, 0.2);
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
 }
 
 .btn-primary:disabled {
@@ -575,7 +448,7 @@ body::before {
 }
 
 .level-badge {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
     padding: 6px 12px;
     border-radius: 16px;
@@ -594,7 +467,7 @@ body::before {
 
 .xp-fill {
     height: 100%;
-    background: linear-gradient(90deg, #155d27, #0d8c6c);
+    background: linear-gradient(90deg, #2c3e50, #4a6491);
     border-radius: 8px;
     transition: width 0.5s ease;
 }
@@ -625,15 +498,6 @@ body::before {
     padding: 8px;
     background: #f8f9fa;
     border-radius: 8px;
-    position: relative;
-}
-
-.stat-item::before {
-    content: '🎯';
-    position: absolute;
-    top: -5px;
-    left: -5px;
-    font-size: 10px;
 }
 
 .stat-icon {
@@ -697,7 +561,7 @@ body::before {
 }
 
 .leaderboard-tab.active {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
 }
 
@@ -766,8 +630,8 @@ body::before {
 
 .badge.earned {
     background: white;
-    border: 2px solid #10a37f;
-    box-shadow: 0 3px 10px rgba(16, 163, 127, 0.15);
+    border: 2px solid #4a6491;
+    box-shadow: 0 3px 10px rgba(74, 100, 145, 0.15);
 }
 
 .badge.locked {
@@ -821,16 +685,6 @@ body::before {
     box-shadow: 0 15px 30px rgba(0,0,0,0.2);
     text-align: center;
     position: relative;
-}
-
-.modal-content::before {
-    content: '🎄';
-    position: absolute;
-    top: -20px;
-    left: -20px;
-    font-size: 40px;
-    opacity: 0.2;
-    z-index: -1;
 }
 
 .chat-modal .modal-content {
@@ -904,7 +758,7 @@ body::before {
 
 .result-xp {
     font-size: 18px;
-    color: #10a37f;
+    color: #4a6491;
     margin-bottom: 15px;
     font-weight: 600;
 }
@@ -975,7 +829,7 @@ body::before {
 }
 
 .training-active {
-    color: #10a37f;
+    color: #4a6491;
     font-weight: 600;
 }
 
@@ -987,7 +841,6 @@ body::before {
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     cursor: pointer;
     transition: all 0.3s;
-    position: relative;
 }
 
 .history-item:hover {
@@ -1010,7 +863,7 @@ body::before {
 
 .history-item-score {
     font-weight: 600;
-    color: #10a37f;
+    color: #4a6491;
     font-size: 16px;
 }
 
@@ -1029,7 +882,7 @@ body::before {
 }
 
 .view-chat-btn {
-    color: #10a37f;
+    color: #4a6491;
     background: none;
     border: none;
     cursor: pointer;
@@ -1052,7 +905,7 @@ body::before {
     padding: 15px;
     border-radius: 10px;
     margin: 15px 0;
-    border-left: 4px solid #10a37f;
+    border-left: 4px solid #4a6491;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
@@ -1062,7 +915,7 @@ body::before {
     gap: 10px;
     margin-bottom: 10px;
     font-size: 14px;
-    color: #0d8c6c;
+    color: #2c3e50;
 }
 
 .confidentiality-list {
@@ -1071,12 +924,6 @@ body::before {
     gap: 10px;
     font-size: 11px;
     margin-top: 10px;
-}
-
-@media (max-width: 768px) {
-    .confidentiality-list {
-        grid-template-columns: 1fr;
-    }
 }
 
 .confidentiality-list .prohibited {
@@ -1124,7 +971,7 @@ body::before {
     padding: 15px;
     border-radius: 8px;
     transition: all 0.3s;
-    border-left: 3px solid #10a37f;
+    border-left: 3px solid #4a6491;
 }
 
 .news-item:hover {
@@ -1158,12 +1005,6 @@ body::before {
     margin-top: 8px;
 }
 
-.name-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-}
-
 .trainer-card {
     background: white;
     border-radius: 12px;
@@ -1185,7 +1026,7 @@ body::before {
     background: #f8f9fa;
     border-radius: 8px;
     margin-bottom: 8px;
-    border-left: 3px solid #10a37f;
+    border-left: 3px solid #4a6491;
 }
 
 .student-info {
@@ -1240,7 +1081,7 @@ body::before {
 }
 
 .view-chat-btn-trainer {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
     border: none;
     padding: 6px 12px;
@@ -1252,7 +1093,7 @@ body::before {
 }
 
 .view-chat-btn-trainer:hover {
-    background: #0d8c6c;
+    background: #2c3e50;
     transform: translateY(-1px);
 }
 
@@ -1344,7 +1185,7 @@ body::before {
 }
 
 .ai-feedback-score {
-    background: #10a37f;
+    background: #4a6491;
     color: white;
     padding: 8px 15px;
     border-radius: 20px;
@@ -1366,16 +1207,6 @@ body::before {
     align-items: center;
     justify-content: center;
     gap: 8px;
-}
-
-.daily-limit-notification.warning {
-    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
-    color: #333;
-}
-
-.daily-limit-notification.danger {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    color: white;
 }
 
 .client-type-selector {
@@ -1403,9 +1234,9 @@ body::before {
 }
 
 .client-type-option.selected {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
-    border-color: #0d8c6c;
+    border-color: #2c3e50;
 }
 
 .client-type-option.random {
@@ -1413,10 +1244,6 @@ body::before {
     background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
     color: white;
     border-color: #5a67d8;
-}
-
-.client-type-option.random:hover {
-    background: #5a67d8;
 }
 
 .adaptive-notice {
@@ -1429,7 +1256,6 @@ body::before {
     color: #1976d2;
 }
 
-/* Новые стили для панели тренера */
 .trainer-search-section {
     display: flex;
     gap: 10px;
@@ -1455,7 +1281,7 @@ body::before {
 }
 
 .trainer-search-btn {
-    background: linear-gradient(135deg, #155d27 0%, #0d8c6c 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #4a6491 100%);
     color: white;
     border: none;
     padding: 8px 15px;
@@ -1468,7 +1294,7 @@ body::before {
 
 .trainer-search-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(16, 163, 127, 0.2);
+    box-shadow: 0 3px 8px rgba(44, 62, 80, 0.2);
 }
 
 .vertical-group {
@@ -1509,7 +1335,7 @@ body::before {
 }
 
 .vertical-count {
-    background: #10a37f;
+    background: #4a6491;
     color: white;
     padding: 2px 8px;
     border-radius: 12px;
@@ -1525,9 +1351,57 @@ body::before {
     transform: rotate(180deg);
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
+.limit-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #e9ecef;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    cursor: help;
+    border: 1px solid #ddd;
+    transition: all 0.3s;
+    margin-left: 10px;
+}
+
+.limit-badge.warning {
+    background: #fff3cd;
+    color: #856404;
+    border-color: #ffeaa7;
+}
+
+.limit-badge.danger {
+    background: #f8d7da;
+    color: #721c24;
+    border-color: #f5c6cb;
+}
+
+.limit-badge:hover {
+    transform: scale(1.05);
+}
+
+.footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 15px;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 0 0 16px 16px;
+}
+
+.footer-link {
+    font-size: 12px;
+    color: #666;
+    text-decoration: none;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+}
+
+.footer-link:hover {
+    opacity: 1;
+    color: #2c3e50;
 }
 
 @media (max-width: 1024px) {
@@ -1541,6 +1415,10 @@ body::before {
     
     .sidebar {
         width: 180px;
+    }
+    
+    .confidentiality-list {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1597,57 +1475,10 @@ body::before {
     .trainer-search-btn {
         width: 100%;
     }
+    
+    .footer-links {
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+    }
 }
-
-/* Стили для бейджа с лимитом тренировок */
-.limit-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    background: #e9ecef;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #666;
-    cursor: help;
-    border: 1px solid #ddd;
-    transition: all 0.3s;
-    margin-left: 10px;
-}
-
-.limit-badge.warning {
-    background: #fff3cd;
-    color: #856404;
-    border-color: #ffeaa7;
-}
-
-.limit-badge.danger {
-    background: #f8d7da;
-    color: #721c24;
-    border-color: #f5c6cb;
-}
-
-.limit-badge:hover {
-    transform: scale(1.05);
-}
-
-/* Новогодний снег на кнопках */
-.btn-newyear {
-    position: relative;
-    overflow: hidden;
-}
-
-.btn-newyear::after {
-    content: '❄️';
-    position: absolute;
-    top: -10px;
-    right: -10px;
-    font-size: 12px;
-    opacity: 0;
-    transition: opacity 0.3s, transform 0.3s;
-}
-
-.btn-newyear:hover::after {
-    opacity: 1;
-    transform: translate(0, 10px);
-}
-[file content end]
