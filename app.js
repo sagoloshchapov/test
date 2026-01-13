@@ -1,5 +1,4 @@
-[file name]: app.js
-[file content begin]
+let feedbackShown = false;
 const SUPABASE_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD';
 const EDGE_FUNCTION_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co/functions/v1/rapid-handler';
@@ -3834,5 +3833,64 @@ async function loadTrainerStatistics() {
     } catch (error) {
         console.error('Ошибка загрузки статистики:', error);
         statisticsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
+    }
+}
+function showFeedbackModal() {
+    if (!feedbackShown && auth.currentUser && auth.userRole === 'user') {
+        setTimeout(() => {
+            document.getElementById('feedbackModal').style.display = 'flex';
+            feedbackShown = true;
+        }, 1000);
+    }
+}
+
+// Функция для открытия формы фидбэка
+function openFeedbackForm() {
+    window.open('https://forms.yandex.ru/u/696634f8d046880022dab232', '_blank');
+    closeFeedbackModal();
+}
+
+// Функция для закрытия модального окна фидбэка
+function closeFeedbackModal() {
+    document.getElementById('feedbackModal').style.display = 'none';
+}
+
+// В функции handleLogin добавьте вызов showFeedbackModal после успешного входа:
+// Найдите в коде handleLogin и добавьте:
+async function handleLogin() {
+    // ... существующий код ...
+    if (result.success) {
+        auth.currentUser = result.user;
+        auth.isAuthenticated = true;
+        auth.userRole = result.user.role;
+        
+        checkAndResetDailyLimit();
+        auth.showMainApp();
+        
+        // Показываем модальное окно фидбэка для учеников
+        showFeedbackModal();
+    } else {
+        // ... обработка ошибки
+    }
+}
+
+// Также добавьте в функцию handleTrainerLogin (для тренеров не показываем фидбэк)
+async function handleTrainerLogin() {
+    // ... существующий код ...
+    if (result.success) {
+        if (result.user.role === 'trainer') {
+            auth.showMainApp();
+            // Для тренеров не показываем фидбэк
+        } else {
+            // ... обработка ошибки
+        }
+    }
+}
+
+// В функции logout добавьте сброс флага фидбэка
+function logout() {
+    if (confirm('Вы уверены, что хотите выйти?')) {
+        auth.logout();
+        feedbackShown = false; // Сбрасываем флаг при выходе
     }
 }
