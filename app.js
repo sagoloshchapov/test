@@ -365,7 +365,7 @@ class SupabaseAuth {
                 })
                 .sort((a, b) => b.xp - a.xp);
             
-            return leaderboard.slice(0, 100);
+            return leaderboard;
         } catch (error) {
             console.error('Ошибка получения рейтинга:', error);
             return [];
@@ -428,6 +428,27 @@ class SupabaseAuth {
             return sessions || [];
         } catch (error) {
             console.error('Ошибка получения истории тренировок:', error);
+            return [];
+        }
+    }
+    
+    async getAllTrainingSessions(filters = {}) {
+        try {
+            let endpoint = 'training_sessions?select=*&order=date.desc';
+            
+            if (filters.vertical && filters.vertical !== 'all') {
+                endpoint += `&vertical=eq.${encodeURIComponent(filters.vertical)}`;
+            }
+            
+            if (filters.dateFrom && filters.dateTo) {
+                // Для более сложной фильтрации по датам нужно использовать диапазон
+                // Пока просто загрузим все, отфильтруем на клиенте
+            }
+            
+            const sessions = await this.supabaseRequest(endpoint);
+            return sessions || [];
+        } catch (error) {
+            console.error('Ошибка получения тренировок:', error);
             return [];
         }
     }
@@ -2745,7 +2766,7 @@ async function loadTrainerDashboard() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.supabaseRequest('training_sessions?select=*&order=date.desc&limit=50');
+        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         let html = `
             <div class="stats-cards">
@@ -2766,7 +2787,7 @@ async function loadTrainerDashboard() {
         `;
         
         if (allSessions && allSessions.length > 0) {
-            allSessions.slice(0, 10).forEach(session => {
+            allSessions.slice(0, 20).forEach(session => {
                 const student = students.find(s => s.id === session.user_id);
                 const clientType = clientTypes[session.client_type];
                 
@@ -2812,7 +2833,7 @@ async function loadAllStudents() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.supabaseRequest('training_sessions?select=*');
+        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         let html = `
             <div class="stats-cards">
@@ -2934,7 +2955,7 @@ async function searchStudents() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.supabaseRequest('training_sessions?select=*');
+        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         let filteredStudents = students;
         
@@ -3069,7 +3090,7 @@ async function searchSessions() {
     
     try {
         const students = await auth.getStudents();
-        let allSessions = await auth.supabaseRequest('training_sessions?select=*&order=date.desc');
+        let allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         const filterSelect = document.getElementById('sessionFilter');
         const filterValue = filterSelect ? filterSelect.value : 'all';
@@ -3444,7 +3465,7 @@ function closeCommentModal() {
 }
 
 function filterSessions() {
-    loadAllSessions();
+    searchSessions();
 }
 
 function viewChatHistory(session) {
@@ -3682,7 +3703,7 @@ async function loadTrainerStatistics() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.supabaseRequest('training_sessions?select=*');
+        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         const statsByVertical = {};
         const studentsByVertical = {};
