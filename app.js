@@ -457,6 +457,22 @@ class SupabaseAuth {
         }
     }
     
+    async getAllTrainingSessions(filters = {}) {
+        try {
+            let endpoint = 'training_sessions?select=*&order=date.desc';
+            
+            if (filters.vertical && filters.vertical !== 'all') {
+                endpoint += `&vertical=eq.${encodeURIComponent(filters.vertical)}`;
+            }
+            
+            const sessions = await this.supabaseRequest(endpoint);
+            return sessions || [];
+        } catch (error) {
+            console.error('Ошибка получения всех тренировок:', error);
+            return [];
+        }
+    }
+    
     logout() {
         this.currentUser = null;
         this.isAuthenticated = false;
@@ -1202,9 +1218,8 @@ async function startTraining() {
     const chatMessagesDiv = document.getElementById('chatMessages');
     chatMessagesDiv.innerHTML = '';
     
-    const clientType = clientTypes[selectedClientType];
-    const initialMessage = `Тренировка началась! Вы работаете с ${clientType.name.toLowerCase()} в вертикали "${auth.currentUser.group}".`;
-    addMessage('ai', initialMessage);
+    // УБРАЛ ПОЯСНЕНИЕ О ТИПЕ КЛИЕНТА
+    addMessage('ai', 'Здравствуйте! Чем могу помочь?');
     
     await sendPromptToAI();
     
@@ -2745,7 +2760,8 @@ async function loadTrainerDashboard() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.supabaseRequest('training_sessions?select=*&order=date.desc&limit=50');
+        // ИСПРАВЛЕНО: убрал лимит 50, теперь загружаем все тренировки
+        const allSessions = await auth.supabaseRequest('training_sessions?select=*&order=date.desc');
         
         let html = `
             <div class="stats-cards">
@@ -2812,6 +2828,7 @@ async function loadAllStudents() {
     
     try {
         const students = await auth.getStudents();
+        // ИСПРАВЛЕНО: теперь используем правильный метод
         const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         let html = `
@@ -2899,7 +2916,6 @@ async function loadAllStudents() {
     }
 }
 
-
 async function searchStudents() {
     const searchInput = document.getElementById('studentSearchInput');
     const dateFrom = document.getElementById('studentDateFrom');
@@ -2916,7 +2932,8 @@ async function searchStudents() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.supabaseRequest('training_sessions?select=*');
+        // ИСПРАВЛЕНО: теперь используем правильный метод
+        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         let filteredStudents = students;
         
@@ -3051,6 +3068,7 @@ async function searchSessions() {
     
     try {
         const students = await auth.getStudents();
+        // ИСПРАВЛЕНО: теперь используем правильный метод
         let allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         const filterSelect = document.getElementById('sessionFilter');
@@ -3610,6 +3628,25 @@ style.textContent = `
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(100%); opacity: 0; }
     }
+    
+    .toggle-icon {
+        transition: transform 0.3s;
+    }
+    
+    .toggle-icon.expanded {
+        transform: rotate(180deg);
+    }
+    
+    .vertical-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    
+    .vertical-content.expanded {
+        max-height: 1000px;
+        transition: max-height 0.5s ease-in;
+    }
 `;
 document.head.appendChild(style);
 
@@ -3623,6 +3660,21 @@ function setupLeaderboardTabs() {
             updateLeaderboard(filter);
         });
     });
+}
+
+function toggleVerticalGroup(groupId, forceOpen = false) {
+    const content = document.getElementById(`${groupId}_content`);
+    const icon = document.querySelector(`#${groupId} .toggle-icon`);
+    
+    if (!content || !icon) return;
+    
+    if (forceOpen || content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        icon.classList.remove('expanded');
+    } else {
+        content.classList.add('expanded');
+        icon.classList.add('expanded');
+    }
 }
 
 setInterval(() => {
@@ -3657,7 +3709,8 @@ async function loadTrainerStatistics() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.supabaseRequest('training_sessions?select=*');
+        // ИСПРАВЛЕНО: теперь используем правильный метод
+        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
         const statsByVertical = {};
         const studentsByVertical = {};
