@@ -8,19 +8,34 @@ class SupabaseAuth {
         this.currentUser = null;
         this.isAuthenticated = false;
         this.userRole = null;
+        this.supabaseUrl = SUPABASE_URL;
+        this.supabaseKey = SUPABASE_ANON_KEY;
     }
     
     async supabaseRequest(endpoint, method = 'GET', body = null) {
         try {
             const response = await fetch('/api/supabase-proxy', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({endpoint, method, body})
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    endpoint: endpoint,
+                    method: method,
+                    body: body
+                })
             });
             
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            if (response.status === 204) return { success: true };
-            return await response.json();
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            if (response.status === 204) {
+                return { success: true };
+            }
+            
+            const data = await response.json();
+            return data;
         } catch (error) {
             console.error('Supabase proxy error:', error);
             throw error;
@@ -48,7 +63,10 @@ class SupabaseAuth {
     }
     
     hashPassword(password) {
-        if (password === '0c7540eb7e65b553ec1ba6b20de79608') return password;
+        if (password === '0c7540eb7e65b553ec1ba6b20de79608') {
+            return password;
+        }
+        
         let hash = 0;
         for (let i = 0; i < password.length; i++) {
             const char = password.charCodeAt(i);
@@ -61,10 +79,17 @@ class SupabaseAuth {
     async register(username, group = '', password) {
         try {
             const existing = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
-            if (existing?.length > 0) return {success: false, message: 'Пользователь с таким никнеймом уже существует'};
-            if (password.length < 6) return {success: false, message: 'Пароль должен быть не менее 6 символов'};
+            
+            if (existing && existing.length > 0) {
+                return { success: false, message: 'Пользователь с таким никнеймом уже существует' };
+            }
+            
+            if (password.length < 6) {
+                return { success: false, message: 'Пароль должен быть не менее 6 символов' };
+            }
             
             const passwordHash = this.hashPassword(password);
+            
             const newUser = {
                 username: username.trim(),
                 group_name: group.trim(),
@@ -81,11 +106,11 @@ class SupabaseAuth {
                     registrationDate: new Date().toISOString(),
                     achievementsUnlocked: ["first_blood"],
                     clientTypesCompleted: {
-                        aggressive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        passive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        demanding: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        indecisive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        chatty: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0}
+                        aggressive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        passive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        demanding: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        indecisive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        chatty: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 }
                     },
                     trainingHistory: [],
                     vertical: group.trim(),
@@ -97,41 +122,54 @@ class SupabaseAuth {
             
             const response = await fetch('/api/supabase-proxy', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     endpoint: 'users',
                     method: 'POST',
                     body: newUser,
-                    headers: {'Prefer': 'return=representation'}
+                    headers: {
+                        'Prefer': 'return=representation'
+                    }
                 })
             });
             
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('Ошибка регистрации:', errorText);
-                return {success: false, message: 'Ошибка регистрации'};
+                return { success: false, message: 'Ошибка регистрации' };
             }
             
-            return {success: true, message: 'Регистрация успешна! Теперь войдите в систему.'};
+            return { 
+                success: true, 
+                message: 'Регистрация успешна! Теперь войдите в систему.' 
+            };
         } catch (error) {
             console.error('Ошибка регистрации:', error);
-            return {success: false, message: 'Ошибка соединения с базой данных'};
+            return { success: false, message: 'Ошибка соединения с базой данных' };
         }
     }
 
     async login(username, password) {
         try {
             const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
-            if (!users?.length) return {success: false, message: 'Пользователь не найден'};
+            
+            if (!users || users.length === 0) {
+                return { success: false, message: 'Пользователь не найден' };
+            }
             
             const user = users[0];
             const passwordHash = this.hashPassword(password);
-            if (user.password_hash !== passwordHash) return {success: false, message: 'Неверный пароль'};
+            
+            if (user.password_hash !== passwordHash) {
+                return { success: false, message: 'Неверный пароль' };
+            }
             
             let userStats;
             try {
                 userStats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
-            } catch {
+            } catch (e) {
                 userStats = {
                     currentLevel: 1,
                     totalXP: 0,
@@ -143,11 +181,11 @@ class SupabaseAuth {
                     registrationDate: new Date().toISOString(),
                     achievementsUnlocked: ["first_blood"],
                     clientTypesCompleted: {
-                        aggressive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        passive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        demanding: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        indecisive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                        chatty: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0}
+                        aggressive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        passive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        demanding: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        indecisive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                        chatty: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 }
                     },
                     trainingHistory: [],
                     vertical: user.group_name,
@@ -169,54 +207,64 @@ class SupabaseAuth {
             this.isAuthenticated = true;
             localStorage.setItem('dialogue_currentUser', JSON.stringify(this.currentUser));
             
-            return {success: true, user: this.currentUser, message: 'Вход выполнен успешно'};
+            return { 
+                success: true, 
+                user: this.currentUser,
+                message: 'Вход выполнен успешно'
+            };
         } catch (error) {
             console.error('Ошибка входа:', error);
-            return {success: false, message: 'Ошибка соединения с базой данных'};
+            return { success: false, message: 'Ошибка соединения с базой данных' };
         }
     }
 
     async resetPassword(username, newPassword) {
         try {
             const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
-            if (!users?.length) return {success: false, message: 'Пользователь не найден'};
+            
+            if (!users || users.length === 0) {
+                return { success: false, message: 'Пользователь не найден' };
+            }
             
             const user = users[0];
             const passwordHash = this.hashPassword(newPassword);
             
             await fetch('/api/supabase-proxy', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     endpoint: `users?id=eq.${user.id}`,
                     method: 'PATCH',
-                    body: {password_hash: passwordHash},
-                    headers: {'Prefer': 'return=representation'}
+                    body: { password_hash: passwordHash },
+                    headers: {
+                        'Prefer': 'return=representation'
+                    }
                 })
             });
             
-            return {success: true, message: 'Пароль успешно изменен'};
+            return { success: true, message: 'Пароль успешно изменен' };
         } catch (error) {
             console.error('Ошибка сброса пароля:', error);
-            return {success: false, message: 'Ошибка изменения пароля'};
+            return { success: false, message: 'Ошибка изменения пароля' };
         }
     }
             
     async saveUserStats(stats) {
-        if (!this.currentUser?.id) {
+        if (!this.currentUser || !this.currentUser.id) {
             console.error('Нет пользователя для сохранения');
             return false;
         }
         
         try {
             const statsJson = JSON.stringify(stats);
+
             const response = await fetch('/api/supabase-proxy', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     endpoint: `users?id=eq.${this.currentUser.id}`,
                     method: 'PATCH',
-                    body: {stats: statsJson},
+                    body: { stats: statsJson },
                     headers: {
                         'Prefer': 'return=representation',
                         'Cache-Control': 'no-cache'
@@ -285,15 +333,23 @@ class SupabaseAuth {
     async getLeaderboard(filterVertical = 'all') {
         try {
             const users = await this.supabaseRequest('users?select=id,username,group_name,stats');
-            if (!users?.length) return [];
+            
+            if (!users || users.length === 0) {
+                return [];
+            }
             
             const leaderboard = users
-                .filter(user => filterVertical === 'all' || user.group_name === filterVertical)
+                .filter(user => {
+                    if (filterVertical === 'all') return true;
+                    return user.group_name === filterVertical;
+                })
                 .map(user => {
                     let userStats;
                     try {
-                        userStats = typeof user.stats === 'string' ? JSON.parse(user.stats) : (user.stats || {});
-                    } catch {
+                        userStats = typeof user.stats === 'string' ? 
+                            JSON.parse(user.stats) : 
+                            (user.stats || {});
+                    } catch (e) {
                         userStats = {};
                     }
                     
@@ -309,7 +365,7 @@ class SupabaseAuth {
                 })
                 .sort((a, b) => b.xp - a.xp);
             
-            return leaderboard;
+            return leaderboard.slice(0, 100);
         } catch (error) {
             console.error('Ошибка получения рейтинга:', error);
             return [];
@@ -324,9 +380,11 @@ class SupabaseAuth {
             const today = new Date().toISOString().split('T')[0];
             const activeToday = new Set();
             
-            if (sessions?.length) {
+            if (sessions && Array.isArray(sessions)) {
                 sessions.forEach(session => {
-                    if (session.date?.includes(today)) activeToday.add(session.user_id);
+                    if (session.date && session.date.includes(today)) {
+                        activeToday.add(session.user_id);
+                    }
                 });
             }
             
@@ -336,7 +394,7 @@ class SupabaseAuth {
             let totalScore = 0;
             let scoreCount = 0;
             
-            if (sessions?.length) {
+            if (sessions && Array.isArray(sessions)) {
                 sessions.forEach(session => {
                     if (session.score) {
                         totalScore += session.score;
@@ -347,10 +405,20 @@ class SupabaseAuth {
             
             const avgScore = scoreCount > 0 ? (totalScore / scoreCount) : 0;
             
-            return {totalUsers, totalSessions, avgScore, activeToday: activeToday.size};
+            return {
+                totalUsers,
+                totalSessions,
+                avgScore,
+                activeToday: activeToday.size
+            };
         } catch (error) {
             console.error('Ошибка получения статистики системы:', error);
-            return {totalUsers: 0, totalSessions: 0, avgScore: 0, activeToday: 0};
+            return {
+                totalUsers: 0,
+                totalSessions: 0,
+                avgScore: 0,
+                activeToday: 0
+            };
         }
     }
             
@@ -364,24 +432,10 @@ class SupabaseAuth {
         }
     }
     
-    async getAllTrainingSessions(filters = {}) {
-        try {
-            let endpoint = 'training_sessions?select=*&order=date.desc';
-            if (filters.vertical && filters.vertical !== 'all') {
-                endpoint += `&vertical=eq.${encodeURIComponent(filters.vertical)}`;
-            }
-            const sessions = await this.supabaseRequest(endpoint);
-            return sessions || [];
-        } catch (error) {
-            console.error('Ошибка получения тренировок:', error);
-            return [];
-        }
-    }
-    
     async addTrainerComment(sessionId, comment) {
         try {
             const session = await this.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
-            if (!session?.length) return false;
+            if (!session || session.length === 0) return false;
             
             const currentComments = session[0].trainer_comments || [];
             currentComments.push({
@@ -393,7 +447,7 @@ class SupabaseAuth {
             await this.supabaseRequest(
                 `training_sessions?id=eq.${sessionId}`, 
                 'PATCH', 
-                {trainer_comments: currentComments}
+                { trainer_comments: currentComments }
             );
             
             return true;
@@ -467,21 +521,89 @@ class SupabaseAuth {
 const auth = new SupabaseAuth();
     
 const clientTypes = {
-    aggressive: {name: "Агрессивный клиент", icon: "😠"},
-    passive: {name: "Пассивный клиент", icon: "😔"},
-    demanding: {name: "Требовательный клиент", icon: "🧐"},
-    indecisive: {name: "Нерешительный клиент", icon: "🤔"},
-    chatty: {name: "Славный малый", icon: "😄"}
+    aggressive: { 
+        name: "Агрессивный клиент", 
+        icon: "😠",
+        description: "Клиент выражает гнев, может быть грубым, использовать повышенный тон."
+    },
+    passive: { 
+        name: "Пассивный клиент", 
+        icon: "😔",
+        description: "Клиент говорит тихо, нерешительно, часто соглашается."
+    },
+    demanding: { 
+        name: "Требовательный клиент", 
+        icon: "🧐",
+        description: "Клиент требует детали, проверяет компетентность, задает много вопросов."
+    },
+    indecisive: { 
+        name: "Нерешительный клиент", 
+        icon: "🤔",
+        description: "Клиент сомневается, часто меняет мнение, просит советов."
+    },
+    chatty: { 
+        name: "Славный малый", 
+        icon: "😄",
+        description: "Позитивный клиент, любит поболтать, использует смайлики, может увести от темы."
+    }
 };
 
 const levels = [
-    {level: 1, name: "Новичок", requiredXP: 0},
-    {level: 2, name: "Стажёр", requiredXP: 100},
-    {level: 3, name: "Специалист", requiredXP: 300},
-    {level: 4, name: "Эксперт", requiredXP: 600},
-    {level: 5, name: "Мастер", requiredXP: 1000},
-    {level: 6, name: "Гуру", requiredXP: 1500},
-    {level: 7, name: "Легенда", requiredXP: 2200}
+    { level: 1, name: "Новичок", requiredXP: 0, badge: "🟢" },
+    { level: 2, name: "Стажёр", requiredXP: 100, badge: "🟡" },
+    { level: 3, name: "Специалист", requiredXP: 300, badge: "🔵" },
+    { level: 4, name: "Эксперт", requiredXP: 600, badge: "🟣" },
+    { level: 5, name: "Мастер", requiredXP: 1000, badge: "🟠" },
+    { level: 6, name: "Гуру", requiredXP: 1500, badge: "🔴" },
+    { level: 7, name: "Легенда", requiredXP: 2200, badge: "⭐" }
+];
+
+const achievements = [
+    { id: "first_blood", name: "Первая кровь", icon: "🎯", description: "Пройдите первую тренировку", category: "базовые", condition: "sessions >= 1" },
+    { id: "quick_start", name: "Быстрый старт", icon: "⚡", description: "Пройдите 3 тренировки за неделю", category: "активность", condition: "weekly_sessions >= 3" },
+    { id: "regular_5", name: "Регулярный", icon: "📅", description: "5 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 5" },
+    { id: "regular_10", name: "Активный", icon: "🏃", description: "10 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 10" },
+    { id: "regular_20", name: "Супер-активный", icon: "🚀", description: "20 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 20" },
+    { id: "streak_3", name: "Последователь", icon: "🔥", description: "3 дня подряд", category: "активность", condition: "streak >= 3" },
+    { id: "streak_7", name: "Непрерывный", icon: "💪", description: "7 дней подряд", category: "активность", condition: "streak >= 7" },
+    { id: "streak_30", name: "Легенда стрика", icon: "👑", description: "30 дней подряд", category: "активность", condition: "streak >= 30" },
+    { id: "score_5", name: "Отличник", icon: "⭐", description: "Получите оценку 5", category: "качество", condition: "max_score >= 5" },
+    { id: "score_avg_4", name: "Стабильный", icon: "📊", description: "Средний балл 4+", category: "качество", condition: "avg_score >= 4" },
+    { id: "score_avg_4.5", name: "Профессионал", icon: "🎖️", description: "Средний балл 4.5+", category: "качество", condition: "avg_score >= 4.5" },
+    { id: "perfect_5", name: "Идеально", icon: "💎", description: "5 тренировок подряд на 5", category: "качество", condition: "perfect_streak >= 5" },
+    { id: "level_3", name: "Специалист", icon: "🏆", description: "Достигните 3 уровня", category: "прогресс", condition: "level >= 3" },
+    { id: "level_5", name: "Мастер", icon: "👑", description: "Достигните 5 уровня", category: "прогресс", condition: "level >= 5" },
+    { id: "level_7", name: "Гуру", icon: "🌟", description: "Достигните 7 уровня", category: "прогресс", condition: "level >= 7" },
+    { id: "xp_500", name: "Опытный", icon: "💼", description: "Заработайте 500 XP", category: "прогресс", condition: "total_xp >= 500" },
+    { id: "xp_1000", name: "Ветеран", icon: "🛡️", description: "Заработайте 1000 XP", category: "прогресс", condition: "total_xp >= 1000" },
+    { id: "xp_2000", name: "Легенда XP", icon: "🏛️", description: "Заработайте 2000 XP", category: "прогресс", condition: "total_xp >= 2000" },
+    { id: "all_types", name: "Универсал", icon: "🎭", description: "Поработайте со всеми типами клиентов", category: "типы клиентов", condition: "all_client_types" },
+    { id: "master_aggressive", name: "Укротитель", icon: "😠", description: "10 тренировок с агрессивными", category: "типы клиентов", condition: "aggressive_sessions >= 10" },
+    { id: "master_passive", name: "Психолог", icon: "😔", description: "10 тренировок с пассивными", category: "типы клиентов", condition: "passive_sessions >= 10" },
+    { id: "master_demanding", name: "Эксперт", icon: "🧐", description: "10 тренировок с требовательными", category: "типы клиентов", condition: "demanding_sessions >= 10" },
+    { id: "master_indecisive", name: "Наставник", icon: "🤔", description: "10 тренировок с нерешительными", category: "типы клиентов", condition: "indecisive_sessions >= 10" },
+    { id: "master_chatty", name: "Душа компании", icon: "😄", description: "10 тренировок с 'славными малыми'", category: "типы клиентов", condition: "chatty_sessions >= 10" },
+    { id: "top_3", name: "Призёр", icon: "🥉", description: "Войдите в топ-3 своей вертикали", category: "соревнования", condition: "vertical_rank <= 3" },
+    { id: "top_1", name: "Чемпион", icon: "🥇", description: "Займите 1 место в своей вертикали", category: "соревнования", condition: "vertical_rank == 1" },
+    { id: "top_10_global", name: "Элита", icon: "👑", description: "Войдите в топ-10 общего рейтинга", category: "соревнования", condition: "global_rank <= 10" },
+    { id: "daily_grind", name: "Трудяга", icon: "⚒️", description: "50 тренировок всего", category: "активность", condition: "sessions >= 50" },
+    { id: "perseverance", name: "Упорство", icon: "💫", description: "100 тренировок всего", category: "активность", condition: "sessions >= 100" },
+    { id: "marathon", name: "Марафонец", icon: "🏁", description: "200 тренировок всего", category: "активность", condition: "sessions >= 200" },
+    { id: "early_bird", name: "Ранняя пташка", icon: "🌅", description: "Тренировка до 9 утра", category: "особые", condition: "early_session" },
+    { id: "night_owl", name: "Ночная сова", icon: "🌙", description: "Тренировка после 22 вечера", category: "особые", condition: "late_session" },
+    { id: "quick_thinker", name: "Быстрый ум", icon: "💡", description: "Завершить тренировку за 3 минуты с оценкой 4+", category: "особые", condition: "quick_session" },
+    { id: "diplomat", name: "Дипломат", icon: "🕊️", description: "Разрешить 5 конфликтных ситуаций", category: "качество", condition: "conflicts_resolved >= 5" },
+    { id: "peacemaker", name: "Миротворец", icon: "✌️", description: "Разрешить 10 конфликтных ситуаций", category: "качество", condition: "conflicts_resolved >= 10" },
+    { id: "communicator", name: "Коммуникатор", icon: "🗣️", description: "100 сообщений в диалогах", category: "активность", condition: "total_messages >= 100" },
+    { id: "talker", name: "Болтун", icon: "💬", description: "500 сообщений в диалогах", category: "активность", condition: "total_messages >= 500" },
+    { id: "orator", name: "Оратор", icon: "🎤", description: "1000 сообщений в диалогах", category: "активность", condition: "total_messages >= 1000" },
+    { id: "weekend_warrior", name: "Выходной воин", icon: "🎪", description: "Тренировка в выходной день", category: "особые", condition: "weekend_session" },
+    { id: "first_month", name: "Первый месяц", icon: "📆", description: "Активность в первый месяц", category: "прогресс", condition: "first_month_active" },
+    { id: "anniversary", name: "Годовщина", icon: "🎂", description: "Активность через год", category: "прогресс", condition: "one_year_active" },
+    { id: "perfectionist", name: "Перфекционист", icon: "🎯", description: "20 тренировок с оценкой 5", category: "качество", condition: "perfect_sessions >= 20" },
+    { id: "golden_standard", name: "Золотой стандарт", icon: "🏅", description: "50 тренировок с оценкой 5", category: "качество", condition: "perfect_sessions >= 50" },
+    { id: "speed_racer", name: "Гонщик", icon: "🏎️", description: "5 тренировок за день", category: "активность", condition: "daily_sessions >= 5" },
+    { id: "workaholic", name: "Трудоголик", icon: "🏢", description: "10 тренировок за день", category: "активность", condition: "daily_sessions >= 10" }
 ];
 
 let dynamicVerticalPrompts = {};
@@ -490,7 +612,7 @@ let dynamicNews = [];
 async function loadDynamicPrompts() {
     try {
         const prompts = await auth.loadPrompts();
-        if (prompts?.length) {
+        if (prompts && prompts.length > 0) {
             dynamicVerticalPrompts = {};
             prompts.forEach(prompt => {
                 if (prompt.vertical && prompt.content) {
@@ -509,7 +631,11 @@ async function loadDynamicPrompts() {
 async function loadDynamicNews() {
     try {
         const news = await auth.loadNews();
-        dynamicNews = news || [];
+        if (news && news.length > 0) {
+            dynamicNews = news;
+        } else {
+            dynamicNews = [];
+        }
     } catch (error) {
         console.error('Ошибка загрузки новостей:', error);
         dynamicNews = [];
@@ -538,7 +664,23 @@ async function sendPromptToAI() {
     try {
         const systemMessage = {
             role: "system",
-            content: currentPrompt || `Ты играешь роль клиента в сфере "${auth.currentUser.group}". Веди диалог естественно, как реальный клиент. Не упоминай, что это тренировка или симуляция. Реагируй естественно на ответы оператора. Если оператор отправил "[[ДИАЛОГ ЗАВЕРШЕН]]" - заверши диалог и дай оценку в формате: ОЦЕНКА: X/5 [обратная связь]`
+            content: currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
+
+Вертикаль: ${auth.currentUser.group}
+Тип клиента: ${selectedClientType}. ${clientTypes[selectedClientType]?.description}
+
+Ты должен:
+1. Вести себя соответственно типу клиента (${selectedClientType})
+2. Использовать реалистичные жалобы/вопросы из сферы "${auth.currentUser.group}"
+3. Не упоминать, что это тренировка или симуляция
+4. Реагировать естественно на ответы оператора
+
+Если оператор отправил сообщение "[[ДИАЛОГ ЗАВЕРШЕН]]" - заверши диалог и дай оценку:
+ОЦЕНКА: X/5
+ОБРАТНАЯ СВЯЗЬ: [минимум 3 предложения]
+РЕКОМЕНДАЦИИ: [минимум 5 пунктов]
+
+В остальных случаях - просто продолжай диалог как клиент.`
         };
         
         const messageHistory = chatMessages.map(msg => ({
@@ -561,11 +703,13 @@ async function sendPromptToAI() {
             })
         });
         
-        if (!response.ok) throw new Error('Ошибка соединения с AI');
+        if (!response.ok) {
+            throw new Error('Ошибка соединения с AI');
+        }
         
         const data = await response.json();
         
-        if (data.choices?.[0]?.message) {
+        if (data.choices && data.choices[0] && data.choices[0].message) {
             const aiResponse = data.choices[0].message.content;
             addMessage('ai', aiResponse);
             
@@ -595,7 +739,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             auth.currentUser = user;
             auth.isAuthenticated = true;
             auth.userRole = user.role || 'user';
+            
             checkAndResetDailyLimit();
+            
             auth.showMainApp();
         } catch (e) {
             console.error('Ошибка загрузки пользователя:', e);
@@ -615,12 +761,18 @@ function checkAndResetDailyLimit() {
     
     if (stats.lastSessionDate) {
         const lastDate = new Date(stats.lastSessionDate).toDateString();
+        
         if (lastDate !== today) {
             stats.dailySessions = 0;
             stats.lastSessionDate = now.toISOString();
             dailySessionsUsed = 0;
             lastResetTime = now;
+            
             auth.saveUserStats(stats);
+            
+            if (document.getElementById('dailyLimitNotification')) {
+                updateDailyLimitNotification();
+            }
         } else {
             dailySessionsUsed = stats.dailySessions || 0;
         }
@@ -641,8 +793,9 @@ function updateDailyLimitNotification() {
         badge.textContent = `${dailySessionsUsed}/${dailyLimit}`;
         badge.className = 'limit-badge';
         
-        if (remaining > 3) badge.title = `Осталось тренировок: ${remaining}`;
-        else if (remaining > 0) {
+        if (remaining > 3) {
+            badge.title = `Осталось тренировок: ${remaining}`;
+        } else if (remaining > 0) {
             badge.className = 'limit-badge warning';
             badge.title = `Внимание! Осталось тренировок: ${remaining}`;
         } else {
@@ -682,6 +835,9 @@ function loadStudentInterface() {
         </a>
         <a href="javascript:void(0);" onclick="switchTab('leaderboard')" class="nav-item" data-tab="leaderboard">
             <i class="fas fa-trophy"></i> Рейтинг
+        </a>
+        <a href="javascript:void(0);" onclick="switchTab('achievements')" class="nav-item" data-tab="achievements">
+            <i class="fas fa-medal"></i> Достижения
         </a>
         <a href="javascript:void(0);" onclick="switchTab('history')" class="nav-item" data-tab="history">
             <i class="fas fa-history"></i> История
@@ -728,13 +884,16 @@ function loadStudentInterface() {
                 
                 <div class="vertical-info">
                     <h3><i class="fas fa-info-circle"></i> Ваша вертикаль: <span id="userVerticalDisplay">${auth.currentUser.group || 'Не указана'}</span></h3>
-                    <p>Вы будете тренироваться на сценариях своей вертикали.</p>
+                    <p>Вы будете тренироваться только на сценариях своей вертикали.</p>
                     <div>
                         <span class="client-type-badge">😠 Агрессивный</span>
                         <span class="client-type-badge">😔 Пассивный</span>
                         <span class="client-type-badge">🧐 Требовательный</span>
                         <span class="client-type-badge">🤔 Нерешительный</span>
                         <span class="client-type-badge">😄 Славный малый</span>
+                    </div>
+                    <div class="storage-info" style="margin-top: 10px;">
+                        <i class="fas fa-database"></i> История чатов хранится 30 дней
                     </div>
                 </div>
                 
@@ -776,6 +935,10 @@ function loadStudentInterface() {
         </div>
 
         <div class="tab-content" id="training-tab">
+            <div class="adaptive-notice">
+                <i class="fas fa-magic"></i> Тренажер автоматически подстроится под выбранный сценарий и тип клиента
+            </div>
+            
             <div class="training-container">
                 <div class="scenario-section">
                     <div class="vertical-info">
@@ -811,7 +974,7 @@ function loadStudentInterface() {
                             <span id="scenarioTitle">Выберите тип клиента</span>
                         </div>
                         <div class="scenario-details" id="scenarioDescription">
-                            Выберите тип клиента из списка выше, чтобы начать тренировку.
+                            Выберите тип клиента из списка выше, чтобы начать тренировку. Тренировка длится до 15 минут.
                         </div>
                         
                         <div class="action-buttons" id="actionButtons">
@@ -834,7 +997,7 @@ function loadStudentInterface() {
                     
                     <div class="chat-messages" id="chatMessages">
                         <div class="message ai">
-                            Привет! Я готов к тренировке. Выберите тип клиента, чтобы начать.
+                            Привет! Я готов к тренировке. Выберите тип клиента, чтобы начать тренировку.
                         </div>
                     </div>
                     
@@ -893,8 +1056,13 @@ function loadStudentInterface() {
                 </div>
             </div>
 
-            <div class="chart-container">
-                <canvas id="progressChart"></canvas>
+            <div class="badges-section">
+                <div class="section-title">
+                    <span>📈 Статистика по типам клиентов</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="progressChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -930,10 +1098,25 @@ function loadStudentInterface() {
             </div>
         </div>
 
+        <div class="tab-content" id="achievements-tab">
+            <div class="badges-section">
+                <div class="section-title">
+                    <span>🏆 Все достижения</span>
+                </div>
+                <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                    Зарабатывайте бейджи, совершенствуя навыки работы с клиентами.
+                </p>
+                <div class="badges-grid" id="allBadgesGrid"></div>
+            </div>
+        </div>
+
         <div class="tab-content" id="history-tab">
             <div class="badges-section">
                 <div class="section-title">
                     <span>📜 История тренировок</span>
+                    <div class="storage-info" style="margin-left: 10px; display: inline-block;">
+                        <i class="fas fa-info-circle"></i> История хранится 30 дней
+                    </div>
                 </div>
                 
                 <div style="margin-top: 15px;" id="historyList"></div>
@@ -943,9 +1126,11 @@ function loadStudentInterface() {
     
     checkAndResetDailyLimit();
     updateDailyLimitNotification();
+    
     loadStats();
     loadSystemStats();
     setupLeaderboardTabs();
+    renderAllAchievements();
     renderHistory();
     renderDynamicNews();
 }
@@ -955,13 +1140,16 @@ function selectClientType(type) {
     options.forEach(opt => opt.classList.remove('selected'));
     
     const selectedOption = document.querySelector(`.client-type-option[data-type="${type}"]`);
-    if (selectedOption) selectedOption.classList.add('selected');
+    if (selectedOption) {
+        selectedOption.classList.add('selected');
+    }
     
     selectedClientType = type;
     document.getElementById('startTrainingBtn').disabled = false;
     
     const clientType = clientTypes[type];
     document.getElementById('scenarioTitle').textContent = clientType.name;
+    document.getElementById('scenarioDescription').textContent = clientType.description;
 }
 
 function selectRandomClientType() {
@@ -992,6 +1180,7 @@ async function startTraining() {
     }
     
     currentPrompt = getPromptForVertical(auth.currentUser.group);
+    
     if (!currentPrompt) {
         alert('Для вашей вертикали нет промтов. Обратитесь к администратору.');
         return;
@@ -1013,7 +1202,9 @@ async function startTraining() {
     const chatMessagesDiv = document.getElementById('chatMessages');
     chatMessagesDiv.innerHTML = '';
     
-    addMessage('ai', 'Добрый день!');
+    const clientType = clientTypes[selectedClientType];
+    const initialMessage = `Тренировка началась! Вы работаете с ${clientType.name.toLowerCase()} в вертикали "${auth.currentUser.group}".`;
+    addMessage('ai', initialMessage);
     
     await sendPromptToAI();
     
@@ -1034,7 +1225,9 @@ function startTrainingTimer() {
         const seconds = elapsed % 60;
         document.getElementById('trainingTimer').textContent = `Время: ${minutes}:${seconds.toString().padStart(2, '0')}`;
         
-        if (elapsed >= 900) endTraining();
+        if (elapsed >= 900) {
+            endTraining();
+        }
     }, 1000);
 }
 
@@ -1046,14 +1239,16 @@ function endTraining() {
     const duration = Math.floor((new Date() - trainingStartTime) / 1000);
     
     if (chatMessages.length < 2) {
-        if (!confirm('Диалог слишком короткий. Завершить тренировку?')) return;
+        if (!confirm('Диалог слишком короткий. Завершить тренировку?')) {
+            return;
+        }
     }
     
     const evaluation = evaluateDialogue(chatMessages, selectedClientType);
     const clientType = clientTypes[selectedClientType];
     
     const lastAIMessage = chatMessages.filter(msg => msg.sender === 'ai').pop();
-    if (lastAIMessage?.text) {
+    if (lastAIMessage && lastAIMessage.text) {
         lastAIFeedback = extractAIFeedback(lastAIMessage.text);
         if (lastAIFeedback.includes('ОЦЕНКА:') || lastAIFeedback.match(/\d+\s*\/\s*5/)) {
             const aiScoreMatch = lastAIFeedback.match(/(\d+)\s*\/\s*5/);
@@ -1066,7 +1261,7 @@ function endTraining() {
     
     awardXP(
         evaluation.score, 
-        clientType.name, 
+        clientType.description, 
         selectedClientType, 
         evaluation.feedback,
         duration,
@@ -1074,7 +1269,7 @@ function endTraining() {
     ).then(result => {
         showResultModal(
             `Тренировка завершена!`,
-            `${clientType.name}`,
+            `${clientType.name} (${auth.currentUser.group})`,
             evaluation.score >= 4 ? "🏆" : "📝",
             result.xp,
             evaluation,
@@ -1108,7 +1303,7 @@ function resetTrainingState() {
     });
     
     document.getElementById('scenarioTitle').textContent = 'Выберите тип клиента';
-    document.getElementById('scenarioDescription').textContent = 'Выберите тип клиента из списка выше, чтобы начать тренировку.';
+    document.getElementById('scenarioDescription').textContent = 'Выберите тип клиента из списка выше, чтобы начать тренировку. Тренировка длится до 15 минут.';
 }
 
 function handleChatInput(event) {
@@ -1144,7 +1339,11 @@ function addMessage(sender, text) {
     messageDiv.textContent = text;
     chatMessagesDiv.appendChild(messageDiv);
     
-    chatMessages.push({sender, text, timestamp: new Date().toISOString()});
+    chatMessages.push({
+        sender: sender,
+        text: text,
+        timestamp: new Date().toISOString()
+    });
     
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
 }
@@ -1156,18 +1355,23 @@ function extractAIFeedback(aiMessage) {
     let feedbackStart = -1;
     
     for (let i = 0; i < lines.length; i++) {
-        if (lines[i].match(/ОЦЕНКА\s*:\s*\d+\s*[из\/\s]*5/i) || lines[i].match(/\d+\s*[из\/\s]*5\s*$/i)) {
+        if (lines[i].match(/ОЦЕНКА\s*:\s*\d+\s*[из\/\s]*5/i) || 
+            lines[i].match(/\d+\s*[из\/\s]*5\s*$/i)) {
             feedbackStart = i;
             break;
         }
     }
     
-    if (feedbackStart >= 0) return lines.slice(feedbackStart).join('\n').trim();
+    if (feedbackStart >= 0) {
+        return lines.slice(feedbackStart).join('\n').trim();
+    }
     
     const scoreMatch = aiMessage.match(/(\d+)\s*[из\/\s]*5/i);
     if (scoreMatch) {
         const index = aiMessage.lastIndexOf(scoreMatch[0]);
-        if (index >= 0) return aiMessage.substring(index).trim();
+        if (index >= 0) {
+            return aiMessage.substring(index).trim();
+        }
     }
     
     return aiMessage.substring(Math.max(0, aiMessage.length - 300)).trim();
@@ -1182,14 +1386,20 @@ function evaluateDialogue(messages, clientType) {
     if (userMessages.length >= 5) score += 0.5;
     
     const lastUserMessage = userMessages[userMessages.length - 1];
-    if (lastUserMessage?.text.toLowerCase().includes('спасибо') || lastUserMessage?.text.toLowerCase().includes('до свидания')) {
-        score += 0.5;
+    if (lastUserMessage) {
+        const text = lastUserMessage.text.toLowerCase();
+        if (text.includes('спасибо') || text.includes('до свидания') || 
+            text.includes('всего доброго') || text.includes('хорошего дня')) {
+            score += 0.5;
+        }
     }
     
     let professionalPhrases = 0;
     userMessages.forEach(msg => {
         const text = msg.text.toLowerCase();
-        if (text.includes('понимаю') || text.includes('помогу') || text.includes('решим') || text.includes('вариант')) {
+        if (text.includes('понимаю') || text.includes('помогу') || 
+            text.includes('решим') || text.includes('вариант') ||
+            text.includes('предложу') || text.includes('помочь')) {
             professionalPhrases++;
         }
     });
@@ -1200,10 +1410,16 @@ function evaluateDialogue(messages, clientType) {
     const roundedScore = Math.round(score * 2) / 2;
     
     let feedback = "";
-    if (roundedScore >= 4.5) feedback = "Отличная работа! Вы профессионально справились с клиентом.";
-    else if (roundedScore >= 4.0) feedback = "Хорошая работа! Вы хорошо адаптировались к типу клиента.";
-    else if (roundedScore >= 3.0) feedback = "Неплохо! Есть потенциал для улучшения.";
-    else feedback = "Попробуйте быть более активным и внимательным к клиенту.";
+    
+    if (roundedScore >= 4.5) {
+        feedback = "Отличная работа! Вы профессионально справились с клиентом.";
+    } else if (roundedScore >= 4.0) {
+        feedback = "Хорошая работа! Вы хорошо адаптировались к типу клиента.";
+    } else if (roundedScore >= 3.0) {
+        feedback = "Неплохо! Есть потенциал для улучшения.";
+    } else {
+        feedback = "Попробуйте быть более активным и внимательным к клиенту.";
+    }
     
     return {
         score: roundedScore,
@@ -1211,20 +1427,28 @@ function evaluateDialogue(messages, clientType) {
         criteria: {
             messageCount: userMessages.length,
             professionalPhrases: professionalPhrases,
-            properEnding: lastUserMessage && (lastUserMessage.text.toLowerCase().includes('спасибо') || lastUserMessage.text.toLowerCase().includes('до свидания'))
+            properEnding: lastUserMessage && (
+                lastUserMessage.text.toLowerCase().includes('спасибо') ||
+                lastUserMessage.text.toLowerCase().includes('до свидания') ||
+                lastUserMessage.text.toLowerCase().includes('всего доброго')
+            )
         }
     };
 }
 
 async function awardXP(score, scenario, clientType, evaluation, duration, aiFeedback = "") {
-    if (!auth.currentUser) return {xp: 0, session: null};
+    if (!auth.currentUser) {
+        console.error('Нет пользователя!');
+        return { xp: 0, session: null };
+    }
     
     if (dailySessionsUsed >= dailyLimit) {
         alert('Лимит тренировок на сегодня исчерпан');
-        return {xp: 0, session: null};
+        return { xp: 0, session: null };
     }
     
     let xpEarned = 50;
+    
     if (score === 5) xpEarned += 30;
     else if (score >= 4.5) xpEarned += 20;
     else if (score >= 4) xpEarned += 15;
@@ -1245,11 +1469,11 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
             registrationDate: new Date().toISOString(),
             achievementsUnlocked: ["first_blood"],
             clientTypesCompleted: {
-                aggressive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                passive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                demanding: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                indecisive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                chatty: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0}
+                aggressive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                passive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                demanding: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                indecisive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                chatty: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 }
             },
             trainingHistory: [],
             vertical: auth.currentUser.group,
@@ -1272,11 +1496,11 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     if (clientType) {
         if (!userStats.clientTypesCompleted) {
             userStats.clientTypesCompleted = {
-                aggressive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                passive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                demanding: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                indecisive: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0},
-                chatty: {sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0}
+                aggressive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                passive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                demanding: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                indecisive: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 },
+                chatty: { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 }
             };
         }
         
@@ -1318,19 +1542,26 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
         trainer_comments: []
     };
     
-    if (!userStats.trainingHistory) userStats.trainingHistory = [];
+    if (!userStats.trainingHistory) {
+        userStats.trainingHistory = [];
+    }
     userStats.trainingHistory.unshift(sessionData);
     
     try {
         const saveResult = await auth.saveUserStats(userStats);
-        if (!saveResult) localStorage.setItem('dialogue_currentUser', JSON.stringify(auth.currentUser));
+        if (!saveResult) {
+            localStorage.setItem('dialogue_currentUser', JSON.stringify(auth.currentUser));
+        }
     } catch (error) {
         console.error('Ошибка при сохранении статистики:', error);
         localStorage.setItem('dialogue_currentUser', JSON.stringify(auth.currentUser));
     }
     
     try {
-        await auth.addTrainingSession({...sessionData, clientType});
+        await auth.addTrainingSession({
+            ...sessionData,
+            clientType: clientType
+        });
     } catch (error) {
         console.error('Ошибка при сохранении сессии:', error);
     }
@@ -1338,13 +1569,17 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     auth.currentUser.stats = userStats;
     
     updateDailyLimitNotification();
+    checkAchievements(score, clientType, duration);
     updateProgressUI();
     updateLeaderboard('all');
     renderHistory();
     renderProgressChart();
     loadSystemStats();
     
-    return {xp: xpEarned, session: sessionData};
+    return {
+        xp: xpEarned,
+        session: sessionData
+    };
 }
     
 function checkForEvaluationInResponse(response) {
@@ -1376,10 +1611,10 @@ function checkForEvaluationInResponse(response) {
                 const evaluation = {
                     score: foundScore,
                     feedback: "Оценка определена из ответа DeepSeek",
-                    criteria: {autoEvaluated: true}
+                    criteria: { autoEvaluated: true }
                 };
                 
-                awardXP(foundScore, clientTypes[selectedClientType]?.name || '', selectedClientType, evaluation.feedback, duration, lastAIFeedback)
+                awardXP(foundScore, clientTypes[selectedClientType]?.description || '', selectedClientType, evaluation.feedback, duration, lastAIFeedback)
                     .then(result => {
                         showResultModal(
                             `Тренировка завершена!`,
@@ -1395,6 +1630,269 @@ function checkForEvaluationInResponse(response) {
                 resetTrainingState();
             }
         }, 2000);
+    }
+}
+
+function checkLevelUp() {
+    if (!auth.currentUser) return;
+    
+    const userStats = auth.currentUser.stats;
+    const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
+    if (nextLevel && userStats.totalXP >= nextLevel.requiredXP) {
+        userStats.currentLevel++;
+        showResultModal(`Уровень повышен!`, `Теперь вы ${levels.find(l => l.level === userStats.currentLevel).name}!`, "🆙", 0, {score: 5, feedback: "Поздравляем с повышением уровня!"}, 0, "");
+        auth.saveUserStats(userStats);
+        updateProgressUI();
+    }
+}
+
+function checkAchievements(score, clientType, duration) {
+    if (!auth.currentUser) return;
+    
+    const newAchievements = [];
+    const userStats = auth.currentUser.stats;
+    
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date();
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    
+    const weeklySessions = userStats.trainingHistory?.filter(session => 
+        new Date(session.date) >= weekAgo
+    ).length || 0;
+    
+    const monthlySessions = userStats.trainingHistory?.filter(session => 
+        new Date(session.date) >= monthAgo
+    ).length || 0;
+    
+    let verticalRank = 999;
+    let globalRank = 999;
+    
+    const hour = today.getHours();
+    const trainingBefore9am = hour < 9;
+    
+    const trainingAfter10pm = hour >= 22;
+    
+    const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+    
+    const quickTraining = duration < 180 && score >= 4;
+    
+    let perfectStreak = 0;
+    const recentSessions = userStats.trainingHistory?.slice(0, 5) || [];
+    for (const session of recentSessions) {
+        if (session.score === 5) {
+            perfectStreak++;
+        } else {
+            break;
+        }
+    }
+    
+    const perfectSessions = userStats.trainingHistory?.filter(s => s.score === 5).length || 0;
+    
+    let totalMessages = 0;
+    userStats.trainingHistory?.forEach(session => {
+        if (session.messages && Array.isArray(session.messages)) {
+            totalMessages += session.messages.length;
+        }
+    });
+    
+    const clientTypesSet = new Set();
+    userStats.trainingHistory?.forEach(session => {
+        if (session.clientType) clientTypesSet.add(session.clientType);
+    });
+    const allClientTypes = clientTypesSet.size >= 5;
+    
+    const stats = {
+        sessions: userStats.completedSessions,
+        max_score: Math.max(score, ...(userStats.trainingHistory?.map(h => h.score) || [0])),
+        avg_score: userStats.averageScore,
+        level: userStats.currentLevel,
+        total_xp: userStats.totalXP,
+        streak: userStats.currentStreak,
+        aggressive_sessions: userStats.clientTypesCompleted?.aggressive?.sessions || 0,
+        passive_sessions: userStats.clientTypesCompleted?.passive?.sessions || 0,
+        demanding_sessions: userStats.clientTypesCompleted?.demanding?.sessions || 0,
+        indecisive_sessions: userStats.clientTypesCompleted?.indecisive?.sessions || 0,
+        chatty_sessions: userStats.clientTypesCompleted?.chatty?.sessions || 0,
+        weekly_sessions: weeklySessions,
+        monthly_sessions: monthlySessions,
+        vertical_rank: verticalRank,
+        global_rank: globalRank,
+        early_session: trainingBefore9am,
+        late_session: trainingAfter10pm,
+        quick_session: quickTraining,
+        weekend_session: isWeekend,
+        perfect_streak: perfectStreak,
+        perfect_sessions: perfectSessions,
+        total_messages: totalMessages,
+        all_client_types: allClientTypes,
+        daily_sessions: dailySessionsUsed,
+        conflicts_resolved: Math.floor(userStats.completedSessions / 2),
+        first_month_active: true,
+        one_year_active: false
+    };
+    
+    achievements.forEach(achievement => {
+        if (userStats.achievementsUnlocked.includes(achievement.id)) return;
+        
+        let conditionMet = false;
+        
+        switch(achievement.condition) {
+            case "sessions >= 1":
+                conditionMet = stats.sessions >= 1;
+                break;
+            case "weekly_sessions >= 3":
+                conditionMet = stats.weekly_sessions >= 3;
+                break;
+            case "monthly_sessions >= 5":
+                conditionMet = stats.monthly_sessions >= 5;
+                break;
+            case "monthly_sessions >= 10":
+                conditionMet = stats.monthly_sessions >= 10;
+                break;
+            case "monthly_sessions >= 20":
+                conditionMet = stats.monthly_sessions >= 20;
+                break;
+            case "streak >= 3":
+                conditionMet = stats.streak >= 3;
+                break;
+            case "streak >= 7":
+                conditionMet = stats.streak >= 7;
+                break;
+            case "streak >= 30":
+                conditionMet = stats.streak >= 30;
+                break;
+            case "max_score >= 5":
+                conditionMet = stats.max_score >= 5;
+                break;
+            case "avg_score >= 4":
+                conditionMet = stats.avg_score >= 4;
+                break;
+            case "avg_score >= 4.5":
+                conditionMet = stats.avg_score >= 4.5;
+                break;
+            case "perfect_streak >= 5":
+                conditionMet = stats.perfect_streak >= 5;
+                break;
+            case "level >= 3":
+                conditionMet = stats.level >= 3;
+                break;
+            case "level >= 5":
+                conditionMet = stats.level >= 5;
+                break;
+            case "level >= 7":
+                conditionMet = stats.level >= 7;
+                break;
+            case "total_xp >= 500":
+                conditionMet = stats.total_xp >= 500;
+                break;
+            case "total_xp >= 1000":
+                conditionMet = stats.total_xp >= 1000;
+                break;
+            case "total_xp >= 2000":
+                conditionMet = stats.total_xp >= 2000;
+                break;
+            case "all_client_types":
+                conditionMet = stats.all_client_types;
+                break;
+            case "aggressive_sessions >= 10":
+                conditionMet = stats.aggressive_sessions >= 10;
+                break;
+            case "passive_sessions >= 10":
+                conditionMet = stats.passive_sessions >= 10;
+                break;
+            case "demanding_sessions >= 10":
+                conditionMet = stats.demanding_sessions >= 10;
+                break;
+            case "indecisive_sessions >= 10":
+                conditionMet = stats.indecisive_sessions >= 10;
+                break;
+            case "chatty_sessions >= 10":
+                conditionMet = stats.chatty_sessions >= 10;
+                break;
+            case "vertical_rank <= 3":
+                conditionMet = stats.vertical_rank <= 3;
+                break;
+            case "vertical_rank == 1":
+                conditionMet = stats.vertical_rank == 1;
+                break;
+            case "global_rank <= 10":
+                conditionMet = stats.global_rank <= 10;
+                break;
+            case "sessions >= 50":
+                conditionMet = stats.sessions >= 50;
+                break;
+            case "sessions >= 100":
+                conditionMet = stats.sessions >= 100;
+                break;
+            case "sessions >= 200":
+                conditionMet = stats.sessions >= 200;
+                break;
+            case "early_session":
+                conditionMet = stats.early_session;
+                break;
+            case "late_session":
+                conditionMet = stats.late_session;
+                break;
+            case "quick_session":
+                conditionMet = stats.quick_session;
+                break;
+            case "conflicts_resolved >= 5":
+                conditionMet = stats.conflicts_resolved >= 5;
+                break;
+            case "conflicts_resolved >= 10":
+                conditionMet = stats.conflicts_resolved >= 10;
+                break;
+            case "total_messages >= 100":
+                conditionMet = stats.total_messages >= 100;
+                break;
+            case "total_messages >= 500":
+                conditionMet = stats.total_messages >= 500;
+                break;
+            case "total_messages >= 1000":
+                conditionMet = stats.total_messages >= 1000;
+                break;
+            case "weekend_session":
+                conditionMet = stats.weekend_session;
+                break;
+            case "first_month_active":
+                conditionMet = stats.first_month_active;
+                break;
+            case "one_year_active":
+                conditionMet = stats.one_year_active;
+                break;
+            case "perfect_sessions >= 20":
+                conditionMet = stats.perfect_sessions >= 20;
+                break;
+            case "perfect_sessions >= 50":
+                conditionMet = stats.perfect_sessions >= 50;
+                break;
+            case "daily_sessions >= 5":
+                conditionMet = stats.daily_sessions >= 5;
+                break;
+            case "daily_sessions >= 10":
+                conditionMet = stats.daily_sessions >= 10;
+                break;
+        }
+        
+        if (conditionMet) {
+            newAchievements.push(achievement.id);
+        }
+    });
+    
+    newAchievements.forEach(ach => {
+        if (!userStats.achievementsUnlocked.includes(ach)) {
+            userStats.achievementsUnlocked.push(ach);
+            const achievement = achievements.find(a => a.id === ach);
+            if (achievement) {
+                showAchievementNotification(achievement);
+            }
+        }
+    });
+    
+    if (newAchievements.length > 0) {
+        auth.saveUserStats(userStats);
+        renderAllAchievements();
     }
 }
 
@@ -1436,6 +1934,24 @@ async function renderDynamicNews() {
             </div>
         `;
     }
+}
+
+function showFeedbackModal() {
+    if (!feedbackShown && auth.currentUser && auth.userRole === 'user') {
+        setTimeout(() => {
+            document.getElementById('feedbackModal').style.display = 'flex';
+            feedbackShown = true;
+        }, 1000);
+    }
+}
+
+function openFeedbackForm() {
+    window.open('https://forms.yandex.ru/u/696634f8d046880022dab232', '_blank');
+    closeFeedbackModal();
+}
+
+function closeFeedbackModal() {
+    document.getElementById('feedbackModal').style.display = 'none';
 }
 
 function showRegisterForm() {
@@ -1576,6 +2092,8 @@ async function handleLogin() {
         
         checkAndResetDailyLimit();
         auth.showMainApp();
+        
+        showFeedbackModal();
     } else {
         errorElement.textContent = result.message;
         errorElement.style.color = '#dc3545';
@@ -1670,18 +2188,38 @@ function switchTab(tabName) {
     
     if (auth.isTrainer()) {
         switch(tabName) {
-            case 'trainer_dashboard': loadTrainerDashboard(); break;
-            case 'trainer_students': loadAllStudents(); break;
-            case 'trainer_sessions': loadAllSessions(); break;
-            case 'trainer_statistics': loadTrainerStatistics(); break;
+            case 'trainer_dashboard':
+                loadTrainerDashboard();
+                break;
+            case 'trainer_students':
+                loadAllStudents();
+                break;
+            case 'trainer_sessions':
+                loadAllSessions();
+                break;
+            case 'trainer_statistics':
+                loadTrainerStatistics();
+                break;
         }
     } else {
         switch(tabName) {
-            case 'home': renderDynamicNews(); break;
-            case 'training': updateDailyLimitNotification(); resetChat(); loadDemoChat(); break;
-            case 'progress': renderProgressChart(); break;
-            case 'leaderboard': updateLeaderboard('all'); break;
-            case 'history': renderHistory(); break;
+            case 'home':
+                renderDynamicNews();
+                break;
+            case 'training':
+                updateDailyLimitNotification();
+                resetChat();
+                loadDemoChat();
+                break;
+            case 'progress':
+                renderProgressChart();
+                break;
+            case 'leaderboard':
+                updateLeaderboard('all');
+                break;
+            case 'history':
+                renderHistory();
+                break;
         }
     }
 }
@@ -1729,6 +2267,8 @@ async function updateProgressUI() {
     document.getElementById('sessionsCount').textContent = userStats.completedSessions;
     document.getElementById('avgScore').textContent = userStats.averageScore.toFixed(1);
     document.getElementById('streakCount').textContent = userStats.currentStreak;
+    
+    checkLevelUp();
 }
 
 async function updateRankPosition() {
@@ -1744,6 +2284,43 @@ async function updateRankPosition() {
     }
 }
 
+function renderAllAchievements() {
+    if (!auth.currentUser) return;
+    
+    const badgesGrid = document.getElementById('allBadgesGrid');
+    if (!badgesGrid) return;
+    
+    badgesGrid.innerHTML = '';
+    
+    const categories = {};
+    achievements.forEach(achievement => {
+        if (!categories[achievement.category]) {
+            categories[achievement.category] = [];
+        }
+        categories[achievement.category].push(achievement);
+    });
+    
+    Object.keys(categories).forEach(category => {
+        const categoryHeader = document.createElement('div');
+        categoryHeader.style.cssText = 'grid-column: 1/-1; font-weight: 600; margin-top: 15px; color: #333; font-size: 14px;';
+        categoryHeader.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+        badgesGrid.appendChild(categoryHeader);
+        
+        categories[category].forEach(achievement => {
+            const isUnlocked = auth.currentUser.stats.achievementsUnlocked.includes(achievement.id);
+            const badge = document.createElement('div');
+            badge.className = `badge ${isUnlocked ? 'earned' : 'locked'}`;
+            badge.innerHTML = `
+                <span class="badge-icon">${achievement.icon}</span>
+                <span class="badge-name">${achievement.name}</span>
+                <span class="badge-desc">${achievement.description}</span>
+            `;
+            badge.title = achievement.description;
+            badgesGrid.appendChild(badge);
+        });
+    });
+}
+
 function renderProgressChart() {
     if (!auth.currentUser || !auth.currentUser.stats.trainingHistory) return;
     
@@ -1754,7 +2331,10 @@ function renderProgressChart() {
     
     const typeStats = {};
     Object.keys(clientTypes).forEach(type => {
-        typeStats[type] = {sessions: 0, totalScore: 0};
+        typeStats[type] = {
+            sessions: 0,
+            totalScore: 0
+        };
     });
     
     history.forEach(item => {
@@ -1770,7 +2350,9 @@ function renderProgressChart() {
         typeStats[key].sessions > 0 ? (typeStats[key].totalScore / typeStats[key].sessions).toFixed(1) : 0
     );
     
-    if (progressChart) progressChart.destroy();
+    if (progressChart) {
+        progressChart.destroy();
+    }
     
     progressChart = new Chart(ctx, {
         type: 'bar',
@@ -1800,29 +2382,49 @@ function renderProgressChart() {
         },
         options: {
             responsive: true,
-            interaction: {mode: 'index', intersect: false},
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
             scales: {
-                x: {grid: {display: false}},
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
                 y: {
                     type: 'linear',
                     display: true,
                     position: 'left',
-                    title: {display: true, text: 'Тренировки'},
+                    title: {
+                        display: true,
+                        text: 'Тренировки'
+                    },
                     min: 0
                 },
                 y1: {
                     type: 'linear',
                     display: true,
                     position: 'right',
-                    title: {display: true, text: 'Средний балл'},
+                    title: {
+                        display: true,
+                        text: 'Средний балл'
+                    },
                     min: 0,
                     max: 5,
-                    grid: {drawOnChartArea: false},
+                    grid: {
+                        drawOnChartArea: false,
+                    },
                 }
             },
             plugins: {
-                legend: {position: 'top'},
-                title: {display: true, text: 'Статистика по типам клиентов'}
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Статистика по типам клиентов'
+                }
             }
         }
     });
@@ -1839,14 +2441,22 @@ async function updateLeaderboard(filter = 'all') {
         
         leaderboardBody.innerHTML = '';
         
-        if (!players.length) {
-            leaderboardBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #666;">Нет данных для отображения</td></tr>';
+        if (players.length === 0) {
+            leaderboardBody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
+                        Нет данных для отображения
+                    </td>
+                </tr>
+            `;
             return;
         }
         
         players.forEach((player, index) => {
             const row = document.createElement('tr');
-            if (player.id === auth.currentUser?.id) row.className = 'player-you';
+            if (player.id === auth.currentUser?.id) {
+                row.className = 'player-you';
+            }
             
             let rankClass = '';
             if (index === 0) rankClass = 'rank-1';
@@ -1866,7 +2476,13 @@ async function updateLeaderboard(filter = 'all') {
         });
     } catch (error) {
         console.error('Ошибка рендеринга рейтинга:', error);
-        leaderboardBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #666;">Ошибка загрузки данных</td></tr>';
+        leaderboardBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
+                    Ошибка загрузки данных
+                </td>
+            </tr>
+        `;
     }
 }
 
@@ -1915,7 +2531,9 @@ async function renderHistory() {
                 const oneMonthAgo = new Date();
                 oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
                 
-                if (sessionDate >= oneMonthAgo) historyMap.set(session.date, session);
+                if (sessionDate >= oneMonthAgo) {
+                    historyMap.set(session.date, session);
+                }
             }
         });
         
@@ -1924,10 +2542,15 @@ async function renderHistory() {
         
         historyList.innerHTML = '';
         
-        if (!history.length) {
+        if (history.length === 0) {
             historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках за последний месяц</div>';
             return;
         }
+        
+        const storageInfo = document.createElement('div');
+        storageInfo.style.cssText = 'text-align: center; font-size: 12px; color: #666; margin-bottom: 15px; padding: 8px; background: #f8f9fa; border-radius: 8px;';
+        storageInfo.innerHTML = '<i class="fas fa-info-circle"></i> История чатов хранится 30 дней. Старые диалоги автоматически удаляются.';
+        historyList.appendChild(storageInfo);
         
         history.forEach(item => {
             const clientType = clientTypes[item.clientType];
@@ -1935,14 +2558,15 @@ async function renderHistory() {
             historyItem.className = 'history-item';
             historyItem.onclick = () => viewChatHistory(item);
             
-            const hasTrainerComments = item.trainer_comments?.length > 0;
-            const hasAIFeedback = item.ai_feedback?.trim().length > 0;
+            const hasTrainerComments = item.trainer_comments && item.trainer_comments.length > 0;
+            const hasAIFeedback = item.ai_feedback && item.ai_feedback.trim().length > 0;
             
             historyItem.innerHTML = `
                 <div class="history-item-header">
                     <div class="history-item-title">${clientType ? clientType.name : 'Тренировка'}</div>
                     <div class="history-item-score">${item.score}/5</div>
                 </div>
+                <div class="history-item-details">${item.scenario || ''}</div>
                 <div class="history-item-footer">
                     <div>
                         <span>${formatDate(item.date)}</span>
@@ -1969,13 +2593,19 @@ function loadDemoChat() {
     const chatMessagesDiv = document.getElementById('chatMessages');
     if (!chatMessagesDiv) return;
     
-    chatMessagesDiv.innerHTML = '<div class="message ai">Привет! Я готов к тренировке. Выберите тип клиента, чтобы начать.</div>';
+    chatMessagesDiv.innerHTML = `
+        <div class="message ai">
+            Привет! Я готов к тренировке. Выберите тип клиента, чтобы начать тренировку.
+        </div>
+    `;
 }
 
 function resetChat() {
     chatMessages = [];
     const chatMessagesDiv = document.getElementById('chatMessages');
-    if (chatMessagesDiv) chatMessagesDiv.innerHTML = '';
+    if (chatMessagesDiv) {
+        chatMessagesDiv.innerHTML = '';
+    }
     const chatInput = document.getElementById('chatInput');
     if (chatInput) {
         chatInput.value = '';
@@ -2017,7 +2647,9 @@ function loadTrainerInterface() {
                     <span>Панель тренера</span>
                 </div>
                 <div id="trainerDashboardContent">
-                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка данных о студентах...</p>
+                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                        Загрузка данных о студентах...
+                    </p>
                 </div>
             </div>
         </div>
@@ -2039,7 +2671,9 @@ function loadTrainerInterface() {
                 </div>
                 
                 <div id="trainerStudentsContent">
-                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка списка учеников...</p>
+                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                        Загрузка списка учеников...
+                    </p>
                 </div>
             </div>
         </div>
@@ -2078,7 +2712,9 @@ function loadTrainerInterface() {
                 </div>
                 
                 <div id="trainerSessionsContent">
-                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка всех тренировок...</p>
+                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                        Загрузка всех тренировок...
+                    </p>
                 </div>
             </div>
         </div>
@@ -2090,7 +2726,9 @@ function loadTrainerInterface() {
                     <span>Статистика по системе</span>
                 </div>
                 <div id="trainerStatisticsContent">
-                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка статистики...</p>
+                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                        Загрузка статистики...
+                    </p>
                 </div>
             </div>
         </div>
@@ -2107,8 +2745,7 @@ async function loadTrainerDashboard() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
-        const systemStats = await auth.getSystemStats();
+        const allSessions = await auth.supabaseRequest('training_sessions?select=*&order=date.desc&limit=50');
         
         let html = `
             <div class="stats-cards">
@@ -2117,16 +2754,8 @@ async function loadTrainerDashboard() {
                     <div class="label">Всего учеников</div>
                 </div>
                 <div class="stat-card">
-                    <div class="value">${systemStats.totalSessions || allSessions?.length || 0}</div>
+                    <div class="value">${allSessions?.length || 0}</div>
                     <div class="label">Всего тренировок</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${systemStats.avgScore.toFixed(1)}</div>
-                    <div class="label">Средний балл</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${systemStats.activeToday}</div>
-                    <div class="label">Активных сегодня</div>
                 </div>
             </div>
             
@@ -2136,8 +2765,8 @@ async function loadTrainerDashboard() {
             </div>
         `;
         
-        if (allSessions?.length) {
-            allSessions.slice(0, 20).forEach(session => {
+        if (allSessions && allSessions.length > 0) {
+            allSessions.slice(0, 10).forEach(session => {
                 const student = students.find(s => s.id === session.user_id);
                 const clientType = clientTypes[session.client_type];
                 
@@ -2146,6 +2775,7 @@ async function loadTrainerDashboard() {
                         <div class="student-info">
                             <div class="student-name">${student ? student.username : 'Неизвестный ученик'}</div>
                             <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
+                            <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
                         </div>
                         <div class="student-stats">
                             <div class="stat-badge">${session.score}/5</div>
@@ -2251,14 +2881,17 @@ async function loadAllStudents() {
                     </div>
                 `;
             }
+            
+            // Показываем первый аккордеон открытым только если есть группы
+            const firstGroup = Object.keys(studentsByGroup)[0];
+            if (firstGroup) {
+                setTimeout(() => toggleVerticalGroup(`group_${firstGroup.replace(/\s+/g, '_')}`, true), 100);
+            }
         } else {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
         }
         
         studentsContent.innerHTML = html;
-        
-        const firstGroup = Object.keys(studentsByGroup)[0];
-        if (firstGroup) toggleVerticalGroup(`group_${firstGroup.replace(/\s+/g, '_')}`, true);
         
     } catch (error) {
         console.error('Ошибка загрузки учеников:', error);
@@ -2266,22 +2899,6 @@ async function loadAllStudents() {
     }
 }
 
-function toggleVerticalGroup(groupId, forceExpand = false) {
-    const groupContent = document.getElementById(`${groupId}_content`);
-    const toggleIcon = document.querySelector(`#${groupId} .toggle-icon`);
-    
-    if (!groupContent || !toggleIcon) return;
-    
-    if (forceExpand || groupContent.classList.contains('expanded')) {
-        groupContent.classList.remove('expanded');
-        toggleIcon.classList.remove('expanded');
-        toggleIcon.innerHTML = '▼';
-    } else {
-        groupContent.classList.add('expanded');
-        toggleIcon.classList.add('expanded');
-        toggleIcon.innerHTML = '▲';
-    }
-}
 
 async function searchStudents() {
     const searchInput = document.getElementById('studentSearchInput');
@@ -2299,7 +2916,7 @@ async function searchStudents() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        const allSessions = await auth.supabaseRequest('training_sessions?select=*');
         
         let filteredStudents = students;
         
@@ -2313,8 +2930,11 @@ async function searchStudents() {
         if (dateFrom.value || dateTo.value) {
             filteredStudents = filteredStudents.filter(student => {
                 if (!student.stats) return true;
+                
                 try {
-                    const stats = typeof student.stats === 'string' ? JSON.parse(student.stats) : student.stats;
+                    const stats = typeof student.stats === 'string' ? 
+                        JSON.parse(student.stats) : student.stats;
+                    
                     if (!stats.registrationDate) return true;
                     
                     const regDate = new Date(stats.registrationDate);
@@ -2323,8 +2943,9 @@ async function searchStudents() {
                     
                     if (fromDate && regDate < fromDate) return false;
                     if (toDate && regDate > toDate) return false;
+                    
                     return true;
-                } catch {
+                } catch (e) {
                     return true;
                 }
             });
@@ -2333,7 +2954,9 @@ async function searchStudents() {
         const studentsByGroup = {};
         filteredStudents.forEach(student => {
             const group = student.group_name || 'Без вертикали';
-            if (!studentsByGroup[group]) studentsByGroup[group] = [];
+            if (!studentsByGroup[group]) {
+                studentsByGroup[group] = [];
+            }
             studentsByGroup[group].push(student);
         });
         
@@ -2537,17 +3160,18 @@ async function searchSessions() {
                     </div>
                 `;
             }
+            
+            // Показываем первый аккордеон открытым
+            const firstDate = Object.keys(sessionsByDate)[0];
+            if (firstDate) {
+                const dateId = `date_${firstDate.replace(/[\.\s]/g, '_')}`;
+                setTimeout(() => toggleVerticalGroup(dateId, true), 100);
+            }
         } else {
             html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
         }
         
         sessionsContent.innerHTML = html;
-        
-        const firstDate = Object.keys(sessionsByDate)[0];
-        if (firstDate) {
-            const dateId = `date_${firstDate.replace(/[\.\s]/g, '_')}`;
-            toggleVerticalGroup(dateId, true);
-        }
         
     } catch (error) {
         console.error('Ошибка поиска тренировок:', error);
@@ -2557,7 +3181,10 @@ async function searchSessions() {
 
 function formatTime(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+    return date.toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
 async function loadAllSessions() {
@@ -2575,7 +3202,7 @@ async function viewStudentSessions(studentId, studentName) {
             </div>
         `;
         
-        if (sessions?.length) {
+        if (sessions && sessions.length > 0) {
             sessions.forEach(session => {
                 const clientType = clientTypes[session.client_type];
                 
@@ -2583,6 +3210,7 @@ async function viewStudentSessions(studentId, studentName) {
                     <div class="student-item">
                         <div class="student-info">
                             <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
+                            <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
                         </div>
                         <div class="student-stats">
                             <div class="stat-badge">${session.score}/5</div>
@@ -2620,11 +3248,11 @@ async function viewStudentSessions(studentId, studentName) {
 async function viewStudentChat(studentId, sessionId) {
     try {
         const session = await auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
-        if (!session?.length) return;
+        if (!session || session.length === 0) return;
         
         const sessionData = session[0];
         const student = await auth.supabaseRequest(`users?id=eq.${studentId}`);
-        const studentName = student?.[0]?.username || 'Студент';
+        const studentName = student && student[0] ? student[0].username : 'Студент';
         const clientType = clientTypes[sessionData.client_type];
         
         document.getElementById('chatModalTitle').textContent = `Диалог: ${studentName}`;
@@ -2657,7 +3285,7 @@ async function viewStudentChat(studentId, sessionId) {
             messagesContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Нет данных о диалоге</div>';
         }
         
-        if (sessionData.ai_feedback?.trim().length > 0) {
+        if (sessionData.ai_feedback && sessionData.ai_feedback.trim().length > 0) {
             const aiFeedbackContainer = document.createElement('div');
             aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
             aiFeedbackContainer.innerHTML = `
@@ -2667,7 +3295,7 @@ async function viewStudentChat(studentId, sessionId) {
             messagesContainer.appendChild(aiFeedbackContainer);
         }
         
-        if (sessionData.trainer_comments?.length > 0) {
+        if (sessionData.trainer_comments && sessionData.trainer_comments.length > 0) {
             const commentsContainer = document.createElement('div');
             commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
             commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
@@ -2722,11 +3350,11 @@ async function loadExistingComments(sessionId) {
     
     try {
         const session = await auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
-        if (!session?.length) return;
+        if (!session || session.length === 0) return;
         
         const comments = session[0].trainer_comments || [];
         
-        if (!comments.length) {
+        if (comments.length === 0) {
             existingComments.innerHTML = '<div style="color: #666; font-size: 13px; margin-bottom: 10px;">Комментариев пока нет</div>';
             return;
         }
@@ -2791,7 +3419,7 @@ function closeCommentModal() {
 }
 
 function filterSessions() {
-    searchSessions();
+    loadAllSessions();
 }
 
 function viewChatHistory(session) {
@@ -2814,17 +3442,18 @@ function viewChatHistory(session) {
     } else if (typeof session.messages === 'string') {
         try {
             messages = JSON.parse(session.messages);
-        } catch {
+        } catch (e) {
+            console.error('Ошибка парсинга сообщений:', e);
             messages = [];
         }
     }
     
-    if (!messages.length) {
+    if (messages.length === 0) {
         messages = [
-            {sender: 'ai', text: 'Добрый день! Чем могу помочь?', timestamp: session.date},
-            {sender: 'user', text: 'У меня проблема с...', timestamp: new Date(new Date(session.date).getTime() + 60000).toISOString()},
-            {sender: 'ai', text: 'Понимаю вашу ситуацию. Давайте решим этот вопрос.', timestamp: new Date(new Date(session.date).getTime() + 120000).toISOString()},
-            {sender: 'user', text: 'Спасибо за помощь!', timestamp: new Date(new Date(session.date).getTime() + 180000).toISOString()}
+            { sender: 'ai', text: 'Добрый день! Чем могу помочь?', timestamp: session.date },
+            { sender: 'user', text: 'У меня проблема с...', timestamp: new Date(new Date(session.date).getTime() + 60000).toISOString() },
+            { sender: 'ai', text: 'Понимаю вашу ситуацию. Давайте решим этот вопрос.', timestamp: new Date(new Date(session.date).getTime() + 120000).toISOString() },
+            { sender: 'user', text: 'Спасибо за помощь!', timestamp: new Date(new Date(session.date).getTime() + 180000).toISOString() }
         ];
     }
     
@@ -2835,7 +3464,7 @@ function viewChatHistory(session) {
         messagesContainer.appendChild(messageDiv);
     });
     
-    if (session.ai_feedback?.trim().length > 0) {
+    if (session.ai_feedback && session.ai_feedback.trim().length > 0) {
         const aiFeedbackContainer = document.createElement('div');
         aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
         aiFeedbackContainer.innerHTML = `
@@ -2845,7 +3474,7 @@ function viewChatHistory(session) {
         messagesContainer.appendChild(aiFeedbackContainer);
     }
     
-    if (session.trainer_comments?.length > 0) {
+    if (session.trainer_comments && session.trainer_comments.length > 0) {
         const commentsContainer = document.createElement('div');
         commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
         commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
@@ -2919,7 +3548,7 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
     const aiFeedbackContent = document.getElementById('aiFeedbackContent');
     
-    if (aiFeedback?.trim().length > 50) {
+    if (aiFeedback && aiFeedback.trim().length > 50) {
         aiFeedbackContent.textContent = aiFeedback;
         aiFeedbackContainer.style.display = 'block';
     } else {
@@ -2927,6 +3556,41 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     }
     
     document.getElementById('resultModal').style.display = 'flex';
+}
+
+function showAchievementNotification(achievement) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        z-index: 1001;
+        animation: slideIn 0.3s ease;
+        border-left: 4px solid #10a37f;
+        min-width: 250px;
+    `;
+    
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <span style="font-size: 24px;">${achievement.icon}</span>
+            <div>
+                <div style="font-weight: 600; color: #333;">🎉 Новое достижение!</div>
+                <div style="font-size: 12px; color: #666;">${achievement.name}</div>
+            </div>
+        </div>
+        <div style="font-size: 13px; color: #555;">${achievement.description}</div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 function closeResultModal() {
@@ -2977,6 +3641,7 @@ function finishChat() {
     if (!trainingInProgress) return;
     
     addMessage('user', "[[ДИАЛОГ ЗАВЕРШЕН]]");
+    
     addMessage('ai', "Подготовка результатов чата...");
     
     setTimeout(() => {
@@ -2992,15 +3657,19 @@ async function loadTrainerStatistics() {
     
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        const allSessions = await auth.supabaseRequest('training_sessions?select=*');
         
         const statsByVertical = {};
         const studentsByVertical = {};
         
         students.forEach(student => {
             const vertical = student.group_name || 'Без вертикали';
-            if (!statsByVertical[vertical]) statsByVertical[vertical] = {sessions: 0, totalScore: 0, students: 0};
-            if (!studentsByVertical[vertical]) studentsByVertical[vertical] = new Set();
+            if (!statsByVertical[vertical]) {
+                statsByVertical[vertical] = { sessions: 0, totalScore: 0, students: 0 };
+            }
+            if (!studentsByVertical[vertical]) {
+                studentsByVertical[vertical] = new Set();
+            }
             studentsByVertical[vertical].add(student.id);
         });
         
