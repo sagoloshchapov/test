@@ -2633,6 +2633,9 @@ async function loadTrainerDashboard() {
                 <i class="fas fa-history"></i>
                 <span>Последние тренировки</span>
             </div>
+            
+            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
+            <div class="scrollable-container" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
         `;
         
         if (allSessions?.length) {
@@ -2666,6 +2669,9 @@ async function loadTrainerDashboard() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
         }
         
+        // ЗАКРЫВАЕМ КОНТЕЙНЕР
+        html += `</div>`;
+        
         dashboardContent.innerHTML = html;
         
     } catch (error) {
@@ -2696,6 +2702,9 @@ async function loadAllStudents() {
                 <i class="fas fa-users"></i>
                 <span>Все ученики</span>
             </div>
+            
+            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
+            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
         `;
         
         if (students.length > 0) {
@@ -2759,6 +2768,9 @@ async function loadAllStudents() {
         } else {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
         }
+        
+        // ЗАКРЫВАЕМ КОНТЕЙНЕР
+        html += `</div>`;
         
         studentsContent.innerHTML = html;
         
@@ -2841,6 +2853,9 @@ async function searchStudents() {
                 <span>Результаты поиска</span>
                 ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
             </div>
+            
+            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
+            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
         `;
         
         if (filteredStudents.length > 0) {
@@ -2892,6 +2907,9 @@ async function searchStudents() {
         } else {
             html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
         }
+        
+        // ЗАКРЫВАЕМ КОНТЕЙНЕР
+        html += `</div>`;
         
         studentsContent.innerHTML = html;
         
@@ -2972,6 +2990,9 @@ async function searchSessions() {
                 <span>Результаты поиска тренировок</span>
                 ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
             </div>
+            
+            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
+            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
         if (filteredSessions.length > 0) {
@@ -3039,6 +3060,9 @@ async function searchSessions() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
         }
         
+        // ЗАКРЫВАЕМ КОНТЕЙНЕР
+        html += `</div>`;
+        
         sessionsContent.innerHTML = html;
         
     } catch (error) {
@@ -3068,6 +3092,9 @@ async function viewStudentSessions(studentId, studentName) {
                 <i class="fas fa-history"></i>
                 <span>Тренировки ученика: ${studentName}</span>
             </div>
+            
+            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
+            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
         `;
         
         if (sessions?.length) {
@@ -3098,6 +3125,9 @@ async function viewStudentSessions(studentId, studentName) {
         } else {
             html += '<div style="text-align: center; padding: 20px; color: #666;">У ученика нет тренировок</div>';
         }
+        
+        // ЗАКРЫВАЕМ КОНТЕЙНЕР
+        html += `</div>`;
         
         const tempContainer = document.createElement('div');
         tempContainer.innerHTML = html;
@@ -3601,6 +3631,9 @@ async function loadTrainerStatistics() {
                 <i class="fas fa-chart-bar"></i>
                 <span>Статистика по вертикалям</span>
             </div>
+            
+            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
+            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
         `;
         
         for (const [vertical, stats] of Object.entries(statsByVertical)) {
@@ -3620,6 +3653,9 @@ async function loadTrainerStatistics() {
                 </div>
             `;
         }
+        
+        // ЗАКРЫВАЕМ КОНТЕЙНЕР
+        html += `</div>`;
         
         statisticsContent.innerHTML = html;
         
