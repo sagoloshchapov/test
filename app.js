@@ -1073,22 +1073,21 @@ function loadStudentInterface() {
                     </div>
                 </div>
                 
-<div class="scrollable-table">
-    <table class="leaderboard-table">
-        <thead>
-            <tr>
-                <th class="rank">#</th>
-                <th>Сотрудник</th>
-                <th>Вертикаль</th>
-                <th>Уровень</th>
-                <th>Тренировок</th>
-                <th>Средний балл</th>
-                <th>XP</th>
-            </tr>
-        </thead>
-        <tbody id="leaderboardBody"></tbody>
-    </table>
-</div>
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th class="rank">#</th>
+                            <th>Сотрудник</th>
+                            <th>Вертикаль</th>
+                            <th>Уровень</th>
+                            <th>Тренировок</th>
+                            <th>Средний балл</th>
+                            <th>XP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
         </div>
 
         <div class="tab-content" id="achievements-tab">
@@ -2685,21 +2684,19 @@ async function loadAllStudents() {
         const students = await auth.getStudents();
         const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
         
-let html = `
-    <div class="stats-cards">
-        <div class="stat-card">
-            <div class="value">${students.length}</div>
-            <div class="label">Всего учеников</div>
-        </div>
-    </div>
-    
-    <div class="section-title" style="margin-top: 25px;">
-        <i class="fas fa-users"></i>
-        <span>Все ученики</span>
-    </div>
-    
-    <div class="scrollable-section">
-`;
+        let html = `
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <div class="value">${students.length}</div>
+                    <div class="label">Всего учеников</div>
+                </div>
+            </div>
+            
+            <div class="section-title" style="margin-top: 25px;">
+                <i class="fas fa-users"></i>
+                <span>Все ученики</span>
+            </div>
+        `;
         
         if (students.length > 0) {
             const studentsByGroup = {};
@@ -2762,7 +2759,7 @@ let html = `
         } else {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
         }
-        html += '</div>';
+        
         studentsContent.innerHTML = html;
         
     } catch (error) {
