@@ -656,13 +656,19 @@ async function sendPromptToAI() {
         // Формируем ЧЁТКУЮ инструкцию для AI
         let clientTypeInstruction;
         if (isRandomClient) {
-            clientTypeInstruction = "ТИП КЛИЕНТА: СЛУЧАЙНЫЙ (выбери любой тип самостоятельно)";
+            // Для случайного - ВЫБИРАЕМ случайный тип НА УРОВНЕ КОДА
+            const types = Object.keys(clientTypes);
+            const randomTypeKey = types[Math.floor(Math.random() * types.length)];
+            const randomType = clientTypes[randomTypeKey];
+            clientTypeInstruction = `ТИП КЛИЕНТА: ${randomType.name.toUpperCase()}
+ОПИСАНИЕ: ${randomType.description}
+ВАЖНО: Веди себя СТРОГО в этом стиле весь диалог!`;
         } else if (clientType) {
             clientTypeInstruction = `ТИП КЛИЕНТА: ${clientType.name.toUpperCase()}
 ОПИСАНИЕ: ${clientType.description}
 ВАЖНО: Веди себя СТРОГО в этом стиле весь диалог!`;
         } else {
-            clientTypeInstruction = "Тип клиента: стандартный";
+            clientTypeInstruction = "ТИП КЛИЕНТА: СТАНДАРТНЫЙ";
         }
         
         // 2. Получаем промпт для вертикали
@@ -684,23 +690,36 @@ ${clientTypeInstruction}
 
 В остальных случаях - просто продолжай диалог как клиент.`;
 
-        // 3. ВЫБИРАЕМ СЛУЧАЙНЫЙ СЦЕНАРИЙ (если есть в промпте)
-        if (promptContent && promptContent.includes('Сценарий')) {
-            // УДАЛЯЕМ старые инструкции "выбери..."
-            promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
-            promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
-            promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
-            
-            // УДАЛЯЕМ старый список типов поведения
-            promptContent = promptContent.replace(/\*\*ТИП ПОВЕДЕНИЯ[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
-            
-            // Ищем все строки со сценариями
+        // 3. ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ: удаляем старые инструкции
+        promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
+        promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
+        promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
+        
+        // 4. ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ: ищем сценарии (если есть)
+        const hasScenarios = promptContent.includes('Сценарий') || 
+                            promptContent.includes('сценарий') ||
+                            promptContent.match(/\d+\.\s+.*?(?=\n|$)/) ||
+                            promptContent.match(/-\s+.*?(?=\n|$)/);
+        
+        if (hasScenarios) {
+            // Разбиваем на строки
             const lines = promptContent.split('\n');
             const scenarioLines = [];
             
+            // Ищем строки, которые выглядят как сценарии
             for (const line of lines) {
-                if (line.includes('Сценарий') || line.match(/^\d+\./) || line.match(/^-\s+Сценарий/) || line.match(/^\*\*Сценарий/)) {
-                    scenarioLines.push(line.trim());
+                const trimmed = line.trim();
+                // Разные форматы сценариев
+                if ((trimmed.includes('Сценарий') || trimmed.includes('сценарий')) && 
+                    trimmed.length > 15 && 
+                    !trimmed.startsWith('**СЦЕНАРИИ') &&
+                    !trimmed.startsWith('**сценарии')) {
+                    scenarioLines.push(trimmed);
+                }
+                // Формат "1. Описание" или "- Описание"
+                else if ((trimmed.match(/^\d+\.\s+/) || trimmed.match(/^-\s+/)) && 
+                         trimmed.length > 10) {
+                    scenarioLines.push(trimmed);
                 }
             }
             
@@ -709,27 +728,28 @@ ${clientTypeInstruction}
                 const randomIndex = Math.floor(Math.random() * scenarioLines.length);
                 const chosenScenario = scenarioLines[randomIndex];
                 
-                // УДАЛЯЕМ старый список сценариев
-                promptContent = promptContent.replace(/\*\*СЦЕНАРИИ[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
-                
-                // ДОБАВЛЯЕМ выбранный сценарий в начало
+                // Добавляем выбранный сценарий в начало
                 promptContent = `ВЫБРАННЫЙ СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
+                
+                // Удаляем старые заголовки про выбор сценариев
+                promptContent = promptContent.replace(/\*\*СЦЕНАРИИ[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
+                promptContent = promptContent.replace(/\*\*сценарии[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
             }
         }
         
-        // 4. ДОБАВЛЯЕМ инструкцию по типу клиента ЕЩЁ РАЗ (на всякий случай)
+        // 5. Убедимся что инструкция по типу клиента есть
         if (!promptContent.includes(clientTypeInstruction)) {
             promptContent = `${clientTypeInstruction}\n\n${promptContent}`;
         }
         
-        // 5. ОТЛАДКА
-        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ===");
+        // 6. ОТЛАДКА
+        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ ===");
+        console.log("Тип клиента:", isRandomClient ? "Случайный" : selectedClientType);
+        console.log("Вертикаль:", auth.currentUser?.group);
         console.log("Длина:", promptContent.length, "символов");
-        console.log("Первые 500 символов:");
-        console.log(promptContent.substring(0, 500));
-        console.log("======================");
+        console.log("Первые 400 символов:", promptContent.substring(0, 400));
         
-        // 6. Отправляем к AI
+        // 7. Отправляем к AI
         const systemMessage = {
             role: "system",
             content: promptContent
