@@ -653,19 +653,19 @@ async function sendPromptToAI() {
         // 1. Получаем информацию о типе клиента
         const clientType = clientTypes[selectedClientType];
         
-        // Формируем инструкцию для AI
+        // Формируем ЧЁТКУЮ инструкцию для AI
         let clientTypeInstruction;
         if (isRandomClient) {
-            clientTypeInstruction = "Твой тип поведения: СЛУЧАЙНЫЙ (выбери любой из 5 типов самостоятельно)";
+            clientTypeInstruction = "ТИП КЛИЕНТА: СЛУЧАЙНЫЙ (выбери любой тип самостоятельно)";
         } else if (clientType) {
             clientTypeInstruction = `ТИП КЛИЕНТА: ${clientType.name.toUpperCase()}
 ОПИСАНИЕ: ${clientType.description}
-ВАЖНО: Веди себя строго в этом стиле весь диалог!`;
+ВАЖНО: Веди себя СТРОГО в этом стиле весь диалог!`;
         } else {
             clientTypeInstruction = "Тип клиента: стандартный";
         }
         
-        // 2. Получаем базовый промпт для вертикали
+        // 2. Получаем промпт для вертикали
         let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
 
 Вертикаль: ${auth.currentUser.group}
@@ -684,13 +684,20 @@ ${clientTypeInstruction}
 
 В остальных случаях - просто продолжай диалог как клиент.`;
 
-        // 3. ВЫБИРАЕМ СЛУЧАЙНЫЙ СЦЕНАРИЙ для любой вертикали
+        // 3. ВЫБИРАЕМ СЛУЧАЙНЫЙ СЦЕНАРИЙ (если есть в промпте)
         if (promptContent && promptContent.includes('Сценарий')) {
-            // Разбиваем промпт на строки
+            // УДАЛЯЕМ старые инструкции "выбери..."
+            promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
+            promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
+            promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
+            
+            // УДАЛЯЕМ старый список типов поведения
+            promptContent = promptContent.replace(/\*\*ТИП ПОВЕДЕНИЯ[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
+            
+            // Ищем все строки со сценариями
             const lines = promptContent.split('\n');
             const scenarioLines = [];
             
-            // Ищем строки со сценариями
             for (const line of lines) {
                 if (line.includes('Сценарий') || line.match(/^\d+\./) || line.match(/^-\s+Сценарий/) || line.match(/^\*\*Сценарий/)) {
                     scenarioLines.push(line.trim());
@@ -702,25 +709,27 @@ ${clientTypeInstruction}
                 const randomIndex = Math.floor(Math.random() * scenarioLines.length);
                 const chosenScenario = scenarioLines[randomIndex];
                 
-                // Удаляем инструкцию "выбери случайно"
-                promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
-                promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
-                promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
+                // УДАЛЯЕМ старый список сценариев
+                promptContent = promptContent.replace(/\*\*СЦЕНАРИИ[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
                 
-                // Добавляем выбранный сценарий в начало
-                promptContent = `ВЫБРАННЫЙ СЦЕНАРИЙ ДЛЯ ЭТОГО ДИАЛОГА:\n${chosenScenario}\n\n${promptContent}`;
+                // ДОБАВЛЯЕМ выбранный сценарий в начало
+                promptContent = `ВЫБРАННЫЙ СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
             }
         }
         
-console.log("=== ПОЛНЫЙ ДЕБАГ ===");
-console.log("1. Тип клиента:", selectedClientType);
-console.log("2. isRandomClient:", isRandomClient);
-console.log("3. Вертикаль:", auth.currentUser?.group);
-console.log("4. Длина промпта:", promptContent.length, "символов");
-console.log("5. Промпт целиком:");
-console.log(promptContent);
-console.log("=== КОНЕЦ ДЕБАГА ===");
-        // 5. Формируем сообщение для AI
+        // 4. ДОБАВЛЯЕМ инструкцию по типу клиента ЕЩЁ РАЗ (на всякий случай)
+        if (!promptContent.includes(clientTypeInstruction)) {
+            promptContent = `${clientTypeInstruction}\n\n${promptContent}`;
+        }
+        
+        // 5. ОТЛАДКА
+        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ===");
+        console.log("Длина:", promptContent.length, "символов");
+        console.log("Первые 500 символов:");
+        console.log(promptContent.substring(0, 500));
+        console.log("======================");
+        
+        // 6. Отправляем к AI
         const systemMessage = {
             role: "system",
             content: promptContent
@@ -731,7 +740,6 @@ console.log("=== КОНЕЦ ДЕБАГА ===");
             content: msg.text
         }));
         
-        // Если это начало диалога, AI должен отправить первое сообщение
         const messages = chatMessages.length === 0 ? [systemMessage] : [systemMessage, ...messageHistory];
         
         const response = await fetch(EDGE_FUNCTION_URL, {
@@ -764,6 +772,13 @@ console.log("=== КОНЕЦ ДЕБАГА ===");
         } else {
             throw new Error('Неверный формат ответа');
         }
+        
+    } catch (error) {
+        console.error('Ошибка:', error);
+        addMessage('ai', 'Извините, произошла ошибка. Попробуйте начать тренировку заново.');
+        resetTrainingState();
+    }
+}
         
     } catch (error) {
         console.error('Ошибка:', error);
