@@ -1179,7 +1179,7 @@ body {
     font-size: 14px;
     line-height: 1.6;
     white-space: pre-wrap;
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: auto;
     margin-top: 10px;
 }
@@ -1412,11 +1412,12 @@ body {
     border: 1px solid #e9ecef;
     margin-top: 10px;
     overflow-y: auto;
+    max-height: 500px; /* Ограничиваем высоту для скролла */
 }
 
 /* Стилизация полосы прокрутки для современных браузеров */
 .scrollable-container::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
 }
 
 .scrollable-container::-webkit-scrollbar-track {
@@ -1439,14 +1440,9 @@ body {
     scrollbar-color: #c1c1c1 #f1f1f1;
 }
 
-/* Анимация появления скроллбара */
-.scrollable-container {
-    transition: all 0.3s ease;
-}
-
-/* Подсказка при наведении */
-.scrollable-container:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+/* Увеличиваем высоту для модальных окон с чатами */
+.chat-modal-messages {
+    max-height: 60vh !important;
 }
 
 @media (max-width: 1024px) {
@@ -1464,6 +1460,10 @@ body {
     
     .confidentiality-list {
         grid-template-columns: 1fr;
+    }
+    
+    .scrollable-container {
+        max-height: 400px;
     }
 }
 
@@ -1527,9 +1527,8 @@ body {
         align-items: center;
     }
     
-    /* Для мобильных устройств - увеличиваем область для скролла */
     .scrollable-container {
-        max-height: 300px !important;
+        max-height: 300px;
     }
     
     .scrollable-container::-webkit-scrollbar {
