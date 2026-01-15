@@ -648,12 +648,8 @@ let dailySessionsUsed = 0;
 let lastResetTime = null;
 let isRandomClient = false;
 
-async function sendPromptToAI() {
-    try {
-        const clientTypeInfo = isRandomClient ? "случайный тип клиента" : `${selectedClientType}. ${clientTypes[selectedClientType]?.description}`;
-        
-        // 1. Получаем промпт для вертикали
-        let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
+// 1. Получаем промпт для вертикали
+let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
 
 Вертикаль: ${auth.currentUser.group}
 Тип клиента: ${clientTypeInfo}
@@ -671,45 +667,53 @@ async function sendPromptToAI() {
 
 В остальных случаях - просто продолжай диалог как клиент.`;
 
-        // 2. ДЛЯ ЛЮБОЙ ВЕРТИКАЛИ: выбираем случайный сценарий
-        if (promptContent && promptContent.includes('Сценарий')) {
-            // Разбиваем промпт на строки
-            const lines = promptContent.split('\n');
-            const scenarioLines = [];
-            
-            // Ищем строки со сценариями (они содержат "Сценарий" или начинаются с цифры)
-            for (const line of lines) {
-                if (line.includes('Сценарий') || line.match(/^\d+\./) || line.match(/^-\s+Сценарий/) || line.match(/^\*\*Сценарий/)) {
-                    scenarioLines.push(line.trim());
-                }
-            }
-            
-            // Если нашли сценарии - выбираем случайный
-            if (scenarioLines.length > 0) {
-                const randomIndex = Math.floor(Math.random() * scenarioLines.length);
-                const chosenScenario = scenarioLines[randomIndex];
-                
-                // Удаляем инструкцию "выбери случайно" чтобы AI не путался
-                promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
-                promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
-                promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
-                
-                // Добавляем выбранный сценарий в начало
-                promptContent = `ДЛЯ ЭТОГО ДИАЛОГА ВЫБРАН СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
-            }
+// 2. ДЛЯ ЛЮБОЙ ВЕРТИКАЛИ: выбираем случайный сценарий
+if (promptContent && promptContent.includes('Сценарий')) {
+    // Разбиваем промпт на строки
+    const lines = promptContent.split('\n');
+    const scenarioLines = [];
+    
+    // Ищем строки со сценариями
+    for (const line of lines) {
+        if (line.includes('Сценарий') || line.match(/^\d+\./) || line.match(/^-\s+Сценарий/) || line.match(/^\*\*Сценарий/)) {
+            scenarioLines.push(line.trim());
         }
+    }
+    
+    // Если нашли сценарии - выбираем случайный
+    if (scenarioLines.length > 0) {
+        const randomIndex = Math.floor(Math.random() * scenarioLines.length);
+        const chosenScenario = scenarioLines[randomIndex];
         
-        const systemMessage = {
-            role: "system",
-            content: promptContent
-        };
+        // Удаляем инструкцию "выбери случайно" чтобы AI не путался
+        promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
+        promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
+        promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
+        
+        // Добавляем выбранный сценарий в начало
+        promptContent = `ДЛЯ ЭТОГО ДИАЛОГА ВЫБРАН СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
+    }
+}
+
+// ОТЛАДОЧНЫЙ ВЫВОД
+console.log("=== ДЕБАГ ПРОМПТА ===");
+console.log("currentPrompt загружен?", !!currentPrompt);
+console.log("Вертикаль:", auth.currentUser?.group);
+console.log("Тип клиента:", clientTypeInfo);
+console.log("Промпт (первые 300 символов):", promptContent.substring(0, 300));
+console.log("=========================");
+
+const systemMessage = {
+    role: "system",
+    content: promptContent
+};
         
         const messageHistory = chatMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' : 'assistant',
             content: msg.text
         }));
         
-        // Если это начало диалога, AI должен отправить первое сообщение
+      
         const messages = chatMessages.length === 0 ? [systemMessage] : [systemMessage, ...messageHistory];
         
         const response = await fetch(EDGE_FUNCTION_URL, {
