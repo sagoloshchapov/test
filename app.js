@@ -712,12 +712,14 @@ ${clientTypeInstruction}
             }
         }
         
-        // 4. ОТЛАДКА - можно убрать после проверки
-        console.log("=== ДЕБАГ ===");
-        console.log("Тип клиента:", selectedClientType, isRandomClient ? "(случайный)" : "");
-        console.log("Вертикаль:", auth.currentUser?.group);
-        console.log("Промпт (первые 400 символов):", promptContent.substring(0, 400));
-        
+console.log("=== ПОЛНЫЙ ДЕБАГ ===");
+console.log("1. Тип клиента:", selectedClientType);
+console.log("2. isRandomClient:", isRandomClient);
+console.log("3. Вертикаль:", auth.currentUser?.group);
+console.log("4. Длина промпта:", promptContent.length, "символов");
+console.log("5. Промпт целиком:");
+console.log(promptContent);
+console.log("=== КОНЕЦ ДЕБАГА ===");
         // 5. Формируем сообщение для AI
         const systemMessage = {
             role: "system",
