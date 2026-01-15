@@ -648,7 +648,10 @@ let dailySessionsUsed = 0;
 let lastResetTime = null;
 let isRandomClient = false;
 
-// 1. Получаем промпт для вертикали
+async function sendPromptToAI() {
+    try {
+        const clientTypeInfo = isRandomClient ? "случайный тип клиента" : `${selectedClientType}. ${clientTypes[selectedClientType]?.description}`;
+        
 let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
 
 Вертикаль: ${auth.currentUser.group}
