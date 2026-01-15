@@ -652,35 +652,57 @@ async function sendPromptToAI() {
     try {
         const clientTypeInfo = isRandomClient ? "случайный тип клиента" : `${selectedClientType}. ${clientTypes[selectedClientType]?.description}`;
         
-        // ДОБАВЛЯЕМ: Случайный выбор сценария
-        const scenarios = [
-            "СЦЕНАРИЙ: Купил(а) конфеты по акции с двойными бонусами, но они не начислились",
-            "СЦЕНАРИЙ: Карта лояльности внезапно заблокирована системой безопасности",
-            "СЦЕНАРИЙ: Не получается выпустить виртуальную карту в приложении, система выдаёт ошибку"
-        ];
-        const randomScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
-        
-        const systemMessage = {
-            role: "system",
-            content: `ТЫ - КЛИЕНТ С ПРОБЛЕМОЙ В ПРОГРАММЕ ЛОЯЛЬНОСТИ
+        // 1. Получаем промпт для вертикали
+        let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
 
-${randomScenario}
-
-ТИП КЛИЕНТА: ${clientTypeInfo}
+Вертикаль: ${auth.currentUser.group}
+Тип клиента: ${clientTypeInfo}
 
 Ты должен:
-1. Вести себя соответственно типу клиента
-2. Начать диалог с жалобы по указанному выше сценарию
-3. Использовать реалистичные жалобы/вопросы
-4. Не упоминать, что это тренировка или симуляция
-5. Реагировать естественно на ответы оператора
-6. ВСЕГДА начинать диалог первым
+1. Вести себя соответственно типу клиента (${isRandomClient ? "случайный тип" : selectedClientType})
+2. Использовать реалистичные жалобы/вопросы из сферы "${auth.currentUser.group}"
+3. Не упоминать, что это тренировка или симуляция
+4. Реагировать естественно на ответы оператора
+5. ВСЕГДА начинать диалог первым - отправляй первое сообщение как клиент с проблемой или вопросом
 
 Если оператор отправил сообщение "[[ДИАЛОГ ЗАВЕРШЕН]]" - заверши диалог и дай оценку:
 ОЦЕНКА: X/5
-ОБРАТНАЯ СВЯЗЬ: [до 1200 символов] - Как оператор понял проблему, какие техники работали, что можно улучшить
+ОБРАТНАЯ СВЯЗЬ: [минимум 3 предложения]
+РЕКОМЕНДАЦИИ: [минимум 5 пунктов]
 
-В остальных случаях - просто продолжай диалог как клиент.`
+В остальных случаях - просто продолжай диалог как клиент.`;
+
+        // 2. ДЛЯ ЛЮБОЙ ВЕРТИКАЛИ: выбираем случайный сценарий
+        if (promptContent && promptContent.includes('Сценарий')) {
+            // Разбиваем промпт на строки
+            const lines = promptContent.split('\n');
+            const scenarioLines = [];
+            
+            // Ищем строки со сценариями (они содержат "Сценарий" или начинаются с цифры)
+            for (const line of lines) {
+                if (line.includes('Сценарий') || line.match(/^\d+\./) || line.match(/^-\s+Сценарий/) || line.match(/^\*\*Сценарий/)) {
+                    scenarioLines.push(line.trim());
+                }
+            }
+            
+            // Если нашли сценарии - выбираем случайный
+            if (scenarioLines.length > 0) {
+                const randomIndex = Math.floor(Math.random() * scenarioLines.length);
+                const chosenScenario = scenarioLines[randomIndex];
+                
+                // Удаляем инструкцию "выбери случайно" чтобы AI не путался
+                promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
+                promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
+                promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
+                
+                // Добавляем выбранный сценарий в начало
+                promptContent = `ДЛЯ ЭТОГО ДИАЛОГА ВЫБРАН СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
+            }
+        }
+        
+        const systemMessage = {
+            role: "system",
+            content: promptContent
         };
         
         const messageHistory = chatMessages.map(msg => ({
