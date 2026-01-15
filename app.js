@@ -667,8 +667,7 @@ async function sendPromptToAI() {
 
 Если оператор отправил сообщение "[[ДИАЛОГ ЗАВЕРШЕН]]" - заверши диалог и дай оценку:
 ОЦЕНКА: X/5
-ОБРАТНАЯ СВЯЗЬ: [минимум 3 предложения]
-РЕКОМЕНДАЦИИ: [минимум 5 пунктов]
+ОБРАТНАЯ СВЯЗЬ: [до 1200 символов] - Как оператор понял проблему, какие техники работали, что можно улучшить
 
 В остальных случаях - просто продолжай диалог как клиент.`;
 
@@ -705,16 +704,12 @@ async function sendPromptToAI() {
             content: promptContent
         };
         
-        const systemMessage = {
-            role: "system",
-            content: promptContent
-        };
-        
         const messageHistory = chatMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' : 'assistant',
             content: msg.text
         }));
         
+        // Если это начало диалога, AI должен отправить первое сообщение
         const messages = chatMessages.length === 0 ? [systemMessage] : [systemMessage, ...messageHistory];
         
         const response = await fetch(EDGE_FUNCTION_URL, {
@@ -726,7 +721,7 @@ async function sendPromptToAI() {
             body: JSON.stringify({
                 messages: messages,
                 model: 'deepseek-chat',
-                max_tokens: 2000, // УВЕЛИЧИВАЕМ для полной обратной связи
+                max_tokens: 2000,
                 temperature: 0.7
             })
         });
