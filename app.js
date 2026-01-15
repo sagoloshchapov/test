@@ -648,7 +648,7 @@ let dailySessionsUsed = 0;
 let lastResetTime = null;
 let isRandomClient = false;
 
-// 1. ИЗМЕНЕНО: Убрали подсказку о типе клиента
+// ИСПРАВЛЕНИЕ 2: Увеличиваем лимит токенов для полной обратной связи
 async function sendPromptToAI() {
     try {
         const clientTypeInfo = isRandomClient ? "случайный тип клиента" : `${selectedClientType}. ${clientTypes[selectedClientType]?.description}`;
@@ -680,7 +680,6 @@ async function sendPromptToAI() {
             content: msg.text
         }));
         
-        // 1. ИЗМЕНЕНО: Если это начало диалога, AI должен отправить первое сообщение
         const messages = chatMessages.length === 0 ? [systemMessage] : [systemMessage, ...messageHistory];
         
         const response = await fetch(EDGE_FUNCTION_URL, {
@@ -692,7 +691,8 @@ async function sendPromptToAI() {
             body: JSON.stringify({
                 messages: messages,
                 model: 'deepseek-chat',
-                max_tokens: 500
+                max_tokens: 2000, // УВЕЛИЧИВАЕМ для полной обратной связи
+                temperature: 0.7
             })
         });
         
@@ -1139,7 +1139,7 @@ function selectClientType(type, isRandom = false) {
         selectedClientType = type;
         isRandomClient = false;
     } else {
-        // 2. ИЗМЕНЕНО: Для случайного клиента не выделяем опцию
+        // Для случайного клиента не выделяем опцию
         selectedClientType = type;
         isRandomClient = true;
     }
@@ -1147,7 +1147,7 @@ function selectClientType(type, isRandom = false) {
     document.getElementById('startTrainingBtn').disabled = false;
     
     if (isRandomClient) {
-        // 2. ИЗМЕНЕНО: Не показываем тип случайного клиента
+        // Не показываем тип случайного клиента
         document.getElementById('scenarioTitle').textContent = 'Случайный клиент';
         document.getElementById('scenarioDescription').textContent = 'Выбран случайный тип клиента. Диалог начнется с сообщения от клиента.';
     } else {
@@ -1207,7 +1207,6 @@ async function startTraining() {
     const chatMessagesDiv = document.getElementById('chatMessages');
     chatMessagesDiv.innerHTML = '';
     
-    // 1. ИЗМЕНЕНО: Убираем поясняющее сообщение
     // Диалог начнется с первого сообщения от AI
     await sendPromptToAI();
     
@@ -1378,7 +1377,7 @@ function extractAIFeedback(aiMessage) {
         }
     }
     
-    return aiMessage.substring(Math.max(0, aiMessage.length - 300)).trim();
+    return aiMessage.substring(Math.max(0, aiMessage.length - 3000)).trim(); // Увеличиваем до 3000 символов
 }
 
 function evaluateDialogue(messages, clientType) {
@@ -2607,6 +2606,7 @@ function loadTrainerInterface() {
     loadTrainerDashboard();
 }
 
+// ИСПРАВЛЕНИЕ 1: Добавляем контейнеры с прокруткой в панели тренера
 async function loadTrainerDashboard() {
     const dashboardContent = document.getElementById('trainerDashboardContent');
     if (!dashboardContent) return;
@@ -2635,11 +2635,12 @@ async function loadTrainerDashboard() {
             </div>
             
             <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
-            <div class="scrollable-container" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto; margin-top: 10px;">
         `;
         
         if (allSessions?.length) {
-            allSessions.slice(0, 10).forEach(session => {
+            // Показываем больше тренировок
+            allSessions.slice(0, 50).forEach(session => {
                 const student = students.find(s => s.id === session.user_id);
                 const clientType = clientTypes[session.client_type];
                 
@@ -2704,7 +2705,7 @@ async function loadAllStudents() {
             </div>
             
             <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
-            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
+            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
         if (students.length > 0) {
@@ -2730,6 +2731,7 @@ async function loadAllStudents() {
                         <div class="vertical-content" id="${groupId}_content">
                 `;
                 
+                // Показываем всех учеников в группе
                 groupStudents.forEach(student => {
                     const studentSessions = allSessions?.filter(s => s.user_id === student.id) || [];
                     const totalScore = studentSessions.reduce((sum, s) => sum + (s.score || 0), 0);
@@ -2855,7 +2857,7 @@ async function searchStudents() {
             </div>
             
             <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
-            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
+            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
         if (filteredStudents.length > 0) {
@@ -2992,7 +2994,7 @@ async function searchSessions() {
             </div>
             
             <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
-            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
+            <div class="scrollable-container" style="max-height: 600px; overflow-y: auto;">
         `;
         
         if (filteredSessions.length > 0) {
@@ -3018,7 +3020,7 @@ async function searchSessions() {
                         <div class="vertical-content" id="${dateId}_content">
                 `;
                 
-                // 3. ИЗМЕНЕНО: Показываем ВСЕ тренировки за выбранный день
+                // Показываем ВСЕ тренировки за выбранный день
                 dateSessions.forEach(session => {
                     const student = students.find(s => s.id === session.user_id);
                     const clientType = clientTypes[session.client_type];
@@ -3094,7 +3096,7 @@ async function viewStudentSessions(studentId, studentName) {
             </div>
             
             <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
-            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
+            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
         if (sessions?.length) {
@@ -3183,12 +3185,13 @@ async function viewStudentChat(studentId, sessionId) {
             messagesContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Нет данных о диалоге</div>';
         }
         
+        // ИСПРАВЛЕНИЕ 2: Увеличиваем отображение полной обратной связи
         if (sessionData.ai_feedback?.trim()) {
             const aiFeedbackContainer = document.createElement('div');
             aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
             aiFeedbackContainer.innerHTML = `
                 <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
-                <div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.4; white-space: pre-wrap;">${sessionData.ai_feedback}</div>
+                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${sessionData.ai_feedback}</div>
             `;
             messagesContainer.appendChild(aiFeedbackContainer);
         }
@@ -3362,12 +3365,13 @@ function viewChatHistory(session) {
         messagesContainer.appendChild(messageDiv);
     });
     
+    // ИСПРАВЛЕНИЕ 2: Увеличиваем отображение полной обратной связи
     if (session.ai_feedback?.trim()) {
         const aiFeedbackContainer = document.createElement('div');
         aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
         aiFeedbackContainer.innerHTML = `
             <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
-            <div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.4; white-space: pre-wrap;">${session.ai_feedback}</div>
+            <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${session.ai_feedback}</div>
         `;
         messagesContainer.appendChild(aiFeedbackContainer);
     }
@@ -3420,6 +3424,7 @@ function formatDuration(seconds) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// ИСПРАВЛЕНИЕ 2: Улучшаем показ полной обратной связи в модальном окне результатов
 function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, aiFeedback = "") {
     document.getElementById('resultTitle').textContent = title;
     document.getElementById('resultIcon').textContent = icon;
@@ -3446,9 +3451,12 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
     const aiFeedbackContent = document.getElementById('aiFeedbackContent');
     
-    if (aiFeedback && aiFeedback.trim().length > 50) {
+    if (aiFeedback && aiFeedback.trim().length > 0) {
         aiFeedbackContent.textContent = aiFeedback;
         aiFeedbackContainer.style.display = 'block';
+        // Увеличиваем высоту для полного отображения
+        aiFeedbackContent.style.maxHeight = '400px';
+        aiFeedbackContent.style.overflowY = 'auto';
     } else {
         aiFeedbackContainer.style.display = 'none';
     }
@@ -3633,7 +3641,7 @@ async function loadTrainerStatistics() {
             </div>
             
             <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
-            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto;">
+            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
         for (const [vertical, stats] of Object.entries(statsByVertical)) {
