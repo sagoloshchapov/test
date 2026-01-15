@@ -705,6 +705,11 @@ async function sendPromptToAI() {
             content: promptContent
         };
         
+        const systemMessage = {
+            role: "system",
+            content: promptContent
+        };
+        
         const messageHistory = chatMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' : 'assistant',
             content: msg.text
