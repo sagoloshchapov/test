@@ -650,15 +650,29 @@ let isRandomClient = false;
 
 async function sendPromptToAI() {
     try {
-        const clientTypeInfo = isRandomClient ? "случайный тип клиента" : `${selectedClientType}. ${clientTypes[selectedClientType]?.description}`;
+        // 1. Получаем информацию о типе клиента
+        const clientType = clientTypes[selectedClientType];
         
-let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
+        // Формируем инструкцию для AI
+        let clientTypeInstruction;
+        if (isRandomClient) {
+            clientTypeInstruction = "Твой тип поведения: СЛУЧАЙНЫЙ (выбери любой из 5 типов самостоятельно)";
+        } else if (clientType) {
+            clientTypeInstruction = `ТИП КЛИЕНТА: ${clientType.name.toUpperCase()}
+ОПИСАНИЕ: ${clientType.description}
+ВАЖНО: Веди себя строго в этом стиле весь диалог!`;
+        } else {
+            clientTypeInstruction = "Тип клиента: стандартный";
+        }
+        
+        // 2. Получаем базовый промпт для вертикали
+        let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
 
 Вертикаль: ${auth.currentUser.group}
-Тип клиента: ${clientTypeInfo}
+${clientTypeInstruction}
 
 Ты должен:
-1. Вести себя соответственно типу клиента (${isRandomClient ? "случайный тип" : selectedClientType})
+1. Вести себя соответственно указанному выше типу клиента
 2. Использовать реалистичные жалобы/вопросы из сферы "${auth.currentUser.group}"
 3. Не упоминать, что это тренировка или симуляция
 4. Реагировать естественно на ответы оператора
@@ -670,53 +684,52 @@ let promptContent = currentPrompt || `Ты играешь роль клиент�
 
 В остальных случаях - просто продолжай диалог как клиент.`;
 
-// 2. ДЛЯ ЛЮБОЙ ВЕРТИКАЛИ: выбираем случайный сценарий
-if (promptContent && promptContent.includes('Сценарий')) {
-    // Разбиваем промпт на строки
-    const lines = promptContent.split('\n');
-    const scenarioLines = [];
-    
-    // Ищем строки со сценариями
-    for (const line of lines) {
-        if (line.includes('Сценарий') || line.match(/^\d+\./) || line.match(/^-\s+Сценарий/) || line.match(/^\*\*Сценарий/)) {
-            scenarioLines.push(line.trim());
+        // 3. ВЫБИРАЕМ СЛУЧАЙНЫЙ СЦЕНАРИЙ для любой вертикали
+        if (promptContent && promptContent.includes('Сценарий')) {
+            // Разбиваем промпт на строки
+            const lines = promptContent.split('\n');
+            const scenarioLines = [];
+            
+            // Ищем строки со сценариями
+            for (const line of lines) {
+                if (line.includes('Сценарий') || line.match(/^\d+\./) || line.match(/^-\s+Сценарий/) || line.match(/^\*\*Сценарий/)) {
+                    scenarioLines.push(line.trim());
+                }
+            }
+            
+            // Если нашли сценарии - выбираем случайный
+            if (scenarioLines.length > 0) {
+                const randomIndex = Math.floor(Math.random() * scenarioLines.length);
+                const chosenScenario = scenarioLines[randomIndex];
+                
+                // Удаляем инструкцию "выбери случайно"
+                promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
+                promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
+                promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
+                
+                // Добавляем выбранный сценарий в начало
+                promptContent = `ВЫБРАННЫЙ СЦЕНАРИЙ ДЛЯ ЭТОГО ДИАЛОГА:\n${chosenScenario}\n\n${promptContent}`;
+            }
         }
-    }
-    
-    // Если нашли сценарии - выбираем случайный
-    if (scenarioLines.length > 0) {
-        const randomIndex = Math.floor(Math.random() * scenarioLines.length);
-        const chosenScenario = scenarioLines[randomIndex];
         
-        // Удаляем инструкцию "выбери случайно" чтобы AI не путался
-        promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
-        promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
-        promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
+        // 4. ОТЛАДКА - можно убрать после проверки
+        console.log("=== ДЕБАГ ===");
+        console.log("Тип клиента:", selectedClientType, isRandomClient ? "(случайный)" : "");
+        console.log("Вертикаль:", auth.currentUser?.group);
+        console.log("Промпт (первые 400 символов):", promptContent.substring(0, 400));
         
-        // Добавляем выбранный сценарий в начало
-        promptContent = `ДЛЯ ЭТОГО ДИАЛОГА ВЫБРАН СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
-    }
-}
-
-// ОТЛАДОЧНЫЙ ВЫВОД
-console.log("=== ДЕБАГ ПРОМПТА ===");
-console.log("currentPrompt загружен?", !!currentPrompt);
-console.log("Вертикаль:", auth.currentUser?.group);
-console.log("Тип клиента:", clientTypeInfo);
-console.log("Промпт (первые 300 символов):", promptContent.substring(0, 300));
-console.log("=========================");
-
-const systemMessage = {
-    role: "system",
-    content: promptContent
-};
+        // 5. Формируем сообщение для AI
+        const systemMessage = {
+            role: "system",
+            content: promptContent
+        };
         
         const messageHistory = chatMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' : 'assistant',
             content: msg.text
         }));
         
-      
+        // Если это начало диалога, AI должен отправить первое сообщение
         const messages = chatMessages.length === 0 ? [systemMessage] : [systemMessage, ...messageHistory];
         
         const response = await fetch(EDGE_FUNCTION_URL, {
