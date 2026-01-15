@@ -780,12 +780,6 @@ ${clientTypeInstruction}
     }
 }
         
-    } catch (error) {
-        console.error('Ошибка:', error);
-        addMessage('ai', 'Извините, произошла ошибка. Попробуйте начать тренировку заново.');
-        resetTrainingState();
-    }
-}
 
 document.addEventListener('DOMContentLoaded', async function() {
     const savedUser = localStorage.getItem('dialogue_currentUser');
