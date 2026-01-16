@@ -4734,5 +4734,3 @@ style.textContent = `
         margin-bottom: 15px;
         line-height: 1.4;
     }
-`;
-document.head.appendChild(style);
