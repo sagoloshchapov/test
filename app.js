@@ -3,10 +3,6 @@ const SUPABASE_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD';
 const EDGE_FUNCTION_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co/functions/v1/rapid-handler';
 
-// Библиотеки для PDF
-let jsPDFLoaded = false;
-let autoTableLoaded = false;
-
 class SupabaseAuth {
     constructor() {
         this.currentUser = null;
@@ -425,7 +421,7 @@ class SupabaseAuth {
             
     async getUserTrainingHistory(userId) {
         try {
-            const sessions = await this.supabaseRequest(`training_sessions?user_id=eq.${userId}&order=date.desc&limit=1000`);
+            const sessions = await this.supabaseRequest(`training_sessions?user_id=eq.${userId}&order=date.desc`);
             return sessions || [];
         } catch (error) {
             console.error('Ошибка получения истории тренировок:', error);
@@ -461,18 +457,10 @@ class SupabaseAuth {
     
     async getAllTrainingSessions(filters = {}) {
         try {
-            let endpoint = 'training_sessions?select=*&order=date.desc&limit=1000';
+            let endpoint = 'training_sessions?select=*&order=date.desc';
             
             if (filters.vertical && filters.vertical !== 'all') {
                 endpoint += `&vertical=eq.${encodeURIComponent(filters.vertical)}`;
-            }
-            
-            if (filters.user_id) {
-                endpoint += `&user_id=eq.${filters.user_id}`;
-            }
-            
-            if (filters.limit) {
-                endpoint = endpoint.replace('limit=1000', `limit=${filters.limit}`);
             }
             
             const sessions = await this.supabaseRequest(endpoint);
@@ -739,6 +727,12 @@ ${clientTypeInstruction}
             promptContent = `${clientTypeInstruction}\n\n${promptContent}`;
         }
         
+        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ ===");
+        console.log("Тип клиента:", isRandomClient ? "Случайный" : selectedClientType);
+        console.log("Вертикаль:", auth.currentUser?.group);
+        console.log("Длина:", promptContent.length, "символов");
+        console.log("Первые 400 символов:", promptContent.substring(0, 400));
+        
         const systemMessage = {
             role: "system",
             content: promptContent
@@ -903,6 +897,9 @@ function loadStudentInterface() {
         </a>
         <a href="javascript:void(0);" onclick="switchTab('history')" class="nav-item" data-tab="history">
             <i class="fas fa-history"></i> История
+        </a>
+        <a href="javascript:void(0);" onclick="switchTab('export')" class="nav-item" data-tab="export">
+            <i class="fas fa-file-export"></i> Экспорт
         </a>
     `;
     
@@ -1181,7 +1178,71 @@ function loadStudentInterface() {
                     </div>
                 </div>
                 
-                <div style="margin-top: 15px;" id="historyList"></div>
+                <div style="margin-top: 15px; max-height: 500px; overflow-y: auto;" id="historyList"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="export-tab">
+            <div class="welcome-section">
+                <div class="section-title">
+                    <i class="fas fa-file-export"></i>
+                    <span>Экспорт данных</span>
+                </div>
+                
+                <p style="margin-bottom: 20px; color: #666; font-size: 14px;">
+                    Вы можете выгрузить свои тренировки и статистику в формате PDF для анализа и отчетности.
+                </p>
+                
+                <div class="export-options">
+                    <div class="export-card">
+                        <div class="export-icon">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <div class="export-content">
+                            <h3>Экспорт диалогов</h3>
+                            <p>Выберите тренировку для экспорта полного диалога в PDF</p>
+                            <div class="export-history" id="exportHistoryList" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                                Загрузка истории...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="export-card">
+                        <div class="export-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="export-content">
+                            <h3>Экспорт статистики</h3>
+                            <p>Создайте полный отчет со всей вашей статистикой и достижениями</p>
+                            <button class="btn btn-primary" onclick="exportStudentStatsToPDF()" style="margin-top: 15px;">
+                                <i class="fas fa-download"></i> Экспортировать всю статистику
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="export-card">
+                        <div class="export-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="export-content">
+                            <h3>Экспорт по периоду</h3>
+                            <p>Выгрузите тренировки за определенный период времени</p>
+                            <div class="period-selector" style="margin-top: 15px;">
+                                <input type="date" id="exportDateFrom" class="form-control" style="margin-bottom: 10px;">
+                                <input type="date" id="exportDateTo" class="form-control" style="margin-bottom: 10px;">
+                                <button class="btn btn-secondary" onclick="exportPeriodStatsToPDF()">
+                                    <i class="fas fa-download"></i> Экспорт периода
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="storage-info" style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Важно:</strong> PDF файлы содержат полную историю диалогов. 
+                    Убедитесь, что вы не разглашаете конфиденциальную информацию.
+                </div>
             </div>
         </div>
     `;
@@ -1195,6 +1256,7 @@ function loadStudentInterface() {
     renderAllAchievements();
     renderHistory();
     renderDynamicNews();
+    loadExportHistory();
 }
 
 function selectClientType(type, isRandom = false) {
@@ -1622,6 +1684,7 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     renderHistory();
     renderProgressChart();
     loadSystemStats();
+    loadExportHistory();
     
     return {
         xp: xpEarned,
@@ -2136,6 +2199,9 @@ function switchTab(tabName) {
             case 'trainer_statistics':
                 loadTrainerStatistics();
                 break;
+            case 'trainer_export':
+                loadTrainerExportTab();
+                break;
         }
     } else {
         switch(tabName) {
@@ -2155,6 +2221,9 @@ function switchTab(tabName) {
                 break;
             case 'history':
                 renderHistory();
+                break;
+            case 'export':
+                loadExportHistory();
                 break;
         }
     }
@@ -2511,14 +2580,9 @@ async function renderHistory() {
                         ${hasTrainerComments ? '<span style="margin-left: 10px; color: #ffc107;"><i class="fas fa-comment"></i> Есть комментарий тренера</span>' : ''}
                         ${hasAIFeedback ? '<span style="margin-left: 10px; color: #667eea;"><i class="fas fa-robot"></i> Есть обратная связь от AI</span>' : ''}
                     </div>
-                    <div>
-                        <button class="view-chat-btn" onclick="event.stopPropagation(); viewChatHistory(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                            <i class="fas fa-comments"></i> Просмотреть чат
-                        </button>
-                        <button class="btn btn-secondary" style="margin-left: 10px; padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); exportChatToPDF(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
-                    </div>
+                    <button class="view-chat-btn" onclick="event.stopPropagation(); viewChatHistory(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-comments"></i> Просмотреть чат
+                    </button>
                 </div>
                 ${item.evaluation ? `<div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #555;">${item.evaluation}</div>` : ''}
             `;
@@ -2561,6 +2625,575 @@ function resetChat() {
     }
 }
 
+// НОВЫЕ ФУНКЦИИ ДЛЯ ЭКСПОРТА PDF
+
+function loadJsPDF() {
+    return new Promise((resolve, reject) => {
+        if (window.jspdf && window.jspdf.jsPDF) {
+            resolve(window.jspdf.jsPDF);
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => {
+            if (window.jspdf && window.jspdf.jsPDF) {
+                resolve(window.jspdf.jsPDF);
+            } else {
+                reject(new Error('jsPDF не загрузился'));
+            }
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+function loadHtml2Canvas() {
+    return new Promise((resolve, reject) => {
+        if (window.html2canvas) {
+            resolve(window.html2canvas);
+            return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';
+        script.onload = () => {
+            if (window.html2canvas) {
+                resolve(window.html2canvas);
+            } else {
+                reject(new Error('html2canvas не загрузился'));
+            }
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+async function exportChatToPDF(session) {
+    try {
+        const { jsPDF } = await loadJsPDF();
+        
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Диалоговый тренажер - История тренировки', margin, 20);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Ученик: ${auth.currentUser.username}`, margin, 30);
+        doc.text(`Вертикаль: ${session.vertical || auth.currentUser.group || '-'}`, margin, 35);
+        doc.text(`Тип клиента: ${clientTypes[session.clientType]?.name || session.clientType || '-'}`, margin, 40);
+        doc.text(`Дата: ${formatDate(session.date)}`, margin, 45);
+        doc.text(`Оценка: ${session.score}/5`, margin, 50);
+        doc.text(`Продолжительность: ${formatDuration(session.duration)}`, margin, 55);
+        
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 60, pageWidth - margin, 60);
+        
+        let yPos = 70;
+        let messages = session.messages || [];
+        
+        if (typeof messages === 'string') {
+            try {
+                messages = JSON.parse(messages);
+            } catch {
+                messages = [];
+            }
+        }
+        
+        if (messages.length === 0) {
+            doc.setFontSize(12);
+            doc.text('Нет данных о диалоге', margin, yPos);
+        } else {
+            doc.setFontSize(11);
+            messages.forEach((msg, index) => {
+                const sender = msg.sender === 'user' ? 'Оператор' : 'Клиент';
+                const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('ru-RU', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                }) : '';
+                
+                const text = `${sender} (${time}): ${msg.text}`;
+                const lines = doc.splitTextToSize(text, pageWidth - 2 * margin);
+                
+                if (yPos + lines.length * 5 > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin + 10;
+                }
+                
+                if (msg.sender === 'user') {
+                    doc.setFillColor(240, 242, 245);
+                    doc.rect(margin, yPos - 4, pageWidth - 2 * margin, lines.length * 5 + 2, 'F');
+                    doc.setTextColor(0, 0, 0);
+                } else {
+                    doc.setFillColor(74, 100, 145, 20);
+                    doc.rect(margin, yPos - 4, pageWidth - 2 * margin, lines.length * 5 + 2, 'F');
+                    doc.setTextColor(44, 62, 80);
+                }
+                
+                doc.text(lines, margin + 2, yPos);
+                yPos += lines.length * 5 + 6;
+            });
+        }
+        
+        if (session.ai_feedback) {
+            yPos += 10;
+            
+            if (yPos > pageHeight - 50) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('Обратная связь от AI:', margin, yPos);
+            yPos += 7;
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            const feedbackLines = doc.splitTextToSize(session.ai_feedback, pageWidth - 2 * margin);
+            doc.text(feedbackLines, margin, yPos);
+            yPos += feedbackLines.length * 5 + 10;
+        }
+        
+        if (session.trainer_comments && session.trainer_comments.length > 0) {
+            if (yPos > pageHeight - 50) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Комментарии тренера:', margin, yPos);
+            yPos += 7;
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            
+            session.trainer_comments.forEach(comment => {
+                const commentText = `${comment.trainer} (${formatDate(comment.date)}): ${comment.comment}`;
+                const commentLines = doc.splitTextToSize(commentText, pageWidth - 2 * margin);
+                
+                if (yPos + commentLines.length * 5 > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                doc.setFillColor(255, 243, 205);
+                doc.rect(margin, yPos - 4, pageWidth - 2 * margin, commentLines.length * 5 + 2, 'F');
+                doc.text(commentLines, margin + 2, yPos);
+                yPos += commentLines.length * 5 + 6;
+            });
+        }
+        
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(
+                `Страница ${i} из ${totalPages} • Сгенерировано ${new Date().toLocaleDateString('ru-RU')} • Диалоговый тренажер`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
+            );
+        }
+        
+        const fileName = `Диалог_${auth.currentUser.username}_${formatDate(session.date, true)}.pdf`;
+        doc.save(fileName);
+        
+        return true;
+    } catch (error) {
+        console.error('Ошибка экспорта в PDF:', error);
+        alert('Ошибка при создании PDF файла: ' + error.message);
+        return false;
+    }
+}
+
+async function exportStudentStatsToPDF() {
+    if (!auth.currentUser) return;
+    
+    try {
+        const { jsPDF } = await loadJsPDF();
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        
+        const userStats = auth.currentUser.stats;
+        const history = userStats.trainingHistory || [];
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Статистика тренировок', margin, 25);
+        
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Ученик: ${auth.currentUser.username}`, margin, 35);
+        doc.text(`Вертикаль: ${auth.currentUser.group || '-'}`, margin, 40);
+        doc.text(`Уровень: ${userStats.currentLevel || 1}`, margin, 45);
+        doc.text(`Общий опыт: ${userStats.totalXP || 0} XP`, margin, 50);
+        doc.text(`Количество тренировок: ${userStats.completedSessions || 0}`, margin, 55);
+        doc.text(`Средний балл: ${(userStats.averageScore || 0).toFixed(1)}/5`, margin, 60);
+        doc.text(`Текущая серия: ${userStats.currentStreak || 0} дней`, margin, 65);
+        
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 70, pageWidth - margin, 70);
+        
+        let yPos = 80;
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Статистика по типам клиентов:', margin, yPos);
+        yPos += 10;
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        
+        if (userStats.clientTypesCompleted) {
+            const clientTypesData = Object.entries(userStats.clientTypesCompleted);
+            const colWidth = (pageWidth - 2 * margin - 30) / 4;
+            
+            doc.setFillColor(44, 62, 80);
+            doc.setTextColor(255, 255, 255);
+            doc.rect(margin, yPos - 4, pageWidth - 2 * margin, 8, 'F');
+            doc.text('Тип клиента', margin + 5, yPos);
+            doc.text('Тренировок', margin + colWidth, yPos);
+            doc.text('Средний балл', margin + colWidth * 2, yPos);
+            doc.text('Опыт', margin + colWidth * 3, yPos);
+            yPos += 10;
+            
+            doc.setTextColor(0, 0, 0);
+            clientTypesData.forEach(([type, stats], index) => {
+                if (yPos > 250) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                const clientType = clientTypes[type];
+                const typeName = clientType ? clientType.name : type;
+                const sessions = stats.sessions || 0;
+                const avgScore = stats.avgScore ? stats.avgScore.toFixed(1) : '0.0';
+                const totalXP = stats.totalXP || 0;
+                
+                if (index % 2 === 0) {
+                    doc.setFillColor(248, 249, 250);
+                    doc.rect(margin, yPos - 4, pageWidth - 2 * margin, 8, 'F');
+                }
+                
+                doc.text(typeName, margin + 5, yPos);
+                doc.text(sessions.toString(), margin + colWidth, yPos);
+                doc.text(avgScore, margin + colWidth * 2, yPos);
+                doc.text(totalXP.toString(), margin + colWidth * 3, yPos);
+                
+                yPos += 8;
+            });
+        }
+        
+        yPos += 10;
+        if (yPos > 220) {
+            doc.addPage();
+            yPos = margin;
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Последние тренировки:', margin, yPos);
+        yPos += 10;
+        
+        if (history.length > 0) {
+            const recentHistory = history.slice(0, 20);
+            
+            doc.setFontSize(8);
+            recentHistory.forEach((session, index) => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                const sessionText = `${formatDate(session.date, true)} - ${clientTypes[session.clientType]?.name || session.clientType || 'Тренировка'} - ${session.score}/5 - +${session.xp} XP`;
+                
+                if (index % 2 === 0) {
+                    doc.setFillColor(248, 249, 250);
+                    doc.rect(margin, yPos - 3, pageWidth - 2 * margin, 5, 'F');
+                }
+                
+                doc.text(sessionText, margin + 2, yPos);
+                yPos += 5;
+            });
+        } else {
+            doc.setFontSize(10);
+            doc.text('Нет данных о тренировках', margin, yPos);
+        }
+        
+        yPos += 15;
+        if (yPos > 240) {
+            doc.addPage();
+            yPos = margin;
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Полученные достижения:', margin, yPos);
+        yPos += 10;
+        
+        const earnedAchievements = achievements.filter(ach => 
+            userStats.achievementsUnlocked?.includes(ach.id)
+        );
+        
+        if (earnedAchievements.length > 0) {
+            doc.setFontSize(9);
+            earnedAchievements.forEach((achievement, index) => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                const achievementText = `${achievement.icon} ${achievement.name}: ${achievement.description}`;
+                doc.text(achievementText, margin, yPos);
+                yPos += 6;
+            });
+        } else {
+            doc.setFontSize(10);
+            doc.text('Пока нет достижений', margin, yPos);
+        }
+        
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(
+                `Отчет сгенерирован ${new Date().toLocaleDateString('ru-RU')} • Страница ${i} из ${totalPages}`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
+            );
+        }
+        
+        const fileName = `Статистика_${auth.currentUser.username}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
+        doc.save(fileName);
+        
+        return true;
+    } catch (error) {
+        console.error('Ошибка экспорта статистики:', error);
+        alert('Ошибка при создании PDF файла: ' + error.message);
+        return false;
+    }
+}
+
+async function exportPeriodStatsToPDF() {
+    if (!auth.currentUser) return;
+    
+    const dateFrom = document.getElementById('exportDateFrom').value;
+    const dateTo = document.getElementById('exportDateTo').value;
+    
+    if (!dateFrom || !dateTo) {
+        alert('Укажите период для экспорта');
+        return;
+    }
+    
+    try {
+        const { jsPDF } = await loadJsPDF();
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        
+        const userStats = auth.currentUser.stats;
+        const history = userStats.trainingHistory || [];
+        
+        const fromDate = new Date(dateFrom);
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        
+        const periodHistory = history.filter(session => {
+            const sessionDate = new Date(session.date);
+            return sessionDate >= fromDate && sessionDate <= toDate;
+        });
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Отчет по периоду', margin, 25);
+        
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Ученик: ${auth.currentUser.username}`, margin, 35);
+        doc.text(`Вертикаль: ${auth.currentUser.group || '-'}`, margin, 40);
+        doc.text(`Период: ${formatDate(dateFrom, true)} - ${formatDate(dateTo, true)}`, margin, 45);
+        doc.text(`Тренировок за период: ${periodHistory.length}`, margin, 50);
+        
+        if (periodHistory.length > 0) {
+            const totalScore = periodHistory.reduce((sum, session) => sum + (session.score || 0), 0);
+            const avgScore = periodHistory.length > 0 ? (totalScore / periodHistory.length).toFixed(1) : '0.0';
+            const totalXP = periodHistory.reduce((sum, session) => sum + (session.xp || 0), 0);
+            
+            doc.text(`Средний балл за период: ${avgScore}/5`, margin, 55);
+            doc.text(`Общий опыт за период: ${totalXP} XP`, margin, 60);
+        }
+        
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 65, pageWidth - margin, 65);
+        
+        let yPos = 75;
+        
+        if (periodHistory.length > 0) {
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Тренировки за период:', margin, yPos);
+            yPos += 10;
+            
+            doc.setFontSize(8);
+            periodHistory.forEach((session, index) => {
+                if (yPos > 250) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                const sessionText = `${formatDate(session.date, true)} - ${clientTypes[session.clientType]?.name || session.clientType || 'Тренировка'} - ${session.score}/5 - +${session.xp} XP`;
+                
+                if (index % 2 === 0) {
+                    doc.setFillColor(248, 249, 250);
+                    doc.rect(margin, yPos - 3, pageWidth - 2 * margin, 5, 'F');
+                }
+                
+                doc.text(sessionText, margin + 2, yPos);
+                yPos += 5;
+            });
+        } else {
+            doc.setFontSize(12);
+            doc.text('Нет тренировок за выбранный период', margin, yPos);
+        }
+        
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(
+                `Отчет по периоду • Страница ${i} из ${totalPages}`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
+            );
+        }
+        
+        const fileName = `Отчет_${auth.currentUser.username}_${formatDate(dateFrom, true)}_${formatDate(dateTo, true)}.pdf`;
+        doc.save(fileName);
+        
+        return true;
+    } catch (error) {
+        console.error('Ошибка экспорта периода:', error);
+        alert('Ошибка при создании PDF файла: ' + error.message);
+        return false;
+    }
+}
+
+async function loadExportHistory() {
+    if (!auth.currentUser) return;
+    
+    const exportHistoryList = document.getElementById('exportHistoryList');
+    if (!exportHistoryList) return;
+    
+    exportHistoryList.innerHTML = '<div style="text-align: center; padding: 10px; color: #666;">Загрузка истории...</div>';
+    
+    try {
+        const dbHistory = await auth.getUserTrainingHistory(auth.currentUser.id);
+        const localHistory = auth.currentUser.stats.trainingHistory || [];
+        
+        const historyMap = new Map();
+        
+        dbHistory.forEach(session => {
+            const sessionDate = new Date(session.date);
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            
+            if (sessionDate >= oneMonthAgo) {
+                historyMap.set(session.date, {
+                    id: session.id,
+                    date: session.date,
+                    scenario: session.scenario || "Тренировка",
+                    score: session.score || 0,
+                    xp: session.xp_earned || 0,
+                    clientType: session.client_type,
+                    evaluation: session.evaluation,
+                    duration: session.duration,
+                    vertical: session.vertical,
+                    messages: session.messages || [],
+                    trainer_comments: session.trainer_comments || [],
+                    prompt_used: session.prompt_used || "",
+                    ai_feedback: session.ai_feedback || "",
+                    icon: clientTypes[session.client_type]?.icon || "🎯"
+                });
+            }
+        });
+        
+        localHistory.forEach(session => {
+            if (!historyMap.has(session.date)) {
+                const sessionDate = new Date(session.date);
+                const oneMonthAgo = new Date();
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                
+                if (sessionDate >= oneMonthAgo) {
+                    historyMap.set(session.date, session);
+                }
+            }
+        });
+        
+        let history = Array.from(historyMap.values());
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        exportHistoryList.innerHTML = '';
+        
+        if (history.length === 0) {
+            exportHistoryList.innerHTML = '<div style="text-align: center; padding: 10px; color: #666;">Нет данных о тренировках</div>';
+            return;
+        }
+        
+        history.forEach(item => {
+            const clientType = clientTypes[item.clientType];
+            const exportItem = document.createElement('div');
+            exportItem.className = 'export-history-item';
+            exportItem.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${clientType ? clientType.name : 'Тренировка'}</strong>
+                        <div style="font-size: 11px; color: #666;">${formatDate(item.date)} • ${item.score}/5</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="exportChatToPDF(${JSON.stringify(item).replace(/"/g, '&quot;')})" style="padding: 4px 8px; font-size: 11px;">
+                        <i class="fas fa-download"></i> PDF
+                    </button>
+                </div>
+            `;
+            exportHistoryList.appendChild(exportItem);
+        });
+    } catch (error) {
+        console.error('Ошибка загрузки истории для экспорта:', error);
+        exportHistoryList.innerHTML = '<div style="text-align: center; padding: 10px; color: #dc3545;">Ошибка загрузки</div>';
+    }
+}
+
+function formatDate(dateString, short = false) {
+    const date = new Date(dateString);
+    if (short) {
+        return date.toLocaleDateString('ru-RU');
+    }
+    return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function loadTrainerInterface() {
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.querySelector('.main-content');
@@ -2578,8 +3211,8 @@ function loadTrainerInterface() {
         <a href="javascript:void(0);" onclick="switchTab('trainer_statistics')" class="nav-item" data-tab="trainer_statistics">
             <i class="fas fa-chart-bar"></i> Статистика
         </a>
-        <a href="javascript:void(0);" onclick="switchTab('trainer_reports')" class="nav-item" data-tab="trainer_reports">
-            <i class="fas fa-file-export"></i> Отчеты
+        <a href="javascript:void(0);" onclick="switchTab('trainer_export')" class="nav-item" data-tab="trainer_export">
+            <i class="fas fa-file-export"></i> Экспорт отчетов
         </a>
     `;
     
@@ -2614,7 +3247,7 @@ function loadTrainerInterface() {
                     </button>
                 </div>
                 
-                <div id="trainerStudentsContent">
+                <div id="trainerStudentsContent" style="max-height: 600px; overflow-y: auto;">
                     <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
                         Загрузка списка учеников...
                     </p>
@@ -2655,7 +3288,7 @@ function loadTrainerInterface() {
                     </button>
                 </div>
                 
-                <div id="trainerSessionsContent">
+                <div id="trainerSessionsContent" style="max-height: 600px; overflow-y: auto;">
                     <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
                         Загрузка всех тренировок...
                     </p>
@@ -2669,7 +3302,7 @@ function loadTrainerInterface() {
                     <i class="fas fa-chart-bar"></i>
                     <span>Статистика по системе</span>
                 </div>
-                <div id="trainerStatisticsContent">
+                <div id="trainerStatisticsContent" style="max-height: 600px; overflow-y: auto;">
                     <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
                         Загрузка статистики...
                     </p>
@@ -2677,35 +3310,81 @@ function loadTrainerInterface() {
             </div>
         </div>
 
-        <div class="tab-content" id="trainer_reports-tab">
+        <div class="tab-content" id="trainer_export-tab">
             <div class="welcome-section">
                 <div class="section-title">
                     <i class="fas fa-file-export"></i>
-                    <span>Выгрузка отчетов</span>
+                    <span>Экспорт отчетов (Тренер)</span>
                 </div>
                 
-                <div class="reports-section">
-                    <div class="report-options">
-                        <div class="report-card">
-                            <div class="report-icon">
-                                <i class="fas fa-file-pdf"></i>
-                            </div>
-                            <h3>Выгрузка статистики</h3>
-                            <p>Настраиваемые отчеты для планерок и анализа</p>
-                            <button class="btn btn-primary" onclick="openStatisticsReportModal()">
-                                Создать отчет
-                            </button>
+                <p style="margin-bottom: 20px; color: #666; font-size: 14px;">
+                    Экспортируйте данные учеников, статистику и отчеты в формате PDF.
+                </p>
+                
+                <div class="trainer-export-options">
+                    <div class="export-card">
+                        <div class="export-icon">
+                            <i class="fas fa-user-graduate"></i>
                         </div>
-                        
-                        <div class="report-card">
-                            <div class="report-icon">
-                                <i class="fas fa-users"></i>
+                        <div class="export-content">
+                            <h3>Экспорт ученика</h3>
+                            <p>Выберите ученика для экспорта всех его тренировок и статистики</p>
+                            <select id="trainerStudentSelect" class="form-control" style="margin-top: 10px;" onchange="loadStudentSessionsForExport()">
+                                <option value="">Выберите ученика...</option>
+                            </select>
+                            <div id="studentSessionsForExport" style="margin-top: 10px; max-height: 300px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="export-card">
+                        <div class="export-icon">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div class="export-content">
+                            <h3>Статистика по вертикалям</h3>
+                            <p>Создайте отчет по успеваемости по вертикалям</p>
+                            <div class="export-filters" style="margin-top: 10px;">
+                                <select id="verticalSelect" class="form-control" style="margin-bottom: 10px;">
+                                    <option value="all">Все вертикали</option>
+                                    <option value="Программа лояльности">Лояльность</option>
+                                    <option value="ОПК">ОПК</option>
+                                    <option value="Фудтех">Фудтех</option>
+                                    <option value="Маркет">Маркет</option>
+                                    <option value="Аптека">Аптека</option>
+                                    <option value="Сборка">Сборка</option>
+                                </select>
+                                <input type="date" id="verticalDateFrom" class="form-control" style="margin-bottom: 10px;" placeholder="Дата от">
+                                <input type="date" id="verticalDateTo" class="form-control" style="margin-bottom: 10px;" placeholder="Дата до">
+                                <button class="btn btn-primary" onclick="exportVerticalStatsToPDF()">
+                                    <i class="fas fa-download"></i> Экспорт статистики
+                                </button>
                             </div>
-                            <h3>Отчет по ученикам</h3>
-                            <p>Детальная статистика по ученикам с фильтрами</p>
-                            <button class="btn btn-primary" onclick="openStudentsReportModal()">
-                                Создать отчет
-                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="export-card">
+                        <div class="export-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="export-content">
+                            <h3>Общая статистика</h3>
+                            <p>Полный отчет по системе за выбранный период</p>
+                            <div class="export-filters" style="margin-top: 10px;">
+                                <input type="date" id="systemDateFrom" class="form-control" style="margin-bottom: 10px;" placeholder="Дата от">
+                                <input type="date" id="systemDateTo" class="form-control" style="margin-bottom: 10px;" placeholder="Дата до">
+                                <select id="systemVerticalFilter" class="form-control" style="margin-bottom: 10px;">
+                                    <option value="all">Все вертикали</option>
+                                    <option value="Программа лояльности">Лояльность</option>
+                                    <option value="ОПК">ОПК</option>
+                                    <option value="Фудтех">Фудтех</option>
+                                    <option value="Маркет">Маркет</option>
+                                    <option value="Аптека">Аптека</option>
+                                    <option value="Сборка">Сборка</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="exportSystemStatsToPDF()">
+                                    <i class="fas fa-download"></i> Экспорт общего отчета
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2714,2021 +3393,685 @@ function loadTrainerInterface() {
     `;
     
     loadTrainerDashboard();
+    loadTrainerExportTab();
 }
 
-async function loadTrainerDashboard() {
-    const dashboardContent = document.getElementById('trainerDashboardContent');
-    if (!dashboardContent) return;
-    
-    dashboardContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка данных о студентах...</p>';
-    
+// Функции для тренерского экспорта
+async function loadTrainerExportTab() {
     try {
         const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        const studentSelect = document.getElementById('trainerStudentSelect');
+        
+        if (studentSelect) {
+            studentSelect.innerHTML = '<option value="">Выберите ученика...</option>';
+            students.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = `${student.username} (${student.group_name || 'Без вертикали'})`;
+                studentSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки учеников для экспорта:', error);
+    }
+}
+
+async function loadStudentSessionsForExport() {
+    const studentId = document.getElementById('trainerStudentSelect').value;
+    if (!studentId) return;
+    
+    const container = document.getElementById('studentSessionsForExport');
+    container.innerHTML = '<div style="text-align: center; padding: 10px; color: #666;">Загрузка тренировок...</div>';
+    
+    try {
+        const sessions = await auth.supabaseRequest(`training_sessions?user_id=eq.${studentId}&order=date.desc`);
+        const student = await auth.supabaseRequest(`users?id=eq.${studentId}`);
+        const studentName = student?.[0] ? student[0].username : 'Студент';
+        
+        if (!sessions?.length) {
+            container.innerHTML = '<div style="text-align: center; padding: 10px; color: #666;">У ученика нет тренировок</div>';
+            return;
+        }
         
         let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${students.length}</div>
-                    <div class="label">Всего учеников</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${allSessions?.length || 0}</div>
-                    <div class="label">Всего тренировок</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-history"></i>
-                <span>Последние тренировки</span>
-                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportAllSessionsPDF()">
-                    <i class="fas fa-file-pdf"></i> Выгрузить все
+            <div style="margin-bottom: 10px;">
+                <strong>${studentName}</strong>
+                <button class="btn btn-primary" onclick="exportAllStudentSessions('${studentId}', '${studentName}')" style="margin-left: 10px; padding: 4px 8px; font-size: 11px;">
+                    <i class="fas fa-download"></i> Экспорт всех тренировок
                 </button>
             </div>
-            
-            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto; margin-top: 10px;">
         `;
         
-        if (allSessions?.length) {
-            const recentSessions = allSessions.slice(0, 50);
-            
-            recentSessions.forEach(session => {
-                const student = students.find(s => s.id === session.user_id);
-                const clientType = clientTypes[session.client_type];
-                
-                html += `
-                    <div class="student-item">
-                        <div class="student-info">
-                            <div class="student-name">${student ? student.username : 'Неизвестный ученик'}</div>
-                            <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
-                            <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
+        sessions.forEach(session => {
+            const clientType = clientTypes[session.client_type];
+            html += `
+                <div class="export-history-item" style="margin-bottom: 5px; padding: 8px; background: #f8f9fa; border-radius: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 12px;"><strong>${clientType ? clientType.name : session.client_type || 'Тренировка'}</strong></div>
+                            <div style="font-size: 10px; color: #666;">${formatDate(session.date)} • ${session.score || 0}/5</div>
                         </div>
-                        <div class="student-stats">
-                            <div class="stat-badge">${session.score}/5</div>
-                            <div class="stat-badge">${formatDate(session.date)}</div>
-                        </div>
-                        <div class="trainer-actions">
-                            <button class="view-chat-btn-trainer" onclick="viewStudentChat('${session.user_id}', '${session.id}')">
+                        <div>
+                            <button class="btn btn-secondary" onclick="exportStudentChatToPDF('${studentId}', '${session.id}', '${studentName}')" style="padding: 3px 6px; font-size: 10px; margin-right: 5px;">
                                 <i class="fas fa-comments"></i> Чат
                             </button>
-                            <button class="comment-btn" onclick="openCommentModal('${session.user_id}', '${session.id}', '${student ? student.username : 'Неизвестный'}')">
-                                <i class="fas fa-comment"></i> Комментарий
-                            </button>
-                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportSessionPDF('${session.id}')">
-                                <i class="fas fa-file-pdf"></i> PDF
-                            </button>
                         </div>
                     </div>
-                `;
-            });
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
-        }
-        
-        html += `</div>`;
-        
-        dashboardContent.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Ошибка загрузки дашборда:', error);
-        dashboardContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
-    }
-}
-
-async function loadAllStudents() {
-    const studentsContent = document.getElementById('trainerStudentsContent');
-    if (!studentsContent) return;
-    
-    studentsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка списка учеников...</p>';
-    
-    try {
-        const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
-        
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${students.length}</div>
-                    <div class="label">Всего учеников</div>
                 </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-users"></i>
-                <span>Все ученики</span>
-                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportStudentsReport()">
-                    <i class="fas fa-file-pdf"></i> Выгрузить отчет
-                </button>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
-        `;
+            `;
+        });
         
-        if (students.length > 0) {
-            const studentsByGroup = {};
-            students.forEach(student => {
-                const group = student.group_name || 'Без вертикали';
-                if (!studentsByGroup[group]) studentsByGroup[group] = [];
-                studentsByGroup[group].push(student);
-            });
-            
-            for (const [group, groupStudents] of Object.entries(studentsByGroup)) {
-                const groupId = `group_${group.replace(/\s+/g, '_')}`;
-                html += `
-                    <div class="vertical-group" id="${groupId}">
-                        <div class="vertical-header" onclick="toggleVerticalGroup('${groupId}')">
-                            <div>
-                                <i class="fas fa-building"></i>
-                                <span>${group}</span>
-                                <span class="vertical-count">${groupStudents.length}</span>
-                            </div>
-                            <div class="toggle-icon">▼</div>
-                        </div>
-                        <div class="vertical-content" id="${groupId}_content">
-                `;
-                
-                groupStudents.forEach(student => {
-                    const studentSessions = allSessions?.filter(s => s.user_id === student.id) || [];
-                    const totalScore = studentSessions.reduce((sum, s) => sum + (s.score || 0), 0);
-                    const avgScore = studentSessions.length > 0 ? (totalScore / studentSessions.length).toFixed(1) : '0.0';
-                    
-                    html += `
-                        <div class="student-item">
-                            <div class="student-info">
-                                <div class="student-name">${student.username}</div>
-                                <div class="student-group">${student.group_name || 'Без вертикали'}</div>
-                            </div>
-                            <div class="student-stats">
-                                <div class="stat-badge">${studentSessions.length} тренировок</div>
-                                <div class="stat-badge">Средний: ${avgScore}/5</div>
-                                <div class="stat-badge">Уровень: ${student.stats?.currentLevel || 1}</div>
-                            </div>
-                            <div class="trainer-actions">
-                                <button class="view-chat-btn-trainer" onclick="viewStudentSessions('${student.id}', '${student.username}')">
-                                    <i class="fas fa-history"></i> Тренировки
-                                </button>
-                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportStudentSessionsPDF('${student.id}', '${student.username}')">
-                                    <i class="fas fa-file-pdf"></i> PDF
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += `
-                        </div>
-                    </div>
-                `;
-            }
-            
-            const firstGroup = Object.keys(studentsByGroup)[0];
-            if (firstGroup) {
-                setTimeout(() => toggleVerticalGroup(`group_${firstGroup.replace(/\s+/g, '_')}`, true), 100);
-            }
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
-        }
-        
-        html += `</div>`;
-        
-        studentsContent.innerHTML = html;
-        
+        container.innerHTML = html;
     } catch (error) {
-        console.error('Ошибка загрузки учеников:', error);
-        studentsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
+        console.error('Ошибка загрузки тренировок ученика:', error);
+        container.innerHTML = '<div style="text-align: center; padding: 10px; color: #dc3545;">Ошибка загрузки</div>';
     }
 }
 
-async function searchStudents() {
-    const searchInput = document.getElementById('studentSearchInput');
-    const dateFrom = document.getElementById('studentDateFrom');
-    const dateTo = document.getElementById('studentDateTo');
-    
-    if (!searchInput) return;
-    
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    
-    const studentsContent = document.getElementById('trainerStudentsContent');
-    if (!studentsContent) return;
-    
-    studentsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Поиск учеников...</p>';
-    
+async function exportStudentChatToPDF(studentId, sessionId, studentName) {
     try {
-        const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        const session = await auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
+        if (!session?.length) {
+            alert('Сессия не найдена');
+            return false;
+        }
         
-        let filteredStudents = students;
+        const sessionData = session[0];
+        const student = await auth.supabaseRequest(`users?id=eq.${studentId}`);
+        const studentData = student?.[0] || {};
         
-        if (searchTerm) {
-            filteredStudents = students.filter(student => 
-                student.username.toLowerCase().includes(searchTerm) ||
-                (student.group_name && student.group_name.toLowerCase().includes(searchTerm))
+        const { jsPDF } = await loadJsPDF();
+        
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Диалоговый тренажер - Просмотр тренера', margin, 20);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Ученик: ${studentName}`, margin, 30);
+        doc.text(`Вертикаль: ${sessionData.vertical || studentData.group_name || '-'}`, margin, 35);
+        doc.text(`Тип клиента: ${clientTypes[sessionData.client_type]?.name || sessionData.client_type || '-'}`, margin, 40);
+        doc.text(`Дата: ${formatDate(sessionData.date)}`, margin, 45);
+        doc.text(`Оценка: ${sessionData.score || 0}/5`, margin, 50);
+        doc.text(`ID сессии: ${sessionId}`, margin, 55);
+        
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 60, pageWidth - margin, 60);
+        
+        let yPos = 70;
+        let messages = [];
+        
+        if (sessionData.messages) {
+            if (Array.isArray(sessionData.messages)) {
+                messages = sessionData.messages;
+            } else if (typeof sessionData.messages === 'string') {
+                try {
+                    messages = JSON.parse(sessionData.messages);
+                } catch {
+                    messages = [];
+                }
+            }
+        }
+        
+        if (messages.length > 0) {
+            doc.setFontSize(11);
+            messages.forEach((msg, index) => {
+                const sender = msg.sender === 'user' ? 'Оператор' : 'Клиент';
+                const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('ru-RU', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                }) : '';
+                
+                const text = `${sender} (${time}): ${msg.text}`;
+                const lines = doc.splitTextToSize(text, pageWidth - 2 * margin);
+                
+                if (yPos + lines.length * 5 > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin + 10;
+                }
+                
+                if (msg.sender === 'user') {
+                    doc.setFillColor(240, 242, 245);
+                    doc.rect(margin, yPos - 4, pageWidth - 2 * margin, lines.length * 5 + 2, 'F');
+                    doc.setTextColor(0, 0, 0);
+                } else {
+                    doc.setFillColor(74, 100, 145, 20);
+                    doc.rect(margin, yPos - 4, pageWidth - 2 * margin, lines.length * 5 + 2, 'F');
+                    doc.setTextColor(44, 62, 80);
+                }
+                
+                doc.text(lines, margin + 2, yPos);
+                yPos += lines.length * 5 + 6;
+            });
+        } else {
+            doc.setFontSize(12);
+            doc.text('Нет данных о диалоге', margin, yPos);
+            yPos += 10;
+        }
+        
+        if (sessionData.ai_feedback) {
+            yPos += 10;
+            
+            if (yPos > pageHeight - 50) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Обратная связь от AI:', margin, yPos);
+            yPos += 7;
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            const feedbackLines = doc.splitTextToSize(sessionData.ai_feedback, pageWidth - 2 * margin);
+            doc.text(feedbackLines, margin, yPos);
+            yPos += feedbackLines.length * 5 + 10;
+        }
+        
+        if (sessionData.trainer_comments && sessionData.trainer_comments.length > 0) {
+            if (yPos > pageHeight - 50) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Комментарии тренера:', margin, yPos);
+            yPos += 7;
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            
+            sessionData.trainer_comments.forEach(comment => {
+                const commentText = `${comment.trainer} (${formatDate(comment.date)}): ${comment.comment}`;
+                const commentLines = doc.splitTextToSize(commentText, pageWidth - 2 * margin);
+                
+                if (yPos + commentLines.length * 5 > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                doc.setFillColor(255, 243, 205);
+                doc.rect(margin, yPos - 4, pageWidth - 2 * margin, commentLines.length * 5 + 2, 'F');
+                doc.text(commentLines, margin + 2, yPos);
+                yPos += commentLines.length * 5 + 6;
+            });
+        }
+        
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(
+                `Экспорт тренера: ${auth.currentUser.username} • Страница ${i} из ${totalPages} • ${new Date().toLocaleDateString('ru-RU')}`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
             );
         }
         
-        if (dateFrom.value || dateTo.value) {
-            filteredStudents = filteredStudents.filter(student => {
-                if (!student.stats) return true;
-                
-                try {
-                    const stats = typeof student.stats === 'string' ? 
-                        JSON.parse(student.stats) : student.stats;
-                    
-                    if (!stats.registrationDate) return true;
-                    
-                    const regDate = new Date(stats.registrationDate);
-                    const fromDate = dateFrom.value ? new Date(dateFrom.value) : null;
-                    const toDate = dateTo.value ? new Date(dateTo.value) : null;
-                    
-                    if (fromDate && regDate < fromDate) return false;
-                    if (toDate && regDate > toDate) return false;
-                    
-                    return true;
-                } catch {
-                    return true;
-                }
-            });
-        }
+        const fileName = `Чат_${studentName}_${formatDate(sessionData.date, true)}_тренер.pdf`;
+        doc.save(fileName);
         
-        const studentsByGroup = {};
-        filteredStudents.forEach(student => {
-            const group = student.group_name || 'Без вертикали';
-            if (!studentsByGroup[group]) {
-                studentsByGroup[group] = [];
-            }
-            studentsByGroup[group].push(student);
-        });
-        
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${filteredStudents.length}</div>
-                    <div class="label">Найдено учеников</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-users"></i>
-                <span>Результаты поиска</span>
-                ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
-        `;
-        
-        if (filteredStudents.length > 0) {
-            for (const [group, groupStudents] of Object.entries(studentsByGroup)) {
-                const groupId = `group_${group.replace(/\s+/g, '_')}_search`;
-                html += `
-                    <div class="vertical-group" id="${groupId}">
-                        <div class="vertical-header" onclick="toggleVerticalGroup('${groupId}')">
-                            <div>
-                                <i class="fas fa-building"></i>
-                                <span>${group}</span>
-                                <span class="vertical-count">${groupStudents.length}</span>
-                            </div>
-                            <div class="toggle-icon">▼</div>
-                        </div>
-                        <div class="vertical-content" id="${groupId}_content">
-                `;
-                
-                groupStudents.forEach(student => {
-                    const studentSessions = allSessions?.filter(s => s.user_id === student.id) || [];
-                    const totalScore = studentSessions.reduce((sum, s) => sum + (s.score || 0), 0);
-                    const avgScore = studentSessions.length > 0 ? (totalScore / studentSessions.length).toFixed(1) : '0.0';
-                    
-                    html += `
-                        <div class="student-item">
-                            <div class="student-info">
-                                <div class="student-name">${student.username}</div>
-                                <div class="student-group">${student.group_name || 'Без вертикали'}</div>
-                            </div>
-                            <div class="student-stats">
-                                <div class="stat-badge">${studentSessions.length} тренировок</div>
-                                <div class="stat-badge">Средний: ${avgScore}/5</div>
-                                <div class="stat-badge">Уровень: ${student.stats?.currentLevel || 1}</div>
-                            </div>
-                            <div class="trainer-actions">
-                                <button class="view-chat-btn-trainer" onclick="viewStudentSessions('${student.id}', '${student.username}')">
-                                    <i class="fas fa-history"></i> Тренировки
-                                </button>
-                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportStudentSessionsPDF('${student.id}', '${student.username}')">
-                                    <i class="fas fa-file-pdf"></i> PDF
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += `
-                        </div>
-                    </div>
-                `;
-            }
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
-        }
-        
-        html += `</div>`;
-        
-        studentsContent.innerHTML = html;
-        
+        return true;
     } catch (error) {
-        console.error('Ошибка поиска учеников:', error);
-        studentsContent.innerHTML = '<p style="color: #dc3545;">Ошибка поиска</p>';
+        console.error('Ошибка экспорта чата тренера:', error);
+        alert('Ошибка при создании PDF файла: ' + error.message);
+        return false;
     }
 }
 
-async function searchSessions() {
-    const searchInput = document.getElementById('sessionSearchInput');
-    const dateFrom = document.getElementById('sessionDateFrom');
-    const dateTo = document.getElementById('sessionDateTo');
-    const scoreFilter = document.getElementById('sessionScoreFilter');
-    
-    if (!searchInput) return;
-    
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    const minScore = scoreFilter.value ? parseInt(scoreFilter.value) : 0;
-    
-    const sessionsContent = document.getElementById('trainerSessionsContent');
-    if (!sessionsContent) return;
-    
-    sessionsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Поиск тренировок...</p>';
-    
+async function exportAllStudentSessions(studentId, studentName) {
     try {
+        const sessions = await auth.supabaseRequest(`training_sessions?user_id=eq.${studentId}&order=date.desc`);
+        const student = await auth.supabaseRequest(`users?id=eq.${studentId}`);
+        const studentData = student?.[0] || {};
+        
+        if (!sessions?.length) {
+            alert('У ученика нет тренировок');
+            return;
+        }
+        
+        const { jsPDF } = await loadJsPDF();
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Отчет по ученику', margin, 25);
+        
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Ученик: ${studentName}`, margin, 35);
+        doc.text(`Вертикаль: ${studentData.group_name || '-'}`, margin, 40);
+        doc.text(`Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`, margin, 45);
+        doc.text(`Всего тренировок: ${sessions.length}`, margin, 50);
+        
+        const totalScore = sessions.reduce((sum, session) => sum + (session.score || 0), 0);
+        const avgScore = sessions.length > 0 ? (totalScore / sessions.length).toFixed(1) : '0.0';
+        doc.text(`Средний балл: ${avgScore}/5`, margin, 55);
+        
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 60, pageWidth - margin, 60);
+        
+        let yPos = 70;
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Все тренировки ученика:', margin, yPos);
+        yPos += 10;
+        
+        doc.setFontSize(9);
+        
+        const statsByClientType = {};
+        sessions.forEach(session => {
+            const clientType = session.client_type;
+            if (!statsByClientType[clientType]) {
+                statsByClientType[clientType] = { count: 0, totalScore: 0 };
+            }
+            statsByClientType[clientType].count++;
+            statsByClientType[clientType].totalScore += session.score || 0;
+        });
+        
+        Object.entries(statsByClientType).forEach(([clientType, stats], index) => {
+            if (yPos > 250) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            const clientTypeName = clientTypes[clientType]?.name || clientType;
+            const avg = stats.count > 0 ? (stats.totalScore / stats.count).toFixed(1) : '0.0';
+            const statText = `${clientTypeName}: ${stats.count} тренировок, средний балл: ${avg}/5`;
+            
+            if (index % 2 === 0) {
+                doc.setFillColor(248, 249, 250);
+                doc.rect(margin, yPos - 3, pageWidth - 2 * margin, 5, 'F');
+            }
+            
+            doc.text(statText, margin + 2, yPos);
+            yPos += 6;
+        });
+        
+        yPos += 10;
+        
+        if (yPos > 220) {
+            doc.addPage();
+            yPos = margin;
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Детали тренировок:', margin, yPos);
+        yPos += 10;
+        
+        doc.setFontSize(8);
+        sessions.forEach((session, index) => {
+            if (yPos > 270) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            const clientType = clientTypes[session.client_type];
+            const sessionText = `${formatDate(session.date, true)} - ${clientType?.name || session.client_type || 'Тренировка'} - ${session.score || 0}/5`;
+            
+            if (index % 2 === 0) {
+                doc.setFillColor(248, 249, 250);
+                doc.rect(margin, yPos - 3, pageWidth - 2 * margin, 5, 'F');
+            }
+            
+            doc.text(sessionText, margin + 2, yPos);
+            yPos += 5;
+        });
+        
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(
+                `Тренер: ${auth.currentUser.username} • Страница ${i} из ${totalPages}`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
+            );
+        }
+        
+        const fileName = `Отчет_${studentName}_полный_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
+        doc.save(fileName);
+        
+        return true;
+    } catch (error) {
+        console.error('Ошибка экспорта всех сессий ученика:', error);
+        alert('Ошибка при создании PDF файла: ' + error.message);
+        return false;
+    }
+}
+
+async function exportVerticalStatsToPDF() {
+    try {
+        const vertical = document.getElementById('verticalSelect').value;
+        const dateFrom = document.getElementById('verticalDateFrom').value;
+        const dateTo = document.getElementById('verticalDateTo').value;
+        
+        const { jsPDF } = await loadJsPDF();
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        
         const students = await auth.getStudents();
-        let allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        let allSessions = await auth.getAllTrainingSessions({});
         
-        const filterSelect = document.getElementById('sessionFilter');
-        const filterValue = filterSelect ? filterSelect.value : 'all';
-        
-        if (filterValue !== 'all' && allSessions) {
-            allSessions = allSessions.filter(session => session.vertical === filterValue);
+        if (vertical !== 'all') {
+            allSessions = allSessions.filter(session => session.vertical === vertical);
         }
         
-        let filteredSessions = allSessions || [];
-        
-        if (searchTerm) {
-            filteredSessions = filteredSessions.filter(session => {
-                const student = students.find(s => s.id === session.user_id);
-                const studentName = student ? student.username.toLowerCase() : '';
-                const scenario = session.scenario ? session.scenario.toLowerCase() : '';
-                const clientType = session.client_type ? session.client_type.toLowerCase() : '';
-                
-                return studentName.includes(searchTerm) || scenario.includes(searchTerm) || clientType.includes(searchTerm);
-            });
-        }
-        
-        if (dateFrom.value || dateTo.value) {
-            filteredSessions = filteredSessions.filter(session => {
+        if (dateFrom || dateTo) {
+            const fromDate = dateFrom ? new Date(dateFrom) : null;
+            const toDate = dateTo ? new Date(dateTo) : null;
+            if (toDate) toDate.setHours(23, 59, 59, 999);
+            
+            allSessions = allSessions.filter(session => {
                 if (!session.date) return false;
-                
                 const sessionDate = new Date(session.date);
-                const fromDate = dateFrom.value ? new Date(dateFrom.value) : null;
-                const toDate = dateTo.value ? new Date(dateTo.value) : null;
-                
                 if (fromDate && sessionDate < fromDate) return false;
                 if (toDate && sessionDate > toDate) return false;
                 return true;
             });
         }
         
-        if (minScore > 0) {
-            filteredSessions = filteredSessions.filter(session => session.score && session.score >= minScore);
+        const verticalStudents = students.filter(student => 
+            vertical === 'all' || student.group_name === vertical
+        );
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Статистика по вертикалям', margin, 25);
+        
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Тренер: ${auth.currentUser.username}`, margin, 35);
+        doc.text(`Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`, margin, 40);
+        doc.text(`Вертикаль: ${vertical === 'all' ? 'Все' : vertical}`, margin, 45);
+        doc.text(`Период: ${dateFrom || 'начало'} - ${dateTo || 'конец'}`, margin, 50);
+        doc.text(`Учеников: ${verticalStudents.length}`, margin, 55);
+        doc.text(`Тренировок: ${allSessions.length}`, margin, 60);
+        
+        if (allSessions.length > 0) {
+            const totalScore = allSessions.reduce((sum, session) => sum + (session.score || 0), 0);
+            const avgScore = (totalScore / allSessions.length).toFixed(1);
+            doc.text(`Средний балл по вертикали: ${avgScore}/5`, margin, 65);
         }
         
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${filteredSessions.length}</div>
-                    <div class="label">Найдено тренировок</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-history"></i>
-                <span>Результаты поиска тренировок</span>
-                ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
-                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportFilteredSessionsPDF()">
-                    <i class="fas fa-file-pdf"></i> Выгрузить
-                </button>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 600px; overflow-y: auto;">
-        `;
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 70, pageWidth - margin, 70);
         
-        if (filteredSessions.length > 0) {
-            const sessionsByDate = {};
-            filteredSessions.forEach(session => {
-                const date = new Date(session.date).toLocaleDateString('ru-RU');
-                if (!sessionsByDate[date]) sessionsByDate[date] = [];
-                sessionsByDate[date].push(session);
-            });
-            
-            for (const [date, dateSessions] of Object.entries(sessionsByDate)) {
-                const dateId = `date_${date.replace(/[\.\s]/g, '_')}`;
-                html += `
-                    <div class="vertical-group" id="${dateId}">
-                        <div class="vertical-header" onclick="toggleVerticalGroup('${dateId}')">
-                            <div>
-                                <i class="far fa-calendar"></i>
-                                <span>${date}</span>
-                                <span class="vertical-count">${dateSessions.length}</span>
-                            </div>
-                            <div class="toggle-icon">▼</div>
-                        </div>
-                        <div class="vertical-content" id="${dateId}_content">
-                `;
-                
-                dateSessions.forEach(session => {
-                    const student = students.find(s => s.id === session.user_id);
-                    const clientType = clientTypes[session.client_type];
-                    
-                    html += `
-                        <div class="student-item">
-                            <div class="student-info">
-                                <div class="student-name">${student ? student.username : 'Неизвестный ученик'}</div>
-                                <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
-                            </div>
-                            <div class="student-stats">
-                                <div class="stat-badge">${session.score}/5</div>
-                                <div class="stat-badge">${formatTime(session.date)}</div>
-                            </div>
-                            <div class="trainer-actions">
-                                <button class="view-chat-btn-trainer" onclick="viewStudentChat('${session.user_id}', '${session.id}')">
-                                    <i class="fas fa-comments"></i> Чат
-                                </button>
-                                <button class="comment-btn" onclick="openCommentModal('${session.user_id}', '${session.id}', '${student ? student.username : 'Неизвестный'}')">
-                                    <i class="fas fa-comment"></i> Комментарий
-                                </button>
-                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportSessionPDF('${session.id}')">
-                                    <i class="fas fa-file-pdf"></i> PDF
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                html += `
-                        </div>
-                    </div>
-                `;
-            }
-            
-            const firstDate = Object.keys(sessionsByDate)[0];
-            if (firstDate) {
-                const dateId = `date_${firstDate.replace(/[\.\s]/g, '_')}`;
-                setTimeout(() => toggleVerticalGroup(dateId, true), 100);
-            }
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
-        }
-        
-        html += `</div>`;
-        
-        sessionsContent.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Ошибка поиска тренировок:', error);
-        sessionsContent.innerHTML = '<p style="color: #dc3545;">Ошибка поиска</p>';
-    }
-}
-
-function formatTime(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('ru-RU', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-async function loadAllSessions() {
-    await searchSessions();
-}
-
-async function viewStudentSessions(studentId, studentName) {
-    try {
-        const sessions = await auth.supabaseRequest(`training_sessions?user_id=eq.${studentId}&order=date.desc&limit=1000`);
-        
-        let html = `
-            <div class="section-title">
-                <i class="fas fa-history"></i>
-                <span>Тренировки ученика: ${studentName}</span>
-                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportStudentSessionsPDF('${studentId}', '${studentName}')">
-                    <i class="fas fa-file-pdf"></i> Выгрузить все
-                </button>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
-        `;
-        
-        if (sessions?.length) {
-            sessions.forEach(session => {
-                const clientType = clientTypes[session.client_type];
-                
-                html += `
-                    <div class="student-item">
-                        <div class="student-info">
-                            <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
-                            <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
-                        </div>
-                        <div class="student-stats">
-                            <div class="stat-badge">${session.score}/5</div>
-                            <div class="stat-badge">${formatDate(session.date)}</div>
-                        </div>
-                        <div class="trainer-actions">
-                            <button class="view-chat-btn-trainer" onclick="viewStudentChat('${studentId}', '${session.id}')">
-                                <i class="fas fa-comments"></i> Чат
-                            </button>
-                            <button class="comment-btn" onclick="openCommentModal('${studentId}', '${session.id}', '${studentName}')">
-                                <i class="fas fa-comment"></i> Комментарий
-                            </button>
-                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportSessionPDF('${session.id}')">
-                                <i class="fas fa-file-pdf"></i> PDF
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">У ученика нет тренировок</div>';
-        }
-        
-        html += `</div>`;
-        
-        const tempContainer = document.createElement('div');
-        tempContainer.innerHTML = html;
-        
-        document.getElementById('chatModalTitle').textContent = `Тренировки ученика: ${studentName}`;
-        document.getElementById('chatModalMessages').innerHTML = '';
-        document.getElementById('chatModalMessages').appendChild(tempContainer);
-        document.getElementById('chatModal').style.display = 'flex';
-        
-    } catch (error) {
-        console.error('Ошибка загрузки тренировок ученика:', error);
-        alert('Ошибка загрузки тренировок ученика');
-    }
-}
-
-async function viewStudentChat(studentId, sessionId) {
-    try {
-        const session = await auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
-        if (!session?.length) return;
-        
-        const sessionData = session[0];
-        const student = await auth.supabaseRequest(`users?id=eq.${studentId}`);
-        const studentName = student?.[0] ? student[0].username : 'Студент';
-        const clientType = clientTypes[sessionData.client_type];
-        
-        document.getElementById('chatModalTitle').textContent = `Диалог: ${studentName}`;
-        document.getElementById('chatModalClientType').textContent = clientType ? clientType.name : sessionData.client_type || '-';
-        document.getElementById('chatModalDate').textContent = formatDate(sessionData.date);
-        document.getElementById('chatModalScore').textContent = sessionData.score || 0;
-        
-        const messagesContainer = document.getElementById('chatModalMessages');
-        messagesContainer.innerHTML = '';
-        
-        let messages = [];
-        if (sessionData.messages && Array.isArray(sessionData.messages)) {
-            messages = sessionData.messages;
-        } else if (typeof sessionData.messages === 'string') {
-            try {
-                messages = JSON.parse(sessionData.messages);
-            } catch (e) {
-                console.error('Ошибка парсинга сообщений:', e);
-            }
-        }
-        
-        if (messages.length > 0) {
-            messages.forEach(msg => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${msg.sender === 'user' ? 'user' : 'ai'}`;
-                messageDiv.textContent = msg.text;
-                messagesContainer.appendChild(messageDiv);
-            });
-        } else {
-            messagesContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Нет данных о диалоге</div>';
-        }
-        
-        if (sessionData.ai_feedback?.trim()) {
-            const aiFeedbackContainer = document.createElement('div');
-            aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-            aiFeedbackContainer.innerHTML = `
-                <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
-                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${sessionData.ai_feedback}</div>
-            `;
-            messagesContainer.appendChild(aiFeedbackContainer);
-        }
-        
-        if (sessionData.trainer_comments?.length) {
-            const commentsContainer = document.createElement('div');
-            commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-            commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
-            
-            sessionData.trainer_comments.forEach(comment => {
-                const commentDiv = document.createElement('div');
-                commentDiv.className = 'trainer-comment';
-                commentDiv.innerHTML = `
-                    <div class="comment-header">
-                        <span>${comment.trainer}</span>
-                        <span>${formatDate(comment.date)}</span>
-                    </div>
-                    <div class="comment-text">${comment.comment}</div>
-                `;
-                commentsContainer.appendChild(commentDiv);
-            });
-            
-            messagesContainer.appendChild(commentsContainer);
-        }
-        
-        const actionButtons = document.createElement('div');
-        actionButtons.style.cssText = 'margin-top: 15px; display: flex; gap: 10px; justify-content: center;';
-        actionButtons.innerHTML = `
-            <button class="btn btn-primary" onclick="exportChatToPDF(${JSON.stringify(sessionData).replace(/"/g, '&quot;')})">
-                <i class="fas fa-file-pdf"></i> Выгрузить в PDF
-            </button>
-            <button class="btn btn-secondary" onclick="openCommentModal('${studentId}', '${sessionId}', '${studentName}')">
-                <i class="fas fa-comment"></i> Добавить комментарий
-            </button>
-        `;
-        messagesContainer.appendChild(actionButtons);
-        
-        document.getElementById('chatModal').style.display = 'flex';
-        
-    } catch (error) {
-        console.error('Ошибка загрузки чата:', error);
-        alert('Ошибка загрузки диалога');
-    }
-}
-
-function openCommentModal(studentId, sessionId, studentName) {
-    selectedStudentForComment = studentId;
-    selectedSessionForComment = sessionId;
-    
-    document.getElementById('commentModalTitle').textContent = `Комментарий для: ${studentName}`;
-    document.getElementById('commentModalStudentInfo').textContent = `Сессия: ${sessionId}`;
-    document.getElementById('commentText').value = '';
-    
-    loadExistingComments(sessionId);
-    
-    document.getElementById('commentModal').style.display = 'flex';
-}
-
-async function loadExistingComments(sessionId) {
-    const existingComments = document.getElementById('existingComments');
-    existingComments.innerHTML = '<div style="color: #666; font-size: 13px; margin-bottom: 10px;">Загрузка комментариев...</div>';
-    
-    try {
-        const session = await auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
-        if (!session?.length) return;
-        
-        const comments = session[0].trainer_comments || [];
-        
-        if (comments.length === 0) {
-            existingComments.innerHTML = '<div style="color: #666; font-size: 13px; margin-bottom: 10px;">Комментариев пока нет</div>';
-            return;
-        }
-        
-        let html = '<div style="margin-bottom: 15px;"><strong>Существующие комментарии:</strong></div>';
-        comments.forEach(comment => {
-            html += `
-                <div class="trainer-comment" style="margin-bottom: 10px;">
-                    <div class="comment-header">
-                        <span>${comment.trainer}</span>
-                        <span>${formatDate(comment.date)}</span>
-                    </div>
-                    <div class="comment-text">${comment.comment}</div>
-                </div>
-            `;
-        });
-        
-        existingComments.innerHTML = html;
-    } catch (error) {
-        console.error('Ошибка загрузки комментариев:', error);
-        existingComments.innerHTML = '<div style="color: #dc3545; font-size: 13px;">Ошибка загрузки комментариев</div>';
-    }
-}
-
-async function submitComment() {
-    const commentText = document.getElementById('commentText').value.trim();
-    
-    if (!commentText) {
-        alert('Введите текст комментария');
-        return;
-    }
-    
-    if (!selectedStudentForComment || !selectedSessionForComment) {
-        alert('Ошибка: не выбрана сессия для комментария');
-        return;
-    }
-    
-    try {
-        const success = await auth.addTrainerComment(selectedSessionForComment, commentText);
-        
-        if (success) {
-            alert('Комментарий успешно добавлен!');
-            closeCommentModal();
-            
-            const chatModal = document.getElementById('chatModal');
-            if (chatModal.style.display === 'flex') {
-                viewStudentChat(selectedStudentForComment, selectedSessionForComment);
-            }
-        } else {
-            alert('Ошибка при добавлении комментария');
-        }
-    } catch (error) {
-        console.error('Ошибка добавления комментария:', error);
-        alert('Ошибка при добавлении комментария');
-    }
-}
-
-function closeCommentModal() {
-    document.getElementById('commentModal').style.display = 'none';
-    selectedStudentForComment = null;
-    selectedSessionForComment = null;
-}
-
-function filterSessions() {
-    loadAllSessions();
-}
-
-function viewChatHistory(session) {
-    if (!session) return;
-    
-    const clientType = clientTypes[session.clientType];
-    
-    document.getElementById('chatModalTitle').textContent = clientType ? clientType.name : 'Диалог с клиентом';
-    document.getElementById('chatModalClientType').textContent = clientType ? clientType.name : '-';
-    document.getElementById('chatModalDate').textContent = formatDate(session.date);
-    document.getElementById('chatModalScore').textContent = session.score || 0;
-    
-    const messagesContainer = document.getElementById('chatModalMessages');
-    messagesContainer.innerHTML = '';
-    
-    let messages = [];
-    
-    if (session.messages && Array.isArray(session.messages)) {
-        messages = session.messages;
-    } else if (typeof session.messages === 'string') {
-        try {
-            messages = JSON.parse(session.messages);
-        } catch (e) {
-            console.error('Ошибка парсинга сообщений:', e);
-            messages = [];
-        }
-    }
-    
-    if (messages.length === 0) {
-        messages = [
-            { sender: 'ai', text: 'Добрый день! Чем могу помочь?', timestamp: session.date },
-            { sender: 'user', text: 'У меня проблема с...', timestamp: new Date(new Date(session.date).getTime() + 60000).toISOString() },
-            { sender: 'ai', text: 'Понимаю вашу ситуацию. Давайте решим этот вопрос.', timestamp: new Date(new Date(session.date).getTime() + 120000).toISOString() },
-            { sender: 'user', text: 'Спасибо за помощь!', timestamp: new Date(new Date(session.date).getTime() + 180000).toISOString() }
-        ];
-    }
-    
-    messages.forEach(msg => {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${msg.sender}`;
-        messageDiv.textContent = msg.text;
-        messagesContainer.appendChild(messageDiv);
-    });
-    
-    if (session.ai_feedback?.trim()) {
-        const aiFeedbackContainer = document.createElement('div');
-        aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-        aiFeedbackContainer.innerHTML = `
-            <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
-            <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${session.ai_feedback}</div>
-        `;
-        messagesContainer.appendChild(aiFeedbackContainer);
-    }
-    
-    if (session.trainer_comments?.length) {
-        const commentsContainer = document.createElement('div');
-        commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-        commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
-        
-        session.trainer_comments.forEach(comment => {
-            const commentDiv = document.createElement('div');
-            commentDiv.className = 'trainer-comment';
-            commentDiv.innerHTML = `
-                <div class="comment-header">
-                    <span>${comment.trainer}</span>
-                    <span>${formatDate(comment.date)}</span>
-                </div>
-                <div class="comment-text">${comment.comment}</div>
-            `;
-            commentsContainer.appendChild(commentDiv);
-        });
-        
-        messagesContainer.appendChild(commentsContainer);
-    }
-    
-    const actionButtons = document.createElement('div');
-    actionButtons.style.cssText = 'margin-top: 15px; display: flex; gap: 10px; justify-content: center;';
-    actionButtons.innerHTML = `
-        <button class="btn btn-primary" onclick="exportChatToPDF(${JSON.stringify(session).replace(/"/g, '&quot;')})">
-            <i class="fas fa-file-pdf"></i> Выгрузить в PDF
-        </button>
-    `;
-    messagesContainer.appendChild(actionButtons);
-    
-    setTimeout(() => {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }, 100);
-    
-    document.getElementById('chatModal').style.display = 'flex';
-}
-
-function closeChatModal() {
-    document.getElementById('chatModal').style.display = 'none';
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-function formatDuration(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, aiFeedback = "") {
-    document.getElementById('resultTitle').textContent = title;
-    document.getElementById('resultIcon').textContent = icon;
-    document.getElementById('resultXP').textContent = `+${xpEarned} XP`;
-    
-    let details = `<div style="margin-bottom: 10px;"><strong>Сценарий:</strong> ${scenario}</div>`;
-    
-    if (evaluation) {
-        details += `<div style="margin-bottom: 5px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Время:</strong> ${formatDuration(duration)}</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</strong> ${evaluation.feedback}</div>`;
-        
-        if (evaluation.criteria) {
-            details += `<div style="margin-top: 10px; font-size: 12px; color: #666;">`;
-            details += `<div>✓ Сообщений: ${evaluation.criteria.messageCount}</div>`;
-            details += `<div>✓ Профессиональных фраз: ${evaluation.criteria.professionalPhrases}</div>`;
-            details += `<div>✓ Корректное завершение: ${evaluation.criteria.properEnding ? 'Да' : 'Можно лучше'}</div>`;
-            details += `</div>`;
-        }
-    }
-    
-    document.getElementById('resultDetails').innerHTML = details;
-    
-    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
-    const aiFeedbackContent = document.getElementById('aiFeedbackContent');
-    
-    if (aiFeedback && aiFeedback.trim().length > 0) {
-        aiFeedbackContent.textContent = aiFeedback;
-        aiFeedbackContainer.style.display = 'block';
-        aiFeedbackContent.style.maxHeight = '400px';
-        aiFeedbackContent.style.overflowY = 'auto';
-    } else {
-        aiFeedbackContainer.style.display = 'none';
-    }
-    
-    document.getElementById('resultModal').style.display = 'flex';
-}
-
-function showAchievementNotification(achievement) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        z-index: 1001;
-        animation: slideIn 0.3s ease;
-        border-left: 4px solid #10a37f;
-        min-width: 250px;
-    `;
-    
-    notification.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="font-size: 24px;">${achievement.icon}</span>
-            <div>
-                <div style="font-weight: 600; color: #333;">🎉 Новое достижение!</div>
-                <div style="font-size: 12px; color: #666;">${achievement.name}</div>
-            </div>
-        </div>
-        <div style="font-size: 13px; color: #555;">${achievement.description}</div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-function closeResultModal() {
-    document.getElementById('resultModal').style.display = 'none';
-    document.getElementById('aiFeedbackContainer').style.display = 'none';
-    loadDemoChat();
-}
-
-function setupLeaderboardTabs() {
-    const tabs = document.querySelectorAll('.leaderboard-tab');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            tabs.forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            const filter = this.dataset.filter;
-            updateLeaderboard(filter);
-        });
-    });
-}
-
-function toggleVerticalGroup(groupId, forceOpen = false) {
-    const content = document.getElementById(`${groupId}_content`);
-    const icon = document.querySelector(`#${groupId} .toggle-icon`);
-    
-    if (!content || !icon) return;
-    
-    if (forceOpen || content.classList.contains('expanded')) {
-        content.classList.remove('expanded');
-        icon.classList.remove('expanded');
-    } else {
-        content.classList.add('expanded');
-        icon.classList.add('expanded');
-    }
-}
-
-setInterval(() => {
-    if (auth.currentUser && !auth.isTrainer()) {
-        const now = new Date();
-        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
-        
-        if (now >= tomorrow) {
-            checkAndResetDailyLimit();
-            updateDailyLimitNotification();
-        }
-    }
-}, 60000);
-
-function finishChat() {
-    if (!trainingInProgress) return;
-    
-    addMessage('user', "[[ДИАЛОГ ЗАВЕРШЕН]]");
-    
-    addMessage('ai', "Подготовка результатов чата...");
-    
-    setTimeout(() => {
-        sendPromptToAI();
-    }, 1000);
-}
-
-async function loadTrainerStatistics() {
-    const statisticsContent = document.getElementById('trainerStatisticsContent');
-    if (!statisticsContent) return;
-    
-    statisticsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка статистики...</p>';
-    
-    try {
-        const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
-        
-        const statsByVertical = {};
-        const studentsByVertical = {};
-        
-        students.forEach(student => {
-            const vertical = student.group_name || 'Без вертикали';
-            if (!statsByVertical[vertical]) {
-                statsByVertical[vertical] = { sessions: 0, totalScore: 0, students: 0 };
-            }
-            if (!studentsByVertical[vertical]) {
-                studentsByVertical[vertical] = new Set();
-            }
-            studentsByVertical[vertical].add(student.id);
-        });
-        
-        if (allSessions) {
-            allSessions.forEach(session => {
-                const vertical = session.vertical || 'Без вертикали';
-                if (statsByVertical[vertical]) {
-                    statsByVertical[vertical].sessions++;
-                    statsByVertical[vertical].totalScore += session.score || 0;
-                }
-            });
-        }
-        
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${students.length}</div>
-                    <div class="label">Всего учеников</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${allSessions?.length || 0}</div>
-                    <div class="label">Всего тренировок</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-chart-bar"></i>
-                <span>Статистика по вертикалям</span>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
-        `;
-        
-        for (const [vertical, stats] of Object.entries(statsByVertical)) {
-            const studentCount = studentsByVertical[vertical]?.size || 0;
-            const avgScore = stats.sessions > 0 ? (stats.totalScore / stats.sessions).toFixed(1) : '0.0';
-            
-            html += `
-                <div class="student-item">
-                    <div class="student-info">
-                        <div class="student-name">${vertical}</div>
-                    </div>
-                    <div class="student-stats">
-                        <div class="stat-badge">${studentCount} учеников</div>
-                        <div class="stat-badge">${stats.sessions} тренировок</div>
-                        <div class="stat-badge">Средний: ${avgScore}/5</div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        html += `</div>`;
-        
-        statisticsContent.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Ошибка загрузки статистики:', error);
-        statisticsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
-    }
-}
-
-// ============ PDF ФУНКЦИИ ============
-
-async function loadPDFLibrary() {
-    if (jsPDFLoaded && autoTableLoaded) return;
-    
-    return new Promise((resolve, reject) => {
-        const script1 = document.createElement('script');
-        script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        script1.async = true;
-        
-        const script2 = document.createElement('script');
-        script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js';
-        script2.async = true;
-        
-        script1.onload = () => {
-            jsPDFLoaded = true;
-            if (autoTableLoaded) resolve();
-        };
-        
-        script2.onload = () => {
-            autoTableLoaded = true;
-            if (jsPDFLoaded) resolve();
-        };
-        
-        script1.onerror = reject;
-        script2.onerror = reject;
-        
-        document.head.appendChild(script1);
-        document.head.appendChild(script2);
-    });
-}
-
-function exportChatToPDF(sessionData) {
-    loadPDFLibrary().then(() => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        const clientType = clientTypes[sessionData.clientType] || { name: sessionData.clientType || 'Неизвестный' };
-        const studentName = auth.currentUser?.username || 'Ученик';
-        
-        doc.setFontSize(20);
-        doc.text('Диалоговый тренажер - Отчет о тренировке', 14, 15);
-        
-        doc.setFontSize(12);
-        doc.text(`Ученик: ${studentName}`, 14, 25);
-        doc.text(`Вертикаль: ${sessionData.vertical || 'Не указана'}`, 14, 32);
-        doc.text(`Тип клиента: ${clientType.name}`, 14, 39);
-        doc.text(`Дата: ${formatDate(sessionData.date)}`, 14, 46);
-        doc.text(`Оценка: ${sessionData.score}/5`, 14, 53);
-        doc.text(`Длительность: ${formatDuration(sessionData.duration || 0)}`, 14, 60);
-        doc.text(`XP получено: +${sessionData.xp || 0}`, 14, 67);
-        
-        let yPosition = 75;
-        
-        if (sessionData.scenario) {
-            doc.setFontSize(14);
-            doc.text('Сценарий:', 14, yPosition);
-            yPosition += 7;
-            
-            doc.setFontSize(11);
-            const scenarioLines = doc.splitTextToSize(sessionData.scenario, 180);
-            scenarioLines.forEach(line => {
-                if (yPosition > 280) {
-                    doc.addPage();
-                    yPosition = 20;
-                }
-                doc.text(line, 14, yPosition);
-                yPosition += 7;
-            });
-            yPosition += 7;
-        }
+        let yPos = 80;
         
         doc.setFontSize(14);
-        doc.text('Диалог:', 14, yPosition);
-        yPosition += 10;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Статистика по ученикам:', margin, yPos);
+        yPos += 10;
         
-        let messages = [];
-        if (sessionData.messages && Array.isArray(sessionData.messages)) {
-            messages = sessionData.messages;
-        } else if (typeof sessionData.messages === 'string') {
-            try {
-                messages = JSON.parse(sessionData.messages);
-            } catch (e) {
-                messages = [];
-            }
-        }
-        
-        doc.setFontSize(10);
-        messages.forEach((msg, index) => {
-            if (yPosition > 280) {
-                doc.addPage();
-                yPosition = 20;
-            }
+        if (verticalStudents.length > 0) {
+            doc.setFontSize(9);
             
-            const sender = msg.sender === 'user' ? 'Оператор' : 'Клиент';
-            const text = `${index + 1}. [${sender}]: ${msg.text}`;
-            const lines = doc.splitTextToSize(text, 180);
-            
-            lines.forEach(line => {
-                if (yPosition > 280) {
-                    doc.addPage();
-                    yPosition = 20;
+            const studentStats = [];
+            for (const student of verticalStudents) {
+                const studentSessions = allSessions.filter(session => session.user_id === student.id);
+                if (studentSessions.length > 0) {
+                    const totalScore = studentSessions.reduce((sum, session) => sum + (session.score || 0), 0);
+                    const avgScore = studentSessions.length > 0 ? (totalScore / studentSessions.length).toFixed(1) : '0.0';
+                    studentStats.push({
+                        name: student.username,
+                        sessions: studentSessions.length,
+                        avgScore: avgScore
+                    });
                 }
-                doc.text(line, 14, yPosition);
-                yPosition += 5;
-            });
-            yPosition += 3;
-        });
-        
-        yPosition += 5;
-        
-        if (sessionData.ai_feedback) {
-            if (yPosition > 250) {
-                doc.addPage();
-                yPosition = 20;
             }
             
-            doc.setFontSize(14);
-            doc.text('Обратная связь от AI:', 14, yPosition);
-            yPosition += 7;
+            studentStats.sort((a, b) => b.avgScore - a.avgScore);
             
-            doc.setFontSize(10);
-            const feedbackLines = doc.splitTextToSize(sessionData.ai_feedback, 180);
-            feedbackLines.forEach(line => {
-                if (yPosition > 280) {
+            studentStats.forEach((stat, index) => {
+                if (yPos > 250) {
                     doc.addPage();
-                    yPosition = 20;
+                    yPos = margin;
                 }
-                doc.text(line, 14, yPosition);
-                yPosition += 5;
-            });
-            yPosition += 7;
-        }
-        
-        if (sessionData.trainer_comments?.length > 0) {
-            if (yPosition > 250) {
-                doc.addPage();
-                yPosition = 20;
-            }
-            
-            doc.setFontSize(14);
-            doc.text('Комментарии тренера:', 14, yPosition);
-            yPosition += 7;
-            
-            doc.setFontSize(10);
-            sessionData.trainer_comments.forEach(comment => {
-                const commentText = `[${comment.trainer}, ${formatDate(comment.date)}]: ${comment.comment}`;
-                const commentLines = doc.splitTextToSize(commentText, 180);
                 
-                commentLines.forEach(line => {
-                    if (yPosition > 280) {
-                        doc.addPage();
-                        yPosition = 20;
-                    }
-                    doc.text(line, 14, yPosition);
-                    yPosition += 5;
-                });
-                yPosition += 3;
+                const statText = `${index + 1}. ${stat.name}: ${stat.sessions} тренировок, средний балл: ${stat.avgScore}/5`;
+                
+                if (index % 2 === 0) {
+                    doc.setFillColor(248, 249, 250);
+                    doc.rect(margin, yPos - 3, pageWidth - 2 * margin, 5, 'F');
+                }
+                
+                doc.text(statText, margin + 2, yPos);
+                yPos += 6;
             });
-        }
-        
-        const fileName = `dialogue_${studentName}_${sessionData.date.substring(0, 10)}_${clientType.name.replace(/\s+/g, '_')}.pdf`;
-        doc.save(fileName);
-    }).catch(error => {
-        console.error('Ошибка загрузки PDF библиотеки:', error);
-        alert('Ошибка при создании PDF. Пожалуйста, проверьте подключение к интернету.');
-    });
-}
-
-function exportSessionPDF(sessionId) {
-    auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`).then(sessions => {
-        if (sessions?.length > 0) {
-            const session = sessions[0];
-            const student = auth.currentUser;
-            
-            const sessionData = {
-                ...session,
-                clientType: session.client_type,
-                vertical: session.vertical,
-                score: session.score,
-                xp: session.xp_earned,
-                date: session.date,
-                scenario: session.scenario,
-                ai_feedback: session.ai_feedback,
-                trainer_comments: session.trainer_comments,
-                messages: typeof session.messages === 'string' ? JSON.parse(session.messages) : session.messages
-            };
-            
-            exportChatToPDF(sessionData);
-        }
-    }).catch(error => {
-        console.error('Ошибка загрузки сессии:', error);
-        alert('Ошибка при загрузке данных сессии');
-    });
-}
-
-function exportAllSessionsPDF() {
-    auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 }).then(sessions => {
-        if (!sessions?.length) {
-            alert('Нет данных для выгрузки');
-            return;
-        }
-        
-        loadPDFLibrary().then(() => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            doc.setFontSize(20);
-            doc.text('Диалоговый тренажер - Отчет по всем тренировкам', 14, 15);
+        } else {
             doc.setFontSize(12);
-            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
-            doc.text(`Всего тренировок: ${sessions.length}`, 14, 32);
-            
-            const tableData = sessions.map((session, index) => [
-                index + 1,
-                session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты',
-                session.user_id || 'Нет ID',
-                session.vertical || 'Без вертикали',
-                clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
-                session.score || '0',
-                session.xp_earned || '0',
-                session.duration ? formatDuration(session.duration) : '0:00'
-            ]);
-            
-            doc.autoTable({
-                head: [['№', 'Дата', 'ID ученика', 'Вертикаль', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
-                body: tableData,
-                startY: 40,
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [44, 62, 80] }
-            });
-            
-            const fileName = `all_sessions_${new Date().toISOString().substring(0, 10)}.pdf`;
-            doc.save(fileName);
-        });
-    });
-}
-
-function exportFilteredSessionsPDF() {
-    const searchInput = document.getElementById('sessionSearchInput');
-    const dateFrom = document.getElementById('sessionDateFrom');
-    const dateTo = document.getElementById('sessionDateTo');
-    const scoreFilter = document.getElementById('sessionScoreFilter');
-    const filterSelect = document.getElementById('sessionFilter');
-    
-    const filters = {
-        searchTerm: searchInput?.value || '',
-        dateFrom: dateFrom?.value || '',
-        dateTo: dateTo?.value || '',
-        minScore: scoreFilter?.value ? parseInt(scoreFilter.value) : 0,
-        vertical: filterSelect?.value || 'all'
-    };
-    
-    auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 }).then(allSessions => {
-        let filteredSessions = allSessions || [];
-        
-        if (filters.vertical !== 'all') {
-            filteredSessions = filteredSessions.filter(s => s.vertical === filters.vertical);
+            doc.text('Нет данных по ученикам', margin, yPos);
         }
         
-        if (filters.searchTerm) {
-            filteredSessions = filteredSessions.filter(s => 
-                s.scenario?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-                s.client_type?.toLowerCase().includes(filters.searchTerm.toLowerCase())
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(
+                `Отчет по вертикалям • Страница ${i} из ${totalPages}`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
             );
         }
         
-        if (filters.dateFrom) {
-            filteredSessions = filteredSessions.filter(s => {
-                if (!s.date) return false;
-                return new Date(s.date) >= new Date(filters.dateFrom);
-            });
-        }
+        const verticalName = vertical === 'all' ? 'Все_вертикали' : vertical.replace(/\s+/g, '_');
+        const fileName = `Статистика_${verticalName}_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
+        doc.save(fileName);
         
-        if (filters.dateTo) {
-            filteredSessions = filteredSessions.filter(s => {
-                if (!s.date) return false;
-                return new Date(s.date) <= new Date(filters.dateTo + 'T23:59:59');
-            });
-        }
-        
-        if (filters.minScore > 0) {
-            filteredSessions = filteredSessions.filter(s => s.score && s.score >= filters.minScore);
-        }
-        
-        if (!filteredSessions.length) {
-            alert('Нет данных для выгрузки по выбранным фильтрам');
-            return;
-        }
-        
-        loadPDFLibrary().then(() => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            doc.setFontSize(20);
-            doc.text('Диалоговый тренажер - Фильтрованный отчет', 14, 15);
-            doc.setFontSize(12);
-            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
-            doc.text(`Найдено тренировок: ${filteredSessions.length}`, 14, 32);
-            
-            let filterText = 'Фильтры: ';
-            if (filters.vertical !== 'all') filterText += `Вертикаль: ${filters.vertical}; `;
-            if (filters.searchTerm) filterText += `Поиск: "${filters.searchTerm}"; `;
-            if (filters.dateFrom) filterText += `От: ${filters.dateFrom}; `;
-            if (filters.dateTo) filterText += `До: ${filters.dateTo}; `;
-            if (filters.minScore > 0) filterText += `Минимальная оценка: ${filters.minScore}; `;
-            
-            const filterLines = doc.splitTextToSize(filterText, 180);
-            filterLines.forEach((line, index) => {
-                doc.text(line, 14, 39 + (index * 5));
-            });
-            
-            const startY = 39 + (filterLines.length * 5) + 5;
-            
-            const tableData = filteredSessions.map((session, index) => [
-                index + 1,
-                session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты',
-                session.user_id || 'Нет ID',
-                session.vertical || 'Без вертикали',
-                clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
-                session.score || '0',
-                session.xp_earned || '0',
-                session.duration ? formatDuration(session.duration) : '0:00'
-            ]);
-            
-            doc.autoTable({
-                head: [['№', 'Дата', 'ID ученика', 'Вертикаль', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
-                body: tableData,
-                startY: startY,
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [44, 62, 80] }
-            });
-            
-            const fileName = `filtered_sessions_${new Date().toISOString().substring(0, 10)}.pdf`;
-            doc.save(fileName);
-        });
-    });
-}
-
-function exportStudentSessionsPDF(studentId, studentName) {
-    auth.supabaseRequest(`training_sessions?user_id=eq.${studentId}&order=date.desc&limit=1000`).then(sessions => {
-        if (!sessions?.length) {
-            alert('У ученика нет тренировок');
-            return;
-        }
-        
-        loadPDFLibrary().then(() => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            doc.setFontSize(20);
-            doc.text(`Диалоговый тренажер - Отчет по ученику`, 14, 15);
-            doc.setFontSize(16);
-            doc.text(`${studentName}`, 14, 25);
-            doc.setFontSize(12);
-            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 35);
-            doc.text(`Всего тренировок: ${sessions.length}`, 14, 42);
-            
-            const totalScore = sessions.reduce((sum, s) => sum + (s.score || 0), 0);
-            const avgScore = sessions.length > 0 ? (totalScore / sessions.length).toFixed(1) : '0.0';
-            const totalXP = sessions.reduce((sum, s) => sum + (s.xp_earned || 0), 0);
-            
-            doc.text(`Средняя оценка: ${avgScore}/5`, 14, 49);
-            doc.text(`Общий XP: ${totalXP}`, 14, 56);
-            
-            const tableData = sessions.map((session, index) => [
-                index + 1,
-                session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты',
-                session.vertical || 'Без вертикали',
-                clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
-                session.score || '0',
-                session.xp_earned || '0',
-                session.duration ? formatDuration(session.duration) : '0:00'
-            ]);
-            
-            doc.autoTable({
-                head: [['№', 'Дата', 'Вертикаль', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
-                body: tableData,
-                startY: 65,
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [44, 62, 80] }
-            });
-            
-            const fileName = `student_${studentName.replace(/\s+/g, '_')}_sessions_${new Date().toISOString().substring(0, 10)}.pdf`;
-            doc.save(fileName);
-        });
-    });
-}
-
-function exportStudentsReport() {
-    auth.getStudents().then(students => {
-        if (!students?.length) {
-            alert('Нет данных о учениках');
-            return;
-        }
-        
-        loadPDFLibrary().then(() => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            doc.setFontSize(20);
-            doc.text('Диалоговый тренажер - Отчет по ученикам', 14, 15);
-            doc.setFontSize(12);
-            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
-            doc.text(`Всего учеников: ${students.length}`, 14, 32);
-            
-            const tableData = students.map((student, index) => {
-                let stats = {};
-                try {
-                    stats = typeof student.stats === 'string' ? JSON.parse(student.stats) : student.stats || {};
-                } catch {
-                    stats = {};
-                }
-                
-                return [
-                    index + 1,
-                    student.username || 'Без имени',
-                    student.group_name || 'Без вертикали',
-                    stats.currentLevel || 1,
-                    stats.completedSessions || 0,
-                    stats.averageScore ? stats.averageScore.toFixed(1) : '0.0',
-                    stats.totalXP || 0,
-                    stats.currentStreak || 0
-                ];
-            });
-            
-            doc.autoTable({
-                head: [['№', 'Имя', 'Вертикаль', 'Уровень', 'Тренировок', 'Ср. оценка', 'Общий XP', 'Стрик']],
-                body: tableData,
-                startY: 40,
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [44, 62, 80] }
-            });
-            
-            const fileName = `students_report_${new Date().toISOString().substring(0, 10)}.pdf`;
-            doc.save(fileName);
-        });
-    });
-}
-
-function openStatisticsReportModal() {
-    const modalHTML = `
-        <div class="modal" id="statisticsReportModal" style="display: flex;">
-            <div class="modal-content" style="max-width: 600px;">
-                <div class="result-icon">
-                    <i class="fas fa-chart-bar"></i>
-                </div>
-                <h2 class="result-title">Выгрузка статистики</h2>
-                
-                <div class="form-group">
-                    <label>Период:</label>
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <input type="date" id="reportDateFrom" class="trainer-date-input" style="flex: 1;">
-                        <span>до</span>
-                        <input type="date" id="reportDateTo" class="trainer-date-input" style="flex: 1;">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Вертикаль:</label>
-                    <select id="reportVertical" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                        <option value="all">Все вертикали</option>
-                        <option value="Программа лояльности">Лояльность</option>
-                        <option value="ОПК">ОПК</option>
-                        <option value="Фудтех">Фудтех</option>
-                        <option value="Маркет">Маркет</option>
-                        <option value="Аптека">Аптека</option>
-                        <option value="Сборка">Сборка</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Тип отчета:</label>
-                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <label style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="reportTypeSummary" checked> Сводная статистика
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="reportTypeDetails"> Детали по тренировкам
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="reportTypeCharts"> Графики
-                        </label>
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-primary" onclick="generateStatisticsReport()" style="flex: 1;">
-                        <i class="fas fa-file-pdf"></i> Создать отчет
-                    </button>
-                    <button class="btn btn-secondary" onclick="closeStatisticsReportModal()" style="flex: 1;">
-                        Отмена
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    const modalDiv = document.createElement('div');
-    modalDiv.innerHTML = modalHTML;
-    document.body.appendChild(modalDiv);
-}
-
-function closeStatisticsReportModal() {
-    const modal = document.getElementById('statisticsReportModal');
-    if (modal) {
-        modal.remove();
+        return true;
+    } catch (error) {
+        console.error('Ошибка экспорта статистики по вертикалям:', error);
+        alert('Ошибка при создании PDF файла: ' + error.message);
+        return false;
     }
 }
 
-async function generateStatisticsReport() {
-    const dateFrom = document.getElementById('reportDateFrom').value;
-    const dateTo = document.getElementById('reportDateTo').value;
-    const vertical = document.getElementById('reportVertical').value;
-    const includeSummary = document.getElementById('reportTypeSummary').checked;
-    const includeDetails = document.getElementById('reportTypeDetails').checked;
-    const includeCharts = document.getElementById('reportTypeCharts').checked;
-    
+async function exportSystemStatsToPDF() {
     try {
+        const dateFrom = document.getElementById('systemDateFrom').value;
+        const dateTo = document.getElementById('systemDateTo').value;
+        const verticalFilter = document.getElementById('systemVerticalFilter').value;
+        
+        const { jsPDF } = await loadJsPDF();
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        
         const students = await auth.getStudents();
-        let allSessions = await auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 });
+        let allSessions = await auth.getAllTrainingSessions({});
         
-        if (vertical !== 'all') {
-            allSessions = allSessions.filter(s => s.vertical === vertical);
+        if (verticalFilter !== 'all') {
+            allSessions = allSessions.filter(session => session.vertical === verticalFilter);
         }
         
-        if (dateFrom) {
-            allSessions = allSessions.filter(s => {
-                if (!s.date) return false;
-                return new Date(s.date) >= new Date(dateFrom);
+        if (dateFrom || dateTo) {
+            const fromDate = dateFrom ? new Date(dateFrom) : null;
+            const toDate = dateTo ? new Date(dateTo) : null;
+            if (toDate) toDate.setHours(23, 59, 59, 999);
+            
+            allSessions = allSessions.filter(session => {
+                if (!session.date) return false;
+                const sessionDate = new Date(session.date);
+                if (fromDate && sessionDate < fromDate) return false;
+                if (toDate && sessionDate > toDate) return false;
+                return true;
             });
         }
         
-        if (dateTo) {
-            allSessions = allSessions.filter(s => {
-                if (!s.date) return false;
-                return new Date(s.date) <= new Date(dateTo + 'T23:59:59');
-            });
-        }
-        
-        await loadPDFLibrary();
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        let yPos = 15;
+        const filteredStudents = verticalFilter === 'all' ? 
+            students : 
+            students.filter(student => student.group_name === verticalFilter);
         
         doc.setFontSize(20);
-        doc.text('Диалоговый тренажер - Статистический отчет', 14, yPos);
-        yPos += 10;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Общий отчет системы', pageWidth / 2, 25, { align: 'center' });
         
-        doc.setFontSize(12);
-        doc.text(`Период: ${dateFrom || 'Все время'} - ${dateTo || 'Сегодня'}`, 14, yPos);
-        yPos += 7;
-        doc.text(`Вертикаль: ${vertical === 'all' ? 'Все' : vertical}`, 14, yPos);
-        yPos += 7;
-        doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, yPos);
-        yPos += 10;
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Тренер: ${auth.currentUser.username}`, margin, 35);
+        doc.text(`Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`, margin, 40);
+        doc.text(`Период: ${dateFrom || 'начало'} - ${dateTo || 'конец'}`, margin, 45);
+        doc.text(`Вертикаль: ${verticalFilter === 'all' ? 'Все' : verticalFilter}`, margin, 50);
+        doc.text(`Всего учеников: ${filteredStudents.length}`, margin, 55);
+        doc.text(`Всего тренировок: ${allSessions.length}`, margin, 60);
         
-        if (includeSummary) {
-            doc.setFontSize(16);
-            doc.text('Сводная статистика', 14, yPos);
-            yPos += 10;
+        if (allSessions.length > 0) {
+            const totalScore = allSessions.reduce((sum, session) => sum + (session.score || 0), 0);
+            const avgScore = (totalScore / allSessions.length).toFixed(1);
+            doc.text(`Средний балл системы: ${avgScore}/5`, margin, 65);
             
-            const totalStudents = students.filter(s => vertical === 'all' || s.group_name === vertical).length;
-            const totalSessions = allSessions.length;
-            const totalScore = allSessions.reduce((sum, s) => sum + (s.score || 0), 0);
-            const avgScore = totalSessions > 0 ? (totalScore / totalSessions).toFixed(1) : '0.0';
-            const totalXP = allSessions.reduce((sum, s) => sum + (s.xp_earned || 0), 0);
-            
-            const summaryData = [
-                ['Всего учеников', totalStudents],
-                ['Всего тренировок', totalSessions],
-                ['Средняя оценка', avgScore + '/5'],
-                ['Общий заработанный XP', totalXP],
-                ['Средний XP за тренировку', totalSessions > 0 ? Math.round(totalXP / totalSessions) : 0]
-            ];
-            
-            doc.autoTable({
-                body: summaryData,
-                startY: yPos,
-                theme: 'grid',
-                styles: { fontSize: 10 },
-                columnStyles: {
-                    0: { cellWidth: 120, fontStyle: 'bold' },
-                    1: { cellWidth: 60 }
+            const today = new Date().toISOString().split('T')[0];
+            const activeToday = new Set();
+            allSessions.forEach(session => {
+                if (session.date?.includes(today)) {
+                    activeToday.add(session.user_id);
                 }
             });
-            
-            yPos = doc.lastAutoTable.finalY + 10;
+            doc.text(`Активных сегодня: ${activeToday.size}`, margin, 70);
         }
         
-        if (includeDetails && allSessions.length > 0) {
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 75, pageWidth - margin, 75);
+        
+        let yPos = 85;
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Статистика по типам клиентов:', margin, yPos);
+        yPos += 10;
+        
+        const statsByClientType = {};
+        allSessions.forEach(session => {
+            const clientType = session.client_type;
+            if (!statsByClientType[clientType]) {
+                statsByClientType[clientType] = { count: 0, totalScore: 0 };
+            }
+            statsByClientType[clientType].count++;
+            statsByClientType[clientType].totalScore += session.score || 0;
+        });
+        
+        doc.setFontSize(9);
+        
+        Object.entries(statsByClientType).forEach(([clientType, stats], index) => {
             if (yPos > 250) {
                 doc.addPage();
-                yPos = 20;
+                yPos = margin;
             }
             
-            doc.setFontSize(16);
-            doc.text('Детали по тренировкам', 14, yPos);
-            yPos += 10;
+            const clientTypeName = clientTypes[clientType]?.name || clientType;
+            const avg = stats.count > 0 ? (stats.totalScore / stats.count).toFixed(1) : '0.0';
+            const percentage = allSessions.length > 0 ? ((stats.count / allSessions.length) * 100).toFixed(1) : '0.0';
+            const statText = `${clientTypeName}: ${stats.count} тренировок (${percentage}%), средний балл: ${avg}/5`;
             
-            const sessionsByDate = {};
-            allSessions.forEach(session => {
-                const date = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты';
-                if (!sessionsByDate[date]) sessionsByDate[date] = [];
-                sessionsByDate[date].push(session);
-            });
-            
-            for (const [date, dateSessions] of Object.entries(sessionsByDate)) {
-                if (yPos > 250) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                
-                doc.setFontSize(14);
-                doc.text(`Дата: ${date} (${dateSessions.length} тренировок)`, 14, yPos);
-                yPos += 8;
-                
-                const tableData = dateSessions.map((session, index) => {
-                    const student = students.find(s => s.id === session.user_id);
-                    return [
-                        index + 1,
-                        student ? student.username : 'Неизвестный',
-                        clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
-                        session.score || '0',
-                        session.xp_earned || '0',
-                        session.duration ? formatDuration(session.duration) : '0:00'
-                    ];
-                });
-                
-                doc.autoTable({
-                    head: [['№', 'Ученик', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
-                    body: tableData,
-                    startY: yPos,
-                    styles: { fontSize: 8 },
-                    headStyles: { fillColor: [44, 62, 80] }
-                });
-                
-                yPos = doc.lastAutoTable.finalY + 10;
+            if (index % 2 === 0) {
+                doc.setFillColor(248, 249, 250);
+                doc.rect(margin, yPos - 3, pageWidth - 2 * margin, 5, 'F');
             }
+            
+            doc.text(statText, margin + 2, yPos);
+            yPos += 6;
+        });
+        
+        yPos += 10;
+        
+        if (yPos > 220) {
+            doc.addPage();
+            yPos = margin;
         }
         
-        const fileName = `statistics_report_${new Date().toISOString().substring(0, 10)}.pdf`;
-        doc.save(fileName);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Топ учеников по среднему баллу:', margin, yPos);
+        yPos += 10;
         
-        closeStatisticsReportModal();
-        
-    } catch (error) {
-        console.error('Ошибка создания отчета:', error);
-        alert('Ошибка при создании отчета');
-    }
-}
-
-function openStudentsReportModal() {
-    const modalHTML = `
-        <div class="modal" id="studentsReportModal" style="display: flex;">
-            <div class="modal-content" style="max-width: 600px;">
-                <div class="result-icon">
-                    <i class="fas fa-users"></i>
-                </div>
-                <h2 class="result-title">Отчет по ученикам</h2>
-                
-                <div class="form-group">
-                    <label>Группировка:</label>
-                    <select id="groupBy" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                        <option value="vertical">По вертикалям</option>
-                        <option value="level">По уровням</option>
-                        <option value="activity">По активности</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Фильтры:</label>
-                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <input type="number" id="minSessions" placeholder="Мин. тренировок" class="trainer-date-input" style="flex: 1;">
-                        <input type="number" id="minAvgScore" placeholder="Мин. средний балл" class="trainer-date-input" style="flex: 1;" step="0.1">
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="number" id="minLevel" placeholder="Мин. уровень" class="trainer-date-input" style="flex: 1;">
-                        <input type="number" id="minXP" placeholder="Мин. XP" class="trainer-date-input" style="flex: 1;">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Сортировка:</label>
-                    <select id="sortBy" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                        <option value="xp">По XP (убывание)</option>
-                        <option value="avgScore">По среднему баллу (убывание)</option>
-                        <option value="sessions">По количеству тренировок (убывание)</option>
-                        <option value="level">По уровню (убывание)</option>
-                        <option value="name">По имени (А-Я)</option>
-                    </select>
-                </div>
-                
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button class="btn btn-primary" onclick="generateStudentsReport()" style="flex: 1;">
-                        <i class="fas fa-file-pdf"></i> Создать отчет
-                    </button>
-                    <button class="btn btn-secondary" onclick="closeStudentsReportModal()" style="flex: 1;">
-                        Отмена
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    const modalDiv = document.createElement('div');
-    modalDiv.innerHTML = modalHTML;
-    document.body.appendChild(modalDiv);
-}
-
-function closeStudentsReportModal() {
-    const modal = document.getElementById('studentsReportModal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-async function generateStudentsReport() {
-    const groupBy = document.getElementById('groupBy').value;
-    const minSessions = parseInt(document.getElementById('minSessions').value) || 0;
-    const minAvgScore = parseFloat(document.getElementById('minAvgScore').value) || 0;
-    const minLevel = parseInt(document.getElementById('minLevel').value) || 0;
-    const minXP = parseInt(document.getElementById('minXP').value) || 0;
-    const sortBy = document.getElementById('sortBy').value;
-    
-    try {
-        const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 });
-        
-        const studentsWithStats = students.map(student => {
-            let stats = {};
-            try {
-                stats = typeof student.stats === 'string' ? JSON.parse(student.stats) : student.stats || {};
-            } catch {
-                stats = {};
-            }
-            
-            const studentSessions = allSessions.filter(s => s.user_id === student.id);
-            const totalScore = studentSessions.reduce((sum, s) => sum + (s.score || 0), 0);
-            const avgScore = studentSessions.length > 0 ? (totalScore / studentSessions.length).toFixed(1) : '0.0';
-            
-            return {
-                ...student,
-                stats: stats,
-                computedStats: {
+        const studentStats = [];
+        for (const student of filteredStudents) {
+            const studentSessions = allSessions.filter(session => session.user_id === student.id);
+            if (studentSessions.length >= 3) {
+                const totalScore = studentSessions.reduce((sum, session) => sum + (session.score || 0), 0);
+                const avgScore = studentSessions.length > 0 ? (totalScore / studentSessions.length).toFixed(1) : '0.0';
+                studentStats.push({
+                    name: student.username,
+                    group: student.group_name || 'Без вертикали',
                     sessions: studentSessions.length,
-                    avgScore: parseFloat(avgScore),
-                    totalXP: stats.totalXP || 0,
-                    level: stats.currentLevel || 1,
-                    streak: stats.currentStreak || 0
-                }
-            };
-        });
-        
-        let filteredStudents = studentsWithStats.filter(student => {
-            if (student.computedStats.sessions < minSessions) return false;
-            if (student.computedStats.avgScore < minAvgScore) return false;
-            if (student.computedStats.level < minLevel) return false;
-            if (student.computedStats.totalXP < minXP) return false;
-            return true;
-        });
-        
-        filteredStudents.sort((a, b) => {
-            switch(sortBy) {
-                case 'xp':
-                    return b.computedStats.totalXP - a.computedStats.totalXP;
-                case 'avgScore':
-                    return b.computedStats.avgScore - a.computedStats.avgScore;
-                case 'sessions':
-                    return b.computedStats.sessions - a.computedStats.sessions;
-                case 'level':
-                    return b.computedStats.level - a.computedStats.level;
-                case 'name':
-                    return a.username.localeCompare(b.username);
-                default:
-                    return b.computedStats.totalXP - a.computedStats.totalXP;
-            }
-        });
-        
-        await loadPDFLibrary();
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        doc.setFontSize(20);
-        doc.text('Диалоговый тренажер - Отчет по ученикам', 14, 15);
-        doc.setFontSize(12);
-        doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
-        doc.text(`Всего учеников: ${filteredStudents.length}`, 14, 32);
-        doc.text(`Группировка: ${getGroupByLabel(groupBy)}`, 14, 39);
-        doc.text(`Сортировка: ${getSortByLabel(sortBy)}`, 14, 46);
-        
-        let yPos = 55;
-        
-        if (groupBy === 'vertical') {
-            const studentsByVertical = {};
-            filteredStudents.forEach(student => {
-                const vertical = student.group_name || 'Без вертикали';
-                if (!studentsByVertical[vertical]) studentsByVertical[vertical] = [];
-                studentsByVertical[vertical].push(student);
-            });
-            
-            for (const [vertical, verticalStudents] of Object.entries(studentsByVertical)) {
-                if (yPos > 250) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                
-                doc.setFontSize(16);
-                doc.text(`Вертикаль: ${vertical} (${verticalStudents.length} учеников)`, 14, yPos);
-                yPos += 10;
-                
-                const tableData = verticalStudents.map((student, index) => [
-                    index + 1,
-                    student.username,
-                    student.computedStats.level,
-                    student.computedStats.sessions,
-                    student.computedStats.avgScore,
-                    student.computedStats.totalXP,
-                    student.computedStats.streak
-                ]);
-                
-                doc.autoTable({
-                    head: [['№', 'Имя', 'Уровень', 'Тренировок', 'Ср. оценка', 'Общий XP', 'Стрик']],
-                    body: tableData,
-                    startY: yPos,
-                    styles: { fontSize: 8 },
-                    headStyles: { fillColor: [44, 62, 80] }
+                    avgScore: parseFloat(avgScore)
                 });
-                
-                yPos = doc.lastAutoTable.finalY + 10;
             }
-        } else {
-            const tableData = filteredStudents.map((student, index) => [
-                index + 1,
-                student.username,
-                student.group_name || 'Без вертикали',
-                student.computedStats.level,
-                student.computedStats.sessions,
-                student.computedStats.avgScore,
-                student.computedStats.totalXP,
-                student.computedStats.streak
-            ]);
-            
-            doc.autoTable({
-                head: [['№', 'Имя', 'Вертикаль', 'Уровень', 'Тренировок', 'Ср. оценка', 'Общий XP', 'Стрик']],
-                body: tableData,
-                startY: yPos,
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [44, 62, 80] }
-            });
         }
         
-        const fileName = `students_report_${new Date().toISOString().substring(0, 10)}.pdf`;
+        studentStats.sort((a, b) => b.avgScore - a.avgScore);
+        
+        if (studentStats.length > 0) {
+            doc.setFontSize(9);
+            studentStats.slice(0, 10).forEach((stat, index) => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                const rank = index + 1;
+                let rankIcon = '';
+                if (rank === 1) rankIcon = '🥇';
+                else if (rank === 2) rankIcon = '🥈';
+                else if (rank === 3) rankIcon = '🥉';
+                
+                const statText = `${rankIcon ? rankIcon + ' ' : ''}${stat.name} (${stat.group}): ${stat.sessions} тр., средний: ${stat.avgScore.toFixed(1)}/5`;
+                
+                if (index % 2 === 0) {
+                    doc.setFillColor(248, 249, 250);
+                    doc.rect(margin, yPos - 3, pageWidth - 2 * margin, 5, 'F');
+                }
+                
+                doc.text(statText, margin + 2, yPos);
+                yPos += 6;
+            });
+        } else {
+            doc.setFontSize(12);
+            doc.text('Недостаточно данных для рейтинга', margin, yPos);
+        }
+        
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text(
+                `Общий отчет системы • Страница ${i} из ${totalPages}`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
+            );
+        }
+        
+        const fileName = `Общий_отчет_${new Date().toLocaleDateString('ru-RU').replace(/\./g, '-')}.pdf`;
         doc.save(fileName);
         
-        closeStudentsReportModal();
-        
+        return true;
     } catch (error) {
-        console.error('Ошибка создания отчета:', error);
-        alert('Ошибка при создании отчета');
+        console.error('Ошибка экспорта общего отчета:', error);
+        alert('Ошибка при создании PDF файла: ' + error.message);
+        return false;
     }
 }
-
-function getGroupByLabel(value) {
-    switch(value) {
-        case 'vertical': return 'По вертикалям';
-        case 'level': return 'По уровням';
-        case 'activity': return 'По активности';
-        default: return 'Не указано';
-    }
-}
-
-function getSortByLabel(value) {
-    switch(value) {
-        case 'xp': return 'По XP';
-        case 'avgScore': return 'По среднему баллу';
-        case 'sessions': return 'По количеству тренировок';
-        case 'level': return 'По уровню';
-        case 'name': return 'По имени';
-        default: return 'По XP';
-    }
-}
-
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-    
-    .toggle-icon {
-        transition: transform 0.3s;
-    }
-    
-    .toggle-icon.expanded {
-        transform: rotate(180deg);
-    }
-    
-    .vertical-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-out;
-    }
-    
-    .vertical-content.expanded {
-        max-height: 1000px;
-        transition: max-height 0.5s ease-in;
-    }
-    
-    .reports-section {
-        margin-top: 20px;
-    }
-    
-    .report-options {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin-top: 20px;
-    }
-    
-    .report-card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border-left: 4px solid #4a6491;
-        text-align: center;
-        transition: all 0.3s;
-    }
-    
-    .report-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    
-    .report-icon {
-        font-size: 36px;
-        color: #4a6491;
-        margin-bottom: 15px;
-    }
-    
-    .report-card h3 {
-        margin: 10px 0;
-        color: #333;
-        font-size: 16px;
-    }
-    
-    .report-card p {
-        color: #666;
-        font-size: 13px;
-        margin-bottom: 15px;
-        line-height: 1.4;
-    }
