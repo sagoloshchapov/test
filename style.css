@@ -1,3 +1,5 @@
+[file name]: style.css
+[file content begin]
 * {
     margin: 0;
     padding: 0;
@@ -1404,7 +1406,6 @@ body {
     color: #2c3e50;
 }
 
-/* ДОБАВЛЕННЫЕ СТИЛИ ДЛЯ ПРОКРУТКИ */
 .scrollable-container {
     background: white;
     border-radius: 8px;
@@ -1412,10 +1413,9 @@ body {
     border: 1px solid #e9ecef;
     margin-top: 10px;
     overflow-y: auto;
-    max-height: 500px; /* Ограничиваем высоту для скролла */
+    max-height: 500px;
 }
 
-/* Стилизация полосы прокрутки для современных браузеров */
 .scrollable-container::-webkit-scrollbar {
     width: 10px;
 }
@@ -1434,15 +1434,58 @@ body {
     background: #a8a8a8;
 }
 
-/* Для Firefox */
 .scrollable-container {
     scrollbar-width: thin;
     scrollbar-color: #c1c1c1 #f1f1f1;
 }
 
-/* Увеличиваем высоту для модальных окон с чатами */
 .chat-modal-messages {
     max-height: 60vh !important;
+}
+
+.reports-section {
+    margin-top: 20px;
+}
+
+.report-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.report-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-left: 4px solid #4a6491;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.report-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.report-icon {
+    font-size: 36px;
+    color: #4a6491;
+    margin-bottom: 15px;
+}
+
+.report-card h3 {
+    margin: 10px 0;
+    color: #333;
+    font-size: 16px;
+}
+
+.report-card p {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 15px;
+    line-height: 1.4;
 }
 
 @media (max-width: 1024px) {
@@ -1464,6 +1507,10 @@ body {
     
     .scrollable-container {
         max-height: 400px;
+    }
+    
+    .report-options {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1534,4 +1581,16 @@ body {
     .scrollable-container::-webkit-scrollbar {
         width: 6px;
     }
+    
+    .student-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .trainer-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
 }
+[file content end]
