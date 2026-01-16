@@ -1,7 +1,13 @@
+[file name]: app.js
+[file content begin]
 let feedbackShown = false;
 const SUPABASE_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD';
 const EDGE_FUNCTION_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co/functions/v1/rapid-handler';
+
+// Библиотеки для PDF
+let jsPDFLoaded = false;
+let autoTableLoaded = false;
 
 class SupabaseAuth {
     constructor() {
@@ -16,7 +22,6 @@ class SupabaseAuth {
     async supabaseRequest(endpoint, method = 'GET', body = null) {
         const cacheKey = `${method}:${endpoint}`;
         
-        // Кэширование GET-запросов
         if (method === 'GET' && this.cache.has(cacheKey)) {
             return this.cache.get(cacheKey);
         }
@@ -38,7 +43,7 @@ class SupabaseAuth {
             
             if (method === 'GET') {
                 this.cache.set(cacheKey, data);
-                setTimeout(() => this.cache.delete(cacheKey), 30000); // Кэш на 30 сек
+                setTimeout(() => this.cache.delete(cacheKey), 30000);
             }
             
             return data;
@@ -275,7 +280,7 @@ class SupabaseAuth {
             
             if (response.ok) {
                 this.currentUser.stats = stats;
-                this.cache.clear(); // Очищаем кэш при изменении данных
+                this.cache.clear();
                 return true;
             }
             return false;
@@ -305,7 +310,7 @@ class SupabaseAuth {
             };
             
             await this.supabaseRequest('training_sessions', 'POST', session);
-            this.cache.clear(); // Очищаем кэш при добавлении новой сессии
+            this.cache.clear();
             return true;
         } catch (error) {
             console.error('Ошибка добавления сессии:', error);
@@ -422,7 +427,7 @@ class SupabaseAuth {
             
     async getUserTrainingHistory(userId) {
         try {
-            const sessions = await this.supabaseRequest(`training_sessions?user_id=eq.${userId}&order=date.desc`);
+            const sessions = await this.supabaseRequest(`training_sessions?user_id=eq.${userId}&order=date.desc&limit=1000`);
             return sessions || [];
         } catch (error) {
             console.error('Ошибка получения истории тренировок:', error);
@@ -448,7 +453,7 @@ class SupabaseAuth {
                 { trainer_comments: currentComments }
             );
             
-            this.cache.clear(); // Очищаем кэш при добавлении комментария
+            this.cache.clear();
             return true;
         } catch (error) {
             console.error('Ошибка добавления комментария:', error);
@@ -458,10 +463,18 @@ class SupabaseAuth {
     
     async getAllTrainingSessions(filters = {}) {
         try {
-            let endpoint = 'training_sessions?select=*&order=date.desc';
+            let endpoint = 'training_sessions?select=*&order=date.desc&limit=1000';
             
             if (filters.vertical && filters.vertical !== 'all') {
                 endpoint += `&vertical=eq.${encodeURIComponent(filters.vertical)}`;
+            }
+            
+            if (filters.user_id) {
+                endpoint += `&user_id=eq.${filters.user_id}`;
+            }
+            
+            if (filters.limit) {
+                endpoint = endpoint.replace('limit=1000', `limit=${filters.limit}`);
             }
             
             const sessions = await this.supabaseRequest(endpoint);
@@ -650,13 +663,10 @@ let isRandomClient = false;
 
 async function sendPromptToAI() {
     try {
-        // 1. Получаем информацию о типе клиента
         const clientType = clientTypes[selectedClientType];
         
-        // Формируем ЧЁТКУЮ инструкцию для AI
         let clientTypeInstruction;
         if (isRandomClient) {
-            // Для случайного - ВЫБИРАЕМ случайный тип НА УРОВНЕ КОДА
             const types = Object.keys(clientTypes);
             const randomTypeKey = types[Math.floor(Math.random() * types.length)];
             const randomType = clientTypes[randomTypeKey];
@@ -671,7 +681,6 @@ async function sendPromptToAI() {
             clientTypeInstruction = "ТИП КЛИЕНТА: СТАНДАРТНЫЙ";
         }
         
-        // 2. Получаем промпт для вертикали
         let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
 
 Вертикаль: ${auth.currentUser.group}
@@ -690,66 +699,48 @@ ${clientTypeInstruction}
 
 В остальных случаях - просто продолжай диалог как клиент.`;
 
-        // 3. ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ: удаляем старые инструкции
         promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
         promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
         promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
         
-        // 4. ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ: ищем сценарии (если есть)
         const hasScenarios = promptContent.includes('Сценарий') || 
                             promptContent.includes('сценарий') ||
                             promptContent.match(/\d+\.\s+.*?(?=\n|$)/) ||
                             promptContent.match(/-\s+.*?(?=\n|$)/);
         
         if (hasScenarios) {
-            // Разбиваем на строки
             const lines = promptContent.split('\n');
             const scenarioLines = [];
             
-            // Ищем строки, которые выглядят как сценарии
             for (const line of lines) {
                 const trimmed = line.trim();
-                // Разные форматы сценариев
                 if ((trimmed.includes('Сценарий') || trimmed.includes('сценарий')) && 
                     trimmed.length > 15 && 
                     !trimmed.startsWith('**СЦЕНАРИИ') &&
                     !trimmed.startsWith('**сценарии')) {
                     scenarioLines.push(trimmed);
                 }
-                // Формат "1. Описание" или "- Описание"
                 else if ((trimmed.match(/^\d+\.\s+/) || trimmed.match(/^-\s+/)) && 
                          trimmed.length > 10) {
                     scenarioLines.push(trimmed);
                 }
             }
             
-            // Если нашли сценарии - выбираем случайный
             if (scenarioLines.length > 0) {
                 const randomIndex = Math.floor(Math.random() * scenarioLines.length);
                 const chosenScenario = scenarioLines[randomIndex];
                 
-                // Добавляем выбранный сценарий в начало
                 promptContent = `ВЫБРАННЫЙ СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
                 
-                // Удаляем старые заголовки про выбор сценариев
                 promptContent = promptContent.replace(/\*\*СЦЕНАРИИ[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
                 promptContent = promptContent.replace(/\*\*сценарии[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
             }
         }
         
-        // 5. Убедимся что инструкция по типу клиента есть
         if (!promptContent.includes(clientTypeInstruction)) {
             promptContent = `${clientTypeInstruction}\n\n${promptContent}`;
         }
         
-        // 6. ОТЛАДКА
-        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ ===");
-        console.log("Тип клиента:", isRandomClient ? "Случайный" : selectedClientType);
-        console.log("Вертикаль:", auth.currentUser?.group);
-        console.log("Длина:", promptContent.length, "символов");
-        console.log("Первые 400 символов:", promptContent.substring(0, 400));
-        
-        // 7. Отправляем к AI
         const systemMessage = {
             role: "system",
             content: promptContent
@@ -1220,7 +1211,6 @@ function selectClientType(type, isRandom = false) {
         selectedClientType = type;
         isRandomClient = false;
     } else {
-        // Для случайного клиента не выделяем опцию
         selectedClientType = type;
         isRandomClient = true;
     }
@@ -1228,7 +1218,6 @@ function selectClientType(type, isRandom = false) {
     document.getElementById('startTrainingBtn').disabled = false;
     
     if (isRandomClient) {
-        // Не показываем тип случайного клиента
         document.getElementById('scenarioTitle').textContent = 'Случайный клиент';
         document.getElementById('scenarioDescription').textContent = 'Выбран случайный тип клиента. Диалог начнется с сообщения от клиента.';
     } else {
@@ -1288,7 +1277,6 @@ async function startTraining() {
     const chatMessagesDiv = document.getElementById('chatMessages');
     chatMessagesDiv.innerHTML = '';
     
-    // Диалог начнется с первого сообщения от AI
     await sendPromptToAI();
     
     startTrainingTimer();
@@ -1458,7 +1446,7 @@ function extractAIFeedback(aiMessage) {
         }
     }
     
-    return aiMessage.substring(Math.max(0, aiMessage.length - 3000)).trim(); // Увеличиваем до 3000 символов
+    return aiMessage.substring(Math.max(0, aiMessage.length - 3000)).trim();
 }
 
 function evaluateDialogue(messages, clientType) {
@@ -2525,9 +2513,14 @@ async function renderHistory() {
                         ${hasTrainerComments ? '<span style="margin-left: 10px; color: #ffc107;"><i class="fas fa-comment"></i> Есть комментарий тренера</span>' : ''}
                         ${hasAIFeedback ? '<span style="margin-left: 10px; color: #667eea;"><i class="fas fa-robot"></i> Есть обратная связь от AI</span>' : ''}
                     </div>
-                    <button class="view-chat-btn" onclick="event.stopPropagation(); viewChatHistory(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                        <i class="fas fa-comments"></i> Просмотреть чат
-                    </button>
+                    <div>
+                        <button class="view-chat-btn" onclick="event.stopPropagation(); viewChatHistory(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-comments"></i> Просмотреть чат
+                        </button>
+                        <button class="btn btn-secondary" style="margin-left: 10px; padding: 4px 8px; font-size: 11px;" onclick="event.stopPropagation(); exportChatToPDF(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                    </div>
                 </div>
                 ${item.evaluation ? `<div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #555;">${item.evaluation}</div>` : ''}
             `;
@@ -2586,6 +2579,9 @@ function loadTrainerInterface() {
         </a>
         <a href="javascript:void(0);" onclick="switchTab('trainer_statistics')" class="nav-item" data-tab="trainer_statistics">
             <i class="fas fa-chart-bar"></i> Статистика
+        </a>
+        <a href="javascript:void(0);" onclick="switchTab('trainer_reports')" class="nav-item" data-tab="trainer_reports">
+            <i class="fas fa-file-export"></i> Отчеты
         </a>
     `;
     
@@ -2682,12 +2678,46 @@ function loadTrainerInterface() {
                 </div>
             </div>
         </div>
+
+        <div class="tab-content" id="trainer_reports-tab">
+            <div class="welcome-section">
+                <div class="section-title">
+                    <i class="fas fa-file-export"></i>
+                    <span>Выгрузка отчетов</span>
+                </div>
+                
+                <div class="reports-section">
+                    <div class="report-options">
+                        <div class="report-card">
+                            <div class="report-icon">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <h3>Выгрузка статистики</h3>
+                            <p>Настраиваемые отчеты для планерок и анализа</p>
+                            <button class="btn btn-primary" onclick="openStatisticsReportModal()">
+                                Создать отчет
+                            </button>
+                        </div>
+                        
+                        <div class="report-card">
+                            <div class="report-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <h3>Отчет по ученикам</h3>
+                            <p>Детальная статистика по ученикам с фильтрами</p>
+                            <button class="btn btn-primary" onclick="openStudentsReportModal()">
+                                Создать отчет
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
     
     loadTrainerDashboard();
 }
 
-// ИСПРАВЛЕНИЕ 1: Добавляем контейнеры с прокруткой в панели тренера
 async function loadTrainerDashboard() {
     const dashboardContent = document.getElementById('trainerDashboardContent');
     if (!dashboardContent) return;
@@ -2713,15 +2743,18 @@ async function loadTrainerDashboard() {
             <div class="section-title" style="margin-top: 25px;">
                 <i class="fas fa-history"></i>
                 <span>Последние тренировки</span>
+                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportAllSessionsPDF()">
+                    <i class="fas fa-file-pdf"></i> Выгрузить все
+                </button>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 400px; overflow-y: auto; margin-top: 10px;">
         `;
         
         if (allSessions?.length) {
-            // Показываем больше тренировок
-            allSessions.slice(0, 50).forEach(session => {
+            const recentSessions = allSessions.slice(0, 50);
+            
+            recentSessions.forEach(session => {
                 const student = students.find(s => s.id === session.user_id);
                 const clientType = clientTypes[session.client_type];
                 
@@ -2743,6 +2776,9 @@ async function loadTrainerDashboard() {
                             <button class="comment-btn" onclick="openCommentModal('${session.user_id}', '${session.id}', '${student ? student.username : 'Неизвестный'}')">
                                 <i class="fas fa-comment"></i> Комментарий
                             </button>
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportSessionPDF('${session.id}')">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </button>
                         </div>
                     </div>
                 `;
@@ -2751,7 +2787,6 @@ async function loadTrainerDashboard() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         dashboardContent.innerHTML = html;
@@ -2783,9 +2818,11 @@ async function loadAllStudents() {
             <div class="section-title" style="margin-top: 25px;">
                 <i class="fas fa-users"></i>
                 <span>Все ученики</span>
+                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportStudentsReport()">
+                    <i class="fas fa-file-pdf"></i> Выгрузить отчет
+                </button>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -2812,7 +2849,6 @@ async function loadAllStudents() {
                         <div class="vertical-content" id="${groupId}_content">
                 `;
                 
-                // Показываем всех учеников в группе
                 groupStudents.forEach(student => {
                     const studentSessions = allSessions?.filter(s => s.user_id === student.id) || [];
                     const totalScore = studentSessions.reduce((sum, s) => sum + (s.score || 0), 0);
@@ -2833,6 +2869,9 @@ async function loadAllStudents() {
                                 <button class="view-chat-btn-trainer" onclick="viewStudentSessions('${student.id}', '${student.username}')">
                                     <i class="fas fa-history"></i> Тренировки
                                 </button>
+                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportStudentSessionsPDF('${student.id}', '${student.username}')">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </button>
                             </div>
                         </div>
                     `;
@@ -2852,7 +2891,6 @@ async function loadAllStudents() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         studentsContent.innerHTML = html;
@@ -2937,7 +2975,6 @@ async function searchStudents() {
                 ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -2977,6 +3014,9 @@ async function searchStudents() {
                                 <button class="view-chat-btn-trainer" onclick="viewStudentSessions('${student.id}', '${student.username}')">
                                     <i class="fas fa-history"></i> Тренировки
                                 </button>
+                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportStudentSessionsPDF('${student.id}', '${student.username}')">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </button>
                             </div>
                         </div>
                     `;
@@ -2991,7 +3031,6 @@ async function searchStudents() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         studentsContent.innerHTML = html;
@@ -3072,9 +3111,11 @@ async function searchSessions() {
                 <i class="fas fa-history"></i>
                 <span>Результаты поиска тренировок</span>
                 ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
+                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportFilteredSessionsPDF()">
+                    <i class="fas fa-file-pdf"></i> Выгрузить
+                </button>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 600px; overflow-y: auto;">
         `;
         
@@ -3101,7 +3142,6 @@ async function searchSessions() {
                         <div class="vertical-content" id="${dateId}_content">
                 `;
                 
-                // Показываем ВСЕ тренировки за выбранный день
                 dateSessions.forEach(session => {
                     const student = students.find(s => s.id === session.user_id);
                     const clientType = clientTypes[session.client_type];
@@ -3123,6 +3163,9 @@ async function searchSessions() {
                                 <button class="comment-btn" onclick="openCommentModal('${session.user_id}', '${session.id}', '${student ? student.username : 'Неизвестный'}')">
                                     <i class="fas fa-comment"></i> Комментарий
                                 </button>
+                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportSessionPDF('${session.id}')">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </button>
                             </div>
                         </div>
                     `;
@@ -3143,7 +3186,6 @@ async function searchSessions() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         sessionsContent.innerHTML = html;
@@ -3168,15 +3210,17 @@ async function loadAllSessions() {
 
 async function viewStudentSessions(studentId, studentName) {
     try {
-        const sessions = await auth.supabaseRequest(`training_sessions?user_id=eq.${studentId}&order=date.desc`);
+        const sessions = await auth.supabaseRequest(`training_sessions?user_id=eq.${studentId}&order=date.desc&limit=1000`);
         
         let html = `
             <div class="section-title">
                 <i class="fas fa-history"></i>
                 <span>Тренировки ученика: ${studentName}</span>
+                <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="exportStudentSessionsPDF('${studentId}', '${studentName}')">
+                    <i class="fas fa-file-pdf"></i> Выгрузить все
+                </button>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -3201,6 +3245,9 @@ async function viewStudentSessions(studentId, studentName) {
                             <button class="comment-btn" onclick="openCommentModal('${studentId}', '${session.id}', '${studentName}')">
                                 <i class="fas fa-comment"></i> Комментарий
                             </button>
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportSessionPDF('${session.id}')">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </button>
                         </div>
                     </div>
                 `;
@@ -3209,7 +3256,6 @@ async function viewStudentSessions(studentId, studentName) {
             html += '<div style="text-align: center; padding: 20px; color: #666;">У ученика нет тренировок</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         const tempContainer = document.createElement('div');
@@ -3266,7 +3312,6 @@ async function viewStudentChat(studentId, sessionId) {
             messagesContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Нет данных о диалоге</div>';
         }
         
-        // ИСПРАВЛЕНИЕ 2: Увеличиваем отображение полной обратной связи
         if (sessionData.ai_feedback?.trim()) {
             const aiFeedbackContainer = document.createElement('div');
             aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
@@ -3298,12 +3343,17 @@ async function viewStudentChat(studentId, sessionId) {
             messagesContainer.appendChild(commentsContainer);
         }
         
-        const commentButton = document.createElement('button');
-        commentButton.className = 'btn btn-primary';
-        commentButton.style.cssText = 'margin-top: 15px; align-self: center;';
-        commentButton.innerHTML = '<i class="fas fa-comment"></i> Добавить комментарий';
-        commentButton.onclick = () => openCommentModal(studentId, sessionId, studentName);
-        messagesContainer.appendChild(commentButton);
+        const actionButtons = document.createElement('div');
+        actionButtons.style.cssText = 'margin-top: 15px; display: flex; gap: 10px; justify-content: center;';
+        actionButtons.innerHTML = `
+            <button class="btn btn-primary" onclick="exportChatToPDF(${JSON.stringify(sessionData).replace(/"/g, '&quot;')})">
+                <i class="fas fa-file-pdf"></i> Выгрузить в PDF
+            </button>
+            <button class="btn btn-secondary" onclick="openCommentModal('${studentId}', '${sessionId}', '${studentName}')">
+                <i class="fas fa-comment"></i> Добавить комментарий
+            </button>
+        `;
+        messagesContainer.appendChild(actionButtons);
         
         document.getElementById('chatModal').style.display = 'flex';
         
@@ -3446,7 +3496,6 @@ function viewChatHistory(session) {
         messagesContainer.appendChild(messageDiv);
     });
     
-    // ИСПРАВЛЕНИЕ 2: Увеличиваем отображение полной обратной связи
     if (session.ai_feedback?.trim()) {
         const aiFeedbackContainer = document.createElement('div');
         aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
@@ -3478,6 +3527,15 @@ function viewChatHistory(session) {
         messagesContainer.appendChild(commentsContainer);
     }
     
+    const actionButtons = document.createElement('div');
+    actionButtons.style.cssText = 'margin-top: 15px; display: flex; gap: 10px; justify-content: center;';
+    actionButtons.innerHTML = `
+        <button class="btn btn-primary" onclick="exportChatToPDF(${JSON.stringify(session).replace(/"/g, '&quot;')})">
+            <i class="fas fa-file-pdf"></i> Выгрузить в PDF
+        </button>
+    `;
+    messagesContainer.appendChild(actionButtons);
+    
     setTimeout(() => {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }, 100);
@@ -3505,7 +3563,6 @@ function formatDuration(seconds) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// ИСПРАВЛЕНИЕ 2: Улучшаем показ полной обратной связи в модальном окне результатов
 function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, aiFeedback = "") {
     document.getElementById('resultTitle').textContent = title;
     document.getElementById('resultIcon').textContent = icon;
@@ -3535,7 +3592,6 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     if (aiFeedback && aiFeedback.trim().length > 0) {
         aiFeedbackContent.textContent = aiFeedback;
         aiFeedbackContainer.style.display = 'block';
-        // Увеличиваем высоту для полного отображения
         aiFeedbackContent.style.maxHeight = '400px';
         aiFeedbackContent.style.overflowY = 'auto';
     } else {
@@ -3585,39 +3641,6 @@ function closeResultModal() {
     document.getElementById('aiFeedbackContainer').style.display = 'none';
     loadDemoChat();
 }
-
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-    
-    .toggle-icon {
-        transition: transform 0.3s;
-    }
-    
-    .toggle-icon.expanded {
-        transform: rotate(180deg);
-    }
-    
-    .vertical-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-out;
-    }
-    
-    .vertical-content.expanded {
-        max-height: 1000px;
-        transition: max-height 0.5s ease-in;
-    }
-`;
-document.head.appendChild(style);
 
 function setupLeaderboardTabs() {
     const tabs = document.querySelectorAll('.leaderboard-tab');
@@ -3721,7 +3744,6 @@ async function loadTrainerStatistics() {
                 <span>Статистика по вертикалям</span>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -3743,7 +3765,6 @@ async function loadTrainerStatistics() {
             `;
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         statisticsContent.innerHTML = html;
@@ -3753,3 +3774,966 @@ async function loadTrainerStatistics() {
         statisticsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
     }
 }
+
+// ============ PDF ФУНКЦИИ ============
+
+async function loadPDFLibrary() {
+    if (jsPDFLoaded && autoTableLoaded) return;
+    
+    return new Promise((resolve, reject) => {
+        const script1 = document.createElement('script');
+        script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script1.async = true;
+        
+        const script2 = document.createElement('script');
+        script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js';
+        script2.async = true;
+        
+        script1.onload = () => {
+            jsPDFLoaded = true;
+            if (autoTableLoaded) resolve();
+        };
+        
+        script2.onload = () => {
+            autoTableLoaded = true;
+            if (jsPDFLoaded) resolve();
+        };
+        
+        script1.onerror = reject;
+        script2.onerror = reject;
+        
+        document.head.appendChild(script1);
+        document.head.appendChild(script2);
+    });
+}
+
+function exportChatToPDF(sessionData) {
+    loadPDFLibrary().then(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const clientType = clientTypes[sessionData.clientType] || { name: sessionData.clientType || 'Неизвестный' };
+        const studentName = auth.currentUser?.username || 'Ученик';
+        
+        doc.setFontSize(20);
+        doc.text('Диалоговый тренажер - Отчет о тренировке', 14, 15);
+        
+        doc.setFontSize(12);
+        doc.text(`Ученик: ${studentName}`, 14, 25);
+        doc.text(`Вертикаль: ${sessionData.vertical || 'Не указана'}`, 14, 32);
+        doc.text(`Тип клиента: ${clientType.name}`, 14, 39);
+        doc.text(`Дата: ${formatDate(sessionData.date)}`, 14, 46);
+        doc.text(`Оценка: ${sessionData.score}/5`, 14, 53);
+        doc.text(`Длительность: ${formatDuration(sessionData.duration || 0)}`, 14, 60);
+        doc.text(`XP получено: +${sessionData.xp || 0}`, 14, 67);
+        
+        let yPosition = 75;
+        
+        if (sessionData.scenario) {
+            doc.setFontSize(14);
+            doc.text('Сценарий:', 14, yPosition);
+            yPosition += 7;
+            
+            doc.setFontSize(11);
+            const scenarioLines = doc.splitTextToSize(sessionData.scenario, 180);
+            scenarioLines.forEach(line => {
+                if (yPosition > 280) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                doc.text(line, 14, yPosition);
+                yPosition += 7;
+            });
+            yPosition += 7;
+        }
+        
+        doc.setFontSize(14);
+        doc.text('Диалог:', 14, yPosition);
+        yPosition += 10;
+        
+        let messages = [];
+        if (sessionData.messages && Array.isArray(sessionData.messages)) {
+            messages = sessionData.messages;
+        } else if (typeof sessionData.messages === 'string') {
+            try {
+                messages = JSON.parse(sessionData.messages);
+            } catch (e) {
+                messages = [];
+            }
+        }
+        
+        doc.setFontSize(10);
+        messages.forEach((msg, index) => {
+            if (yPosition > 280) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            const sender = msg.sender === 'user' ? 'Оператор' : 'Клиент';
+            const text = `${index + 1}. [${sender}]: ${msg.text}`;
+            const lines = doc.splitTextToSize(text, 180);
+            
+            lines.forEach(line => {
+                if (yPosition > 280) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                doc.text(line, 14, yPosition);
+                yPosition += 5;
+            });
+            yPosition += 3;
+        });
+        
+        yPosition += 5;
+        
+        if (sessionData.ai_feedback) {
+            if (yPosition > 250) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            doc.setFontSize(14);
+            doc.text('Обратная связь от AI:', 14, yPosition);
+            yPosition += 7;
+            
+            doc.setFontSize(10);
+            const feedbackLines = doc.splitTextToSize(sessionData.ai_feedback, 180);
+            feedbackLines.forEach(line => {
+                if (yPosition > 280) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                doc.text(line, 14, yPosition);
+                yPosition += 5;
+            });
+            yPosition += 7;
+        }
+        
+        if (sessionData.trainer_comments?.length > 0) {
+            if (yPosition > 250) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            doc.setFontSize(14);
+            doc.text('Комментарии тренера:', 14, yPosition);
+            yPosition += 7;
+            
+            doc.setFontSize(10);
+            sessionData.trainer_comments.forEach(comment => {
+                const commentText = `[${comment.trainer}, ${formatDate(comment.date)}]: ${comment.comment}`;
+                const commentLines = doc.splitTextToSize(commentText, 180);
+                
+                commentLines.forEach(line => {
+                    if (yPosition > 280) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    doc.text(line, 14, yPosition);
+                    yPosition += 5;
+                });
+                yPosition += 3;
+            });
+        }
+        
+        const fileName = `dialogue_${studentName}_${sessionData.date.substring(0, 10)}_${clientType.name.replace(/\s+/g, '_')}.pdf`;
+        doc.save(fileName);
+    }).catch(error => {
+        console.error('Ошибка загрузки PDF библиотеки:', error);
+        alert('Ошибка при создании PDF. Пожалуйста, проверьте подключение к интернету.');
+    });
+}
+
+function exportSessionPDF(sessionId) {
+    auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`).then(sessions => {
+        if (sessions?.length > 0) {
+            const session = sessions[0];
+            const student = auth.currentUser;
+            
+            const sessionData = {
+                ...session,
+                clientType: session.client_type,
+                vertical: session.vertical,
+                score: session.score,
+                xp: session.xp_earned,
+                date: session.date,
+                scenario: session.scenario,
+                ai_feedback: session.ai_feedback,
+                trainer_comments: session.trainer_comments,
+                messages: typeof session.messages === 'string' ? JSON.parse(session.messages) : session.messages
+            };
+            
+            exportChatToPDF(sessionData);
+        }
+    }).catch(error => {
+        console.error('Ошибка загрузки сессии:', error);
+        alert('Ошибка при загрузке данных сессии');
+    });
+}
+
+function exportAllSessionsPDF() {
+    auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 }).then(sessions => {
+        if (!sessions?.length) {
+            alert('Нет данных для выгрузки');
+            return;
+        }
+        
+        loadPDFLibrary().then(() => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(20);
+            doc.text('Диалоговый тренажер - Отчет по всем тренировкам', 14, 15);
+            doc.setFontSize(12);
+            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
+            doc.text(`Всего тренировок: ${sessions.length}`, 14, 32);
+            
+            const tableData = sessions.map((session, index) => [
+                index + 1,
+                session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты',
+                session.user_id || 'Нет ID',
+                session.vertical || 'Без вертикали',
+                clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
+                session.score || '0',
+                session.xp_earned || '0',
+                session.duration ? formatDuration(session.duration) : '0:00'
+            ]);
+            
+            doc.autoTable({
+                head: [['№', 'Дата', 'ID ученика', 'Вертикаль', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
+                body: tableData,
+                startY: 40,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [44, 62, 80] }
+            });
+            
+            const fileName = `all_sessions_${new Date().toISOString().substring(0, 10)}.pdf`;
+            doc.save(fileName);
+        });
+    });
+}
+
+function exportFilteredSessionsPDF() {
+    const searchInput = document.getElementById('sessionSearchInput');
+    const dateFrom = document.getElementById('sessionDateFrom');
+    const dateTo = document.getElementById('sessionDateTo');
+    const scoreFilter = document.getElementById('sessionScoreFilter');
+    const filterSelect = document.getElementById('sessionFilter');
+    
+    const filters = {
+        searchTerm: searchInput?.value || '',
+        dateFrom: dateFrom?.value || '',
+        dateTo: dateTo?.value || '',
+        minScore: scoreFilter?.value ? parseInt(scoreFilter.value) : 0,
+        vertical: filterSelect?.value || 'all'
+    };
+    
+    auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 }).then(allSessions => {
+        let filteredSessions = allSessions || [];
+        
+        if (filters.vertical !== 'all') {
+            filteredSessions = filteredSessions.filter(s => s.vertical === filters.vertical);
+        }
+        
+        if (filters.searchTerm) {
+            filteredSessions = filteredSessions.filter(s => 
+                s.scenario?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+                s.client_type?.toLowerCase().includes(filters.searchTerm.toLowerCase())
+            );
+        }
+        
+        if (filters.dateFrom) {
+            filteredSessions = filteredSessions.filter(s => {
+                if (!s.date) return false;
+                return new Date(s.date) >= new Date(filters.dateFrom);
+            });
+        }
+        
+        if (filters.dateTo) {
+            filteredSessions = filteredSessions.filter(s => {
+                if (!s.date) return false;
+                return new Date(s.date) <= new Date(filters.dateTo + 'T23:59:59');
+            });
+        }
+        
+        if (filters.minScore > 0) {
+            filteredSessions = filteredSessions.filter(s => s.score && s.score >= filters.minScore);
+        }
+        
+        if (!filteredSessions.length) {
+            alert('Нет данных для выгрузки по выбранным фильтрам');
+            return;
+        }
+        
+        loadPDFLibrary().then(() => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(20);
+            doc.text('Диалоговый тренажер - Фильтрованный отчет', 14, 15);
+            doc.setFontSize(12);
+            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
+            doc.text(`Найдено тренировок: ${filteredSessions.length}`, 14, 32);
+            
+            let filterText = 'Фильтры: ';
+            if (filters.vertical !== 'all') filterText += `Вертикаль: ${filters.vertical}; `;
+            if (filters.searchTerm) filterText += `Поиск: "${filters.searchTerm}"; `;
+            if (filters.dateFrom) filterText += `От: ${filters.dateFrom}; `;
+            if (filters.dateTo) filterText += `До: ${filters.dateTo}; `;
+            if (filters.minScore > 0) filterText += `Минимальная оценка: ${filters.minScore}; `;
+            
+            const filterLines = doc.splitTextToSize(filterText, 180);
+            filterLines.forEach((line, index) => {
+                doc.text(line, 14, 39 + (index * 5));
+            });
+            
+            const startY = 39 + (filterLines.length * 5) + 5;
+            
+            const tableData = filteredSessions.map((session, index) => [
+                index + 1,
+                session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты',
+                session.user_id || 'Нет ID',
+                session.vertical || 'Без вертикали',
+                clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
+                session.score || '0',
+                session.xp_earned || '0',
+                session.duration ? formatDuration(session.duration) : '0:00'
+            ]);
+            
+            doc.autoTable({
+                head: [['№', 'Дата', 'ID ученика', 'Вертикаль', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
+                body: tableData,
+                startY: startY,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [44, 62, 80] }
+            });
+            
+            const fileName = `filtered_sessions_${new Date().toISOString().substring(0, 10)}.pdf`;
+            doc.save(fileName);
+        });
+    });
+}
+
+function exportStudentSessionsPDF(studentId, studentName) {
+    auth.supabaseRequest(`training_sessions?user_id=eq.${studentId}&order=date.desc&limit=1000`).then(sessions => {
+        if (!sessions?.length) {
+            alert('У ученика нет тренировок');
+            return;
+        }
+        
+        loadPDFLibrary().then(() => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(20);
+            doc.text(`Диалоговый тренажер - Отчет по ученику`, 14, 15);
+            doc.setFontSize(16);
+            doc.text(`${studentName}`, 14, 25);
+            doc.setFontSize(12);
+            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 35);
+            doc.text(`Всего тренировок: ${sessions.length}`, 14, 42);
+            
+            const totalScore = sessions.reduce((sum, s) => sum + (s.score || 0), 0);
+            const avgScore = sessions.length > 0 ? (totalScore / sessions.length).toFixed(1) : '0.0';
+            const totalXP = sessions.reduce((sum, s) => sum + (s.xp_earned || 0), 0);
+            
+            doc.text(`Средняя оценка: ${avgScore}/5`, 14, 49);
+            doc.text(`Общий XP: ${totalXP}`, 14, 56);
+            
+            const tableData = sessions.map((session, index) => [
+                index + 1,
+                session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты',
+                session.vertical || 'Без вертикали',
+                clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
+                session.score || '0',
+                session.xp_earned || '0',
+                session.duration ? formatDuration(session.duration) : '0:00'
+            ]);
+            
+            doc.autoTable({
+                head: [['№', 'Дата', 'Вертикаль', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
+                body: tableData,
+                startY: 65,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [44, 62, 80] }
+            });
+            
+            const fileName = `student_${studentName.replace(/\s+/g, '_')}_sessions_${new Date().toISOString().substring(0, 10)}.pdf`;
+            doc.save(fileName);
+        });
+    });
+}
+
+function exportStudentsReport() {
+    auth.getStudents().then(students => {
+        if (!students?.length) {
+            alert('Нет данных о учениках');
+            return;
+        }
+        
+        loadPDFLibrary().then(() => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(20);
+            doc.text('Диалоговый тренажер - Отчет по ученикам', 14, 15);
+            doc.setFontSize(12);
+            doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
+            doc.text(`Всего учеников: ${students.length}`, 14, 32);
+            
+            const tableData = students.map((student, index) => {
+                let stats = {};
+                try {
+                    stats = typeof student.stats === 'string' ? JSON.parse(student.stats) : student.stats || {};
+                } catch {
+                    stats = {};
+                }
+                
+                return [
+                    index + 1,
+                    student.username || 'Без имени',
+                    student.group_name || 'Без вертикали',
+                    stats.currentLevel || 1,
+                    stats.completedSessions || 0,
+                    stats.averageScore ? stats.averageScore.toFixed(1) : '0.0',
+                    stats.totalXP || 0,
+                    stats.currentStreak || 0
+                ];
+            });
+            
+            doc.autoTable({
+                head: [['№', 'Имя', 'Вертикаль', 'Уровень', 'Тренировок', 'Ср. оценка', 'Общий XP', 'Стрик']],
+                body: tableData,
+                startY: 40,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [44, 62, 80] }
+            });
+            
+            const fileName = `students_report_${new Date().toISOString().substring(0, 10)}.pdf`;
+            doc.save(fileName);
+        });
+    });
+}
+
+function openStatisticsReportModal() {
+    const modalHTML = `
+        <div class="modal" id="statisticsReportModal" style="display: flex;">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="result-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h2 class="result-title">Выгрузка статистики</h2>
+                
+                <div class="form-group">
+                    <label>Период:</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <input type="date" id="reportDateFrom" class="trainer-date-input" style="flex: 1;">
+                        <span>до</span>
+                        <input type="date" id="reportDateTo" class="trainer-date-input" style="flex: 1;">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Вертикаль:</label>
+                    <select id="reportVertical" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+                        <option value="all">Все вертикали</option>
+                        <option value="Программа лояльности">Лояльность</option>
+                        <option value="ОПК">ОПК</option>
+                        <option value="Фудтех">Фудтех</option>
+                        <option value="Маркет">Маркет</option>
+                        <option value="Аптека">Аптека</option>
+                        <option value="Сборка">Сборка</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Тип отчета:</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="reportTypeSummary" checked> Сводная статистика
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="reportTypeDetails"> Детали по тренировкам
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="reportTypeCharts"> Графики
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="generateStatisticsReport()" style="flex: 1;">
+                        <i class="fas fa-file-pdf"></i> Создать отчет
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeStatisticsReportModal()" style="flex: 1;">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modalDiv = document.createElement('div');
+    modalDiv.innerHTML = modalHTML;
+    document.body.appendChild(modalDiv);
+}
+
+function closeStatisticsReportModal() {
+    const modal = document.getElementById('statisticsReportModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function generateStatisticsReport() {
+    const dateFrom = document.getElementById('reportDateFrom').value;
+    const dateTo = document.getElementById('reportDateTo').value;
+    const vertical = document.getElementById('reportVertical').value;
+    const includeSummary = document.getElementById('reportTypeSummary').checked;
+    const includeDetails = document.getElementById('reportTypeDetails').checked;
+    const includeCharts = document.getElementById('reportTypeCharts').checked;
+    
+    try {
+        const students = await auth.getStudents();
+        let allSessions = await auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 });
+        
+        if (vertical !== 'all') {
+            allSessions = allSessions.filter(s => s.vertical === vertical);
+        }
+        
+        if (dateFrom) {
+            allSessions = allSessions.filter(s => {
+                if (!s.date) return false;
+                return new Date(s.date) >= new Date(dateFrom);
+            });
+        }
+        
+        if (dateTo) {
+            allSessions = allSessions.filter(s => {
+                if (!s.date) return false;
+                return new Date(s.date) <= new Date(dateTo + 'T23:59:59');
+            });
+        }
+        
+        await loadPDFLibrary();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        let yPos = 15;
+        
+        doc.setFontSize(20);
+        doc.text('Диалоговый тренажер - Статистический отчет', 14, yPos);
+        yPos += 10;
+        
+        doc.setFontSize(12);
+        doc.text(`Период: ${dateFrom || 'Все время'} - ${dateTo || 'Сегодня'}`, 14, yPos);
+        yPos += 7;
+        doc.text(`Вертикаль: ${vertical === 'all' ? 'Все' : vertical}`, 14, yPos);
+        yPos += 7;
+        doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, yPos);
+        yPos += 10;
+        
+        if (includeSummary) {
+            doc.setFontSize(16);
+            doc.text('Сводная статистика', 14, yPos);
+            yPos += 10;
+            
+            const totalStudents = students.filter(s => vertical === 'all' || s.group_name === vertical).length;
+            const totalSessions = allSessions.length;
+            const totalScore = allSessions.reduce((sum, s) => sum + (s.score || 0), 0);
+            const avgScore = totalSessions > 0 ? (totalScore / totalSessions).toFixed(1) : '0.0';
+            const totalXP = allSessions.reduce((sum, s) => sum + (s.xp_earned || 0), 0);
+            
+            const summaryData = [
+                ['Всего учеников', totalStudents],
+                ['Всего тренировок', totalSessions],
+                ['Средняя оценка', avgScore + '/5'],
+                ['Общий заработанный XP', totalXP],
+                ['Средний XP за тренировку', totalSessions > 0 ? Math.round(totalXP / totalSessions) : 0]
+            ];
+            
+            doc.autoTable({
+                body: summaryData,
+                startY: yPos,
+                theme: 'grid',
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 120, fontStyle: 'bold' },
+                    1: { cellWidth: 60 }
+                }
+            });
+            
+            yPos = doc.lastAutoTable.finalY + 10;
+        }
+        
+        if (includeDetails && allSessions.length > 0) {
+            if (yPos > 250) {
+                doc.addPage();
+                yPos = 20;
+            }
+            
+            doc.setFontSize(16);
+            doc.text('Детали по тренировкам', 14, yPos);
+            yPos += 10;
+            
+            const sessionsByDate = {};
+            allSessions.forEach(session => {
+                const date = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : 'Нет даты';
+                if (!sessionsByDate[date]) sessionsByDate[date] = [];
+                sessionsByDate[date].push(session);
+            });
+            
+            for (const [date, dateSessions] of Object.entries(sessionsByDate)) {
+                if (yPos > 250) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setFontSize(14);
+                doc.text(`Дата: ${date} (${dateSessions.length} тренировок)`, 14, yPos);
+                yPos += 8;
+                
+                const tableData = dateSessions.map((session, index) => {
+                    const student = students.find(s => s.id === session.user_id);
+                    return [
+                        index + 1,
+                        student ? student.username : 'Неизвестный',
+                        clientTypes[session.client_type]?.name || session.client_type || 'Неизвестный',
+                        session.score || '0',
+                        session.xp_earned || '0',
+                        session.duration ? formatDuration(session.duration) : '0:00'
+                    ];
+                });
+                
+                doc.autoTable({
+                    head: [['№', 'Ученик', 'Тип клиента', 'Оценка', 'XP', 'Длительность']],
+                    body: tableData,
+                    startY: yPos,
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [44, 62, 80] }
+                });
+                
+                yPos = doc.lastAutoTable.finalY + 10;
+            }
+        }
+        
+        const fileName = `statistics_report_${new Date().toISOString().substring(0, 10)}.pdf`;
+        doc.save(fileName);
+        
+        closeStatisticsReportModal();
+        
+    } catch (error) {
+        console.error('Ошибка создания отчета:', error);
+        alert('Ошибка при создании отчета');
+    }
+}
+
+function openStudentsReportModal() {
+    const modalHTML = `
+        <div class="modal" id="studentsReportModal" style="display: flex;">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="result-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h2 class="result-title">Отчет по ученикам</h2>
+                
+                <div class="form-group">
+                    <label>Группировка:</label>
+                    <select id="groupBy" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+                        <option value="vertical">По вертикалям</option>
+                        <option value="level">По уровням</option>
+                        <option value="activity">По активности</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Фильтры:</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="number" id="minSessions" placeholder="Мин. тренировок" class="trainer-date-input" style="flex: 1;">
+                        <input type="number" id="minAvgScore" placeholder="Мин. средний балл" class="trainer-date-input" style="flex: 1;" step="0.1">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="minLevel" placeholder="Мин. уровень" class="trainer-date-input" style="flex: 1;">
+                        <input type="number" id="minXP" placeholder="Мин. XP" class="trainer-date-input" style="flex: 1;">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Сортировка:</label>
+                    <select id="sortBy" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
+                        <option value="xp">По XP (убывание)</option>
+                        <option value="avgScore">По среднему баллу (убывание)</option>
+                        <option value="sessions">По количеству тренировок (убывание)</option>
+                        <option value="level">По уровню (убывание)</option>
+                        <option value="name">По имени (А-Я)</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="generateStudentsReport()" style="flex: 1;">
+                        <i class="fas fa-file-pdf"></i> Создать отчет
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeStudentsReportModal()" style="flex: 1;">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modalDiv = document.createElement('div');
+    modalDiv.innerHTML = modalHTML;
+    document.body.appendChild(modalDiv);
+}
+
+function closeStudentsReportModal() {
+    const modal = document.getElementById('studentsReportModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function generateStudentsReport() {
+    const groupBy = document.getElementById('groupBy').value;
+    const minSessions = parseInt(document.getElementById('minSessions').value) || 0;
+    const minAvgScore = parseFloat(document.getElementById('minAvgScore').value) || 0;
+    const minLevel = parseInt(document.getElementById('minLevel').value) || 0;
+    const minXP = parseInt(document.getElementById('minXP').value) || 0;
+    const sortBy = document.getElementById('sortBy').value;
+    
+    try {
+        const students = await auth.getStudents();
+        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all', limit: 1000 });
+        
+        const studentsWithStats = students.map(student => {
+            let stats = {};
+            try {
+                stats = typeof student.stats === 'string' ? JSON.parse(student.stats) : student.stats || {};
+            } catch {
+                stats = {};
+            }
+            
+            const studentSessions = allSessions.filter(s => s.user_id === student.id);
+            const totalScore = studentSessions.reduce((sum, s) => sum + (s.score || 0), 0);
+            const avgScore = studentSessions.length > 0 ? (totalScore / studentSessions.length).toFixed(1) : '0.0';
+            
+            return {
+                ...student,
+                stats: stats,
+                computedStats: {
+                    sessions: studentSessions.length,
+                    avgScore: parseFloat(avgScore),
+                    totalXP: stats.totalXP || 0,
+                    level: stats.currentLevel || 1,
+                    streak: stats.currentStreak || 0
+                }
+            };
+        });
+        
+        let filteredStudents = studentsWithStats.filter(student => {
+            if (student.computedStats.sessions < minSessions) return false;
+            if (student.computedStats.avgScore < minAvgScore) return false;
+            if (student.computedStats.level < minLevel) return false;
+            if (student.computedStats.totalXP < minXP) return false;
+            return true;
+        });
+        
+        filteredStudents.sort((a, b) => {
+            switch(sortBy) {
+                case 'xp':
+                    return b.computedStats.totalXP - a.computedStats.totalXP;
+                case 'avgScore':
+                    return b.computedStats.avgScore - a.computedStats.avgScore;
+                case 'sessions':
+                    return b.computedStats.sessions - a.computedStats.sessions;
+                case 'level':
+                    return b.computedStats.level - a.computedStats.level;
+                case 'name':
+                    return a.username.localeCompare(b.username);
+                default:
+                    return b.computedStats.totalXP - a.computedStats.totalXP;
+            }
+        });
+        
+        await loadPDFLibrary();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(20);
+        doc.text('Диалоговый тренажер - Отчет по ученикам', 14, 15);
+        doc.setFontSize(12);
+        doc.text(`Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}`, 14, 25);
+        doc.text(`Всего учеников: ${filteredStudents.length}`, 14, 32);
+        doc.text(`Группировка: ${getGroupByLabel(groupBy)}`, 14, 39);
+        doc.text(`Сортировка: ${getSortByLabel(sortBy)}`, 14, 46);
+        
+        let yPos = 55;
+        
+        if (groupBy === 'vertical') {
+            const studentsByVertical = {};
+            filteredStudents.forEach(student => {
+                const vertical = student.group_name || 'Без вертикали';
+                if (!studentsByVertical[vertical]) studentsByVertical[vertical] = [];
+                studentsByVertical[vertical].push(student);
+            });
+            
+            for (const [vertical, verticalStudents] of Object.entries(studentsByVertical)) {
+                if (yPos > 250) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setFontSize(16);
+                doc.text(`Вертикаль: ${vertical} (${verticalStudents.length} учеников)`, 14, yPos);
+                yPos += 10;
+                
+                const tableData = verticalStudents.map((student, index) => [
+                    index + 1,
+                    student.username,
+                    student.computedStats.level,
+                    student.computedStats.sessions,
+                    student.computedStats.avgScore,
+                    student.computedStats.totalXP,
+                    student.computedStats.streak
+                ]);
+                
+                doc.autoTable({
+                    head: [['№', 'Имя', 'Уровень', 'Тренировок', 'Ср. оценка', 'Общий XP', 'Стрик']],
+                    body: tableData,
+                    startY: yPos,
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [44, 62, 80] }
+                });
+                
+                yPos = doc.lastAutoTable.finalY + 10;
+            }
+        } else {
+            const tableData = filteredStudents.map((student, index) => [
+                index + 1,
+                student.username,
+                student.group_name || 'Без вертикали',
+                student.computedStats.level,
+                student.computedStats.sessions,
+                student.computedStats.avgScore,
+                student.computedStats.totalXP,
+                student.computedStats.streak
+            ]);
+            
+            doc.autoTable({
+                head: [['№', 'Имя', 'Вертикаль', 'Уровень', 'Тренировок', 'Ср. оценка', 'Общий XP', 'Стрик']],
+                body: tableData,
+                startY: yPos,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [44, 62, 80] }
+            });
+        }
+        
+        const fileName = `students_report_${new Date().toISOString().substring(0, 10)}.pdf`;
+        doc.save(fileName);
+        
+        closeStudentsReportModal();
+        
+    } catch (error) {
+        console.error('Ошибка создания отчета:', error);
+        alert('Ошибка при создании отчета');
+    }
+}
+
+function getGroupByLabel(value) {
+    switch(value) {
+        case 'vertical': return 'По вертикалям';
+        case 'level': return 'По уровням';
+        case 'activity': return 'По активности';
+        default: return 'Не указано';
+    }
+}
+
+function getSortByLabel(value) {
+    switch(value) {
+        case 'xp': return 'По XP';
+        case 'avgScore': return 'По среднему баллу';
+        case 'sessions': return 'По количеству тренировок';
+        case 'level': return 'По уровню';
+        case 'name': return 'По имени';
+        default: return 'По XP';
+    }
+}
+
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    
+    .toggle-icon {
+        transition: transform 0.3s;
+    }
+    
+    .toggle-icon.expanded {
+        transform: rotate(180deg);
+    }
+    
+    .vertical-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    
+    .vertical-content.expanded {
+        max-height: 1000px;
+        transition: max-height 0.5s ease-in;
+    }
+    
+    .reports-section {
+        margin-top: 20px;
+    }
+    
+    .report-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .report-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border-left: 4px solid #4a6491;
+        text-align: center;
+        transition: all 0.3s;
+    }
+    
+    .report-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .report-icon {
+        font-size: 36px;
+        color: #4a6491;
+        margin-bottom: 15px;
+    }
+    
+    .report-card h3 {
+        margin: 10px 0;
+        color: #333;
+        font-size: 16px;
+    }
+    
+    .report-card p {
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 15px;
+        line-height: 1.4;
+    }
+`;
+document.head.appendChild(style);
+[file content end]
