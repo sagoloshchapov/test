@@ -1590,4 +1590,116 @@ body {
         width: 100%;
         justify-content: flex-end;
     }
+    /* Добавить в конец файла style.css */
+
+.export-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.export-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-left: 4px solid #4a6491;
+    display: flex;
+    flex-direction: column;
+}
+
+.export-icon {
+    font-size: 32px;
+    color: #4a6491;
+    margin-bottom: 15px;
+}
+
+.export-content h3 {
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 16px;
+}
+
+.export-content p {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.export-history {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.export-history-item {
+    background: white;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-left: 3px solid #4a6491;
+    transition: all 0.3s;
+}
+
+.export-history-item:hover {
+    background: #f0f9f6;
+}
+
+.trainer-export-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.export-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Стили для ползунков прокрутки */
+.scroll-container {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.scroll-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scroll-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Для Firefox */
+.scroll-container {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* Улучшения для мобильных устройств */
+@media (max-width: 768px) {
+    .export-options,
+    .trainer-export-options {
+        grid-template-columns: 1fr;
+    }
+    
+    .export-card {
+        padding: 15px;
+    }
+}
 }
