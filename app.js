@@ -3895,7 +3895,34 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     if (evaluation) {
         details += `<div style="margin-bottom: 5px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>`;
         details += `<div style="margin-bottom: 5px;"><strong>Время:</strong> ${formatDuration(duration)}</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</</div>`;
+        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</strong> ${evaluation.feedback}</div>`;
+        
+        if (evaluation.criteria) {
+            details += `<div style="margin-top: 10px; font-size: 12px; color: #666;">`;
+            details += `<div>✓ Сообщений: ${evaluation.criteria.messageCount}</div>`;
+            details += `<div>✓ Профессиональных фраз: ${evaluation.criteria.professionalPhrases}</div>`;
+            details += `<div>✓ Корректное завершение: ${evaluation.criteria.properEnding ? 'Да' : 'Можно лучше'}</div>`;
+            details += `</div>`;
+        }
+    }
+    
+    if (resultDetails) resultDetails.innerHTML = details;
+    
+    if (aiFeedback && aiFeedback.trim().length > 0) {
+        if (aiFeedbackContent) aiFeedbackContent.textContent = aiFeedback;
+        if (aiFeedbackContainer) {
+            aiFeedbackContainer.style.display = 'block';
+            if (aiFeedbackContent) {
+                aiFeedbackContent.style.maxHeight = '400px';
+                aiFeedbackContent.style.overflowY = 'auto';
+            }
+        }
+    } else if (aiFeedbackContainer) {
+        aiFeedbackContainer.style.display = 'none';
+    }
+    
+    if (resultModal) resultModal.style.display = 'flex';
+}
 
 function showAchievementNotification(achievement) {
     const notification = document.createElement('div');
