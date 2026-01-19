@@ -1967,4 +1967,77 @@ h4 { font-size: 1.125rem; }
     .tab-content {
         break-inside: avoid;
     }
+    /* Дополнительные стили для улучшения видимости логотипа */
+.auth-modal .modal-header {
+    background: linear-gradient(135deg, #4361ee, #7209b7);
+    padding: 30px 30px 20px;
+    color: var(--text-white);
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-modal .modal-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, 
+        rgba(255,255,255,0.1) 0%, 
+        rgba(255,255,255,0.05) 25%, 
+        transparent 50%, 
+        rgba(0,0,0,0.05) 75%, 
+        rgba(0,0,0,0.1) 100%);
+}
+
+.auth-modal .logo {
+    position: relative;
+    z-index: 2;
+}
+
+.auth-modal .logo-icon {
+    font-size: 32px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #ffffff, #f8f9fa);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4361ee;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+.auth-modal .logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.auth-modal .logo-title {
+    font-weight: 800;
+    font-size: 28px;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    letter-spacing: -0.5px;
+}
+
+.auth-modal .logo-subtitle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.95);
+    font-weight: 500;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Анимация для логотипа */
+@keyframes logoPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.auth-modal .logo-icon {
+    animation: logoPulse 3s ease-in-out infinite;
+    }
 }
