@@ -99,6 +99,7 @@ class SupabaseAuth {
                 group_name: group.trim(),
                 password_hash: passwordHash,
                 role: 'user',
+                avatar_url: '',
                 stats: JSON.stringify({
                     currentLevel: 1,
                     totalXP: 0,
@@ -183,6 +184,7 @@ class SupabaseAuth {
                 username: user.username,
                 group: user.group_name,
                 role: user.role || 'user',
+                avatar_url: user.avatar_url || '',
                 stats: userStats
             };
             
@@ -346,7 +348,7 @@ class SupabaseAuth {
     
     async getLeaderboard(filterVertical = 'all') {
         try {
-            const users = await this.supabaseRequest('users?select=id,username,group_name,stats');
+            const users = await this.supabaseRequest('users?select=id,username,group_name,stats,avatar_url');
             
             if (!users?.length) return [];
             
@@ -369,7 +371,8 @@ class SupabaseAuth {
                         level: userStats.currentLevel || 1,
                         sessions: userStats.completedSessions || 0,
                         avgScore: userStats.averageScore || 0,
-                        xp: userStats.totalXP || 0
+                        xp: userStats.totalXP || 0,
+                        avatar_url: user.avatar_url || ''
                     };
                 })
                 .sort((a, b) => b.xp - a.xp);
@@ -480,6 +483,34 @@ class SupabaseAuth {
         } catch (error) {
             console.error('Ошибка получения всех тренировок:', error);
             return [];
+        }
+    }
+    
+    async updateAvatar(userId, avatarUrl) {
+        try {
+            const response = await fetch('/api/supabase-proxy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    endpoint: `users?id=eq.${userId}`,
+                    method: 'PATCH',
+                    body: { avatar_url: avatarUrl },
+                    headers: { 'Prefer': 'return=representation' }
+                })
+            });
+            
+            if (response.ok) {
+                if (this.currentUser && this.currentUser.id === userId) {
+                    this.currentUser.avatar_url = avatarUrl;
+                    localStorage.setItem('dialogue_currentUser', JSON.stringify(this.currentUser));
+                }
+                this.cache.clear();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Ошибка обновления аватара:', error);
+            return false;
         }
     }
     
@@ -1041,7 +1072,7 @@ function loadStudentInterface() {
             </div>
             
             <div class="training-container">
-                <div class="scenario-section">
+                <div class="scenario-section" id="scenarioSection">
                     <div class="vertical-info">
                         <h3><i class="fas fa-building"></i> Ваша вертикаль: <span id="currentVerticalName">${auth.currentUser.group || 'Не указана'}</span>
                             <span id="dailyLimitBadge" class="limit-badge">${dailySessionsUsed}/${dailyLimit}</span>
@@ -1090,7 +1121,7 @@ function loadStudentInterface() {
                     </div>
                 </div>
 
-                <div class="chat-section">
+                <div class="chat-section" id="chatSection">
                     <div class="chat-header">
                         <div class="chat-title">💬 Тренировочный чат</div>
                         <div class="chat-status" id="chatStatus">Ожидание начала</div>
@@ -1202,8 +1233,13 @@ function loadStudentInterface() {
         <div class="tab-content" id="profile-tab">
             <div class="welcome-section">
                 <div class="profile-header">
-                    <div class="profile-avatar">
-                        <i class="fas fa-user"></i>
+                    <div class="profile-avatar-container">
+                        <div class="profile-avatar" id="profileAvatar">
+                            ${auth.currentUser.avatar_url ? `<img src="${auth.currentUser.avatar_url}" alt="${auth.currentUser.username}">` : '<i class="fas fa-user"></i>'}
+                        </div>
+                        <button class="btn btn-sm btn-secondary" onclick="openAvatarUploadModal()" style="margin-top: 10px;">
+                            <i class="fas fa-camera"></i> Сменить аватар
+                        </button>
                     </div>
                     <div class="profile-info">
                         <div class="profile-name" id="profileUserName">${auth.currentUser.username}</div>
@@ -1479,6 +1515,45 @@ async function startTraining() {
         return;
     }
     
+    // Анимация перехода
+    const scenarioSection = document.getElementById('scenarioSection');
+    const chatSection = document.getElementById('chatSection');
+    const trainingContainer = document.querySelector('.training-container');
+    
+    if (scenarioSection && chatSection && trainingContainer) {
+        // Плавно скрываем выбор клиента
+        scenarioSection.style.opacity = '0';
+        scenarioSection.style.transform = 'translateX(-20px)';
+        scenarioSection.style.transition = 'all 0.5s ease';
+        
+        setTimeout(() => {
+            scenarioSection.style.display = 'none';
+            
+            // Увеличиваем чат на место скрытого выбора клиента
+            chatSection.style.gridColumn = '1 / -1';
+            chatSection.style.transition = 'all 0.5s ease';
+            chatSection.style.width = '100%';
+            
+            // Добавляем анимацию расширения
+            chatSection.classList.add('chat-expanded');
+            
+            // Обновляем заголовок чата
+            const chatTitle = document.querySelector('.chat-title');
+            if (chatTitle) {
+                const clientType = clientTypes[selectedClientType];
+                chatTitle.textContent = `💬 Диалог с ${isRandomClient ? 'случайным клиентом' : clientType.name.toLowerCase()}`;
+            }
+            
+            setTimeout(() => {
+                startTrainingProcess();
+            }, 300);
+        }, 500);
+    } else {
+        startTrainingProcess();
+    }
+}
+
+async function startTrainingProcess() {
     trainingInProgress = true;
     trainingStartTime = new Date();
     chatMessages = [];
@@ -1496,8 +1571,6 @@ async function startTraining() {
         chatStatus.textContent = 'Тренировка активна';
         chatStatus.className = 'chat-status training-active';
     }
-    
-    document.querySelectorAll('.client-type-option').forEach(opt => opt.style.pointerEvents = 'none');
     
     const chatMessagesDiv = document.getElementById('chatMessages');
     if (chatMessagesDiv) chatMessagesDiv.innerHTML = '';
@@ -1616,6 +1689,30 @@ function resetTrainingState() {
     
     if (scenarioTitle) scenarioTitle.textContent = 'Выберите тип клиента';
     if (scenarioDesc) scenarioDesc.textContent = 'Выберите тип клиента из списка выше, чтобы начать тренировку. Тренировка длится до 15 минут.';
+    
+    // Восстанавливаем исходный вид интерфейса
+    const scenarioSection = document.getElementById('scenarioSection');
+    const chatSection = document.getElementById('chatSection');
+    
+    if (scenarioSection && chatSection) {
+        // Убираем расширение чата
+        chatSection.style.gridColumn = '';
+        chatSection.style.width = '';
+        chatSection.classList.remove('chat-expanded');
+        
+        // Показываем выбор клиента
+        scenarioSection.style.display = 'block';
+        setTimeout(() => {
+            scenarioSection.style.opacity = '1';
+            scenarioSection.style.transform = 'translateX(0)';
+        }, 10);
+        
+        // Возвращаем заголовок чата
+        const chatTitle = document.querySelector('.chat-title');
+        if (chatTitle) {
+            chatTitle.textContent = '💬 Тренировочный чат';
+        }
+    }
 }
 
 function handleChatInput(event) {
@@ -2632,13 +2729,35 @@ async function updateLeaderboard(filter = 'all') {
             }
             
             let rankClass = '';
-            if (index === 0) rankClass = 'rank-1';
-            else if (index === 1) rankClass = 'rank-2';
-            else if (index === 2) rankClass = 'rank-3';
+            let trophy = '';
+            if (index === 0) {
+                rankClass = 'rank-1';
+                trophy = '🥇';
+            } else if (index === 1) {
+                rankClass = 'rank-2';
+                trophy = '🥈';
+            } else if (index === 2) {
+                rankClass = 'rank-3';
+                trophy = '🥉';
+            }
+            
+            // Используем аватар, если есть, иначе иконку
+            const avatar = player.avatar_url ? 
+                `<img src="${player.avatar_url}" alt="${player.username}" class="leaderboard-avatar">` : 
+                '<i class="fas fa-user"></i>';
             
             row.innerHTML = `
-                <td class="rank ${rankClass}">${index + 1}</td>
-                <td class="player-name">${player.username} ${player.id === auth.currentUser?.id ? '(Вы)' : ''}</td>
+                <td class="rank ${rankClass}">
+                    ${trophy ? `<span class="trophy">${trophy}</span>` : index + 1}
+                </td>
+                <td class="player-name">
+                    <div class="leaderboard-player">
+                        <div class="leaderboard-avatar-container">
+                            ${avatar}
+                        </div>
+                        <span>${player.username} ${player.id === auth.currentUser?.id ? '(Вы)' : ''}</span>
+                    </div>
+                </td>
                 <td>${player.group || '-'}</td>
                 <td>${player.level}</td>
                 <td>${player.sessions}</td>
@@ -3841,6 +3960,158 @@ function closeResultModal() {
     loadDemoChat();
 }
 
+// Аватар функции
+function openAvatarUploadModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'avatarModal';
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="result-icon">📷</div>
+                <h3 class="result-title">Сменить аватар</h3>
+            </div>
+            
+            <div class="modal-body">
+                <div class="avatar-preview-container">
+                    <div class="avatar-preview" id="avatarPreview">
+                        ${auth.currentUser.avatar_url ? 
+                            `<img src="${auth.currentUser.avatar_url}" alt="Текущий аватар">` : 
+                            '<i class="fas fa-user"></i>'}
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">URL изображения:</label>
+                    <input type="url" id="avatarUrl" class="form-input" placeholder="https://example.com/your-photo.jpg" 
+                           value="${auth.currentUser.avatar_url || ''}">
+                    <div class="help-text" style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Вставьте ссылку на изображение из интернета
+                    </div>
+                </div>
+                
+                <div class="avatar-options">
+                    <div class="avatar-option" onclick="selectDefaultAvatar('male')">
+                        <div class="avatar-option-preview">
+                            <i class="fas fa-male"></i>
+                        </div>
+                        <span>Мужской</span>
+                    </div>
+                    <div class="avatar-option" onclick="selectDefaultAvatar('female')">
+                        <div class="avatar-option-preview">
+                            <i class="fas fa-female"></i>
+                        </div>
+                        <span>Женский</span>
+                    </div>
+                    <div class="avatar-option" onclick="selectDefaultAvatar('robot')">
+                        <div class="avatar-option-preview">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <span>Робот</span>
+                    </div>
+                    <div class="avatar-option" onclick="selectDefaultAvatar('cat')">
+                        <div class="avatar-option-preview">
+                            <i class="fas fa-cat"></i>
+                        </div>
+                        <span>Котик</span>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="saveAvatar()">
+                        <i class="fas fa-save"></i> Сохранить
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeAvatarModal()">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Обновляем превью при вводе URL
+    const avatarUrlInput = document.getElementById('avatarUrl');
+    const avatarPreview = document.getElementById('avatarPreview');
+    
+    avatarUrlInput.addEventListener('input', function() {
+        const url = this.value.trim();
+        if (url) {
+            avatarPreview.innerHTML = `<img src="${url}" alt="Превью аватара" onerror="this.onerror=null; this.src=''; avatarPreview.innerHTML='<i class=\\'fas fa-user\\'></i>';">`;
+        } else {
+            avatarPreview.innerHTML = '<i class="fas fa-user"></i>';
+        }
+    });
+}
+
+function selectDefaultAvatar(type) {
+    const urls = {
+        male: 'https://api.dicebear.com/7.x/avataaars/svg?seed=male&backgroundColor=4cc9f0',
+        female: 'https://api.dicebear.com/7.x/avataaars/svg?seed=female&backgroundColor=f472b6',
+        robot: 'https://api.dicebear.com/7.x/bottts/svg?seed=robot&backgroundColor=60a5fa',
+        cat: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cat&backgroundColor=fbbf24'
+    };
+    
+    const urlInput = document.getElementById('avatarUrl');
+    const avatarPreview = document.getElementById('avatarPreview');
+    
+    urlInput.value = urls[type];
+    avatarPreview.innerHTML = `<img src="${urls[type]}" alt="Превью аватара">`;
+}
+
+async function saveAvatar() {
+    const avatarUrlInput = document.getElementById('avatarUrl');
+    const avatarUrl = avatarUrlInput.value.trim();
+    
+    if (!avatarUrl) {
+        alert('Введите URL изображения или выберите один из вариантов');
+        return;
+    }
+    
+    // Проверяем URL
+    if (!avatarUrl.startsWith('http://') && !avatarUrl.startsWith('https://')) {
+        alert('Пожалуйста, введите корректный URL (начинается с http:// или https://)');
+        return;
+    }
+    
+    try {
+        const success = await auth.updateAvatar(auth.currentUser.id, avatarUrl);
+        
+        if (success) {
+            alert('Аватар успешно обновлен!');
+            
+            // Обновляем аватар в интерфейсе
+            const profileAvatar = document.getElementById('profileAvatar');
+            if (profileAvatar) {
+                profileAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}">`;
+            }
+            
+            // Обновляем аватар в заголовке
+            const userAvatar = document.querySelector('.user-avatar');
+            if (userAvatar) {
+                userAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+            }
+            
+            closeAvatarModal();
+        } else {
+            alert('Ошибка при обновлении аватара');
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения аватара:', error);
+        alert('Ошибка при сохранении аватара');
+    }
+}
+
+function closeAvatarModal() {
+    const modal = document.getElementById('avatarModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
 // Добавляем стили для анимаций
 const style = document.createElement('style');
 style.textContent = `
@@ -3897,6 +4168,188 @@ style.textContent = `
         gap: 10px;
         margin-top: 10px;
         flex-wrap: wrap;
+    }
+    
+    /* Стили для аватаров */
+    .profile-avatar-container {
+        text-align: center;
+    }
+    
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border-radius: var(--radius-xl);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        color: white;
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: var(--radius-xl);
+    }
+    
+    .leaderboard-player {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .leaderboard-avatar-container {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 16px;
+        overflow: hidden;
+    }
+    
+    .leaderboard-avatar {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+    
+    /* Стили для кубков в рейтинге */
+    .rank {
+        position: relative;
+        font-weight: 700;
+        width: 50px;
+        text-align: center;
+    }
+    
+    .rank-1 .trophy {
+        color: #ffd700;
+        font-size: 20px;
+        display: inline-block;
+        animation: trophyGlow 2s infinite;
+    }
+    
+    .rank-2 .trophy {
+        color: #c0c0c0;
+        font-size: 18px;
+        display: inline-block;
+    }
+    
+    .rank-3 .trophy {
+        color: #cd7f32;
+        font-size: 16px;
+        display: inline-block;
+    }
+    
+    @keyframes trophyGlow {
+        0%, 100% {
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+        }
+        50% {
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6);
+        }
+    }
+    
+    /* Анимации для тренировки */
+    .training-container {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 24px;
+        margin-top: 24px;
+        transition: all 0.5s ease;
+    }
+    
+    .chat-expanded {
+        animation: expandChat 0.5s ease;
+    }
+    
+    @keyframes expandChat {
+        from {
+            transform: scale(0.95);
+            opacity: 0.8;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    /* Стили для модального окна аватара */
+    .avatar-preview-container {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+    
+    .avatar-preview {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        color: white;
+        overflow: hidden;
+        border: 4px solid white;
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .avatar-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .avatar-options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin: 20px 0;
+    }
+    
+    .avatar-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px;
+        border-radius: var(--radius-md);
+        border: 2px solid var(--border-color);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+    
+    .avatar-option:hover {
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+    }
+    
+    .avatar-option-preview {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: var(--bg-surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: var(--primary-color);
+        margin-bottom: 8px;
+    }
+    
+    .avatar-option span {
+        font-size: 12px;
+        color: var(--text-secondary);
     }
 `;
 document.head.appendChild(style);
