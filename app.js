@@ -4586,4 +4586,3 @@ async function loadTrainerStatistics() {
         statisticsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
     }
 }
-[file content end]
