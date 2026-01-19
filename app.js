@@ -79,7 +79,7 @@ class SupabaseAuth {
         return hash.toString(36);
     }
     
-async function register(username, group = '', password) {
+async register(username, group = '', password) {
     try {
         console.log('Начало регистрации:', username);
         
