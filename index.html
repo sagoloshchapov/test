@@ -403,21 +403,32 @@
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
                 <div class="result-icon">📷</div>
-                <h3 class="result-title">Сменить аватар</h3>
+                <h3 class="result-title" style="text-align: center;">Сменить аватар</h3>
                 <button class="btn btn-icon" onclick="closeAvatarModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
-            <div class="modal-body">
+            <div class="modal-body" style="padding: 20px;">
                 <div class="avatar-preview-container">
                     <div class="avatar-preview" id="avatarPreview">
                         <i class="fas fa-user"></i>
                     </div>
                 </div>
                 
+                <div class="file-upload-section">
+                    <button class="file-upload-btn" onclick="openFileUpload()">
+                        <i class="fas fa-upload"></i> Загрузить с компьютера
+                    </button>
+                    <div class="file-info">Допустимые форматы: JPG, PNG, GIF (до 5 МБ)</div>
+                </div>
+                
+                <div class="divider" style="margin: 20px 0;">
+                    <span>или</span>
+                </div>
+                
                 <div class="form-group">
-                    <label class="form-label">URL изображения:</label>
+                    <label class="form-label">URL изображения из интернета:</label>
                     <input type="url" id="avatarUrl" class="form-input" placeholder="https://example.com/your-photo.jpg">
                     <div class="help-text">
                         Вставьте ссылку на изображение из интернета
@@ -454,11 +465,11 @@
                     </div>
                 </div>
                 
-                <div class="modal-actions">
-                    <button class="btn btn-primary" onclick="saveAvatar()">
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="saveAvatar()" style="flex: 1;">
                         <i class="fas fa-save"></i> Сохранить
                     </button>
-                    <button class="btn btn-secondary" onclick="closeAvatarModal()">
+                    <button class="btn btn-secondary" onclick="closeAvatarModal()" style="flex: 1;">
                         Отмена
                     </button>
                 </div>
