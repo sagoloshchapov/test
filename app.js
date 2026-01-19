@@ -16,7 +16,6 @@ class SupabaseAuth {
     async supabaseRequest(endpoint, method = 'GET', body = null) {
         const cacheKey = `${method}:${endpoint}`;
         
-        // Кэширование GET-запросов
         if (method === 'GET' && this.cache.has(cacheKey)) {
             return this.cache.get(cacheKey);
         }
@@ -38,7 +37,7 @@ class SupabaseAuth {
             
             if (method === 'GET') {
                 this.cache.set(cacheKey, data);
-                setTimeout(() => this.cache.delete(cacheKey), 30000); // Кэш на 30 сек
+                setTimeout(() => this.cache.delete(cacheKey), 30000);
             }
             
             return data;
@@ -275,7 +274,7 @@ class SupabaseAuth {
             
             if (response.ok) {
                 this.currentUser.stats = stats;
-                this.cache.clear(); // Очищаем кэш при изменении данных
+                this.cache.clear();
                 return true;
             }
             return false;
@@ -305,7 +304,7 @@ class SupabaseAuth {
             };
             
             await this.supabaseRequest('training_sessions', 'POST', session);
-            this.cache.clear(); // Очищаем кэш при добавлении новой сессии
+            this.cache.clear();
             return true;
         } catch (error) {
             console.error('Ошибка добавления сессии:', error);
@@ -448,7 +447,7 @@ class SupabaseAuth {
                 { trainer_comments: currentComments }
             );
             
-            this.cache.clear(); // Очищаем кэш при добавлении комментария
+            this.cache.clear();
             return true;
         } catch (error) {
             console.error('Ошибка добавления комментария:', error);
@@ -482,50 +481,70 @@ class SupabaseAuth {
     }
     
     showAuthModal() {
-        document.getElementById('authModal').style.display = 'flex';
-        document.getElementById('mainContainer').style.display = 'none';
+        const authModal = document.getElementById('authModal');
+        const mainContainer = document.getElementById('mainContainer');
+        
+        if (authModal) authModal.style.display = 'flex';
+        if (mainContainer) mainContainer.style.display = 'none';
+        
+        this.showLoginForm();
+    }
+    
+    showMainApp() {
+        const authModal = document.getElementById('authModal');
+        const mainContainer = document.getElementById('mainContainer');
+        
+        if (authModal) authModal.style.display = 'none';
+        if (mainContainer) mainContainer.style.display = 'flex';
+        
+        this.updateInterfaceBasedOnRole();
+    }
+    
+    showLoginForm() {
         document.getElementById('loginForm').style.display = 'block';
         document.getElementById('registerForm').style.display = 'none';
         document.getElementById('resetPasswordForm').style.display = 'none';
         document.getElementById('trainerLoginForm').style.display = 'none';
+        clearErrors();
     }
-    
-showMainApp() {
-    document.getElementById('authModal').style.display = 'none';
-    document.getElementById('mainContainer').style.display = 'flex'; // changed to flex
-    this.updateInterfaceBasedOnRole();
-}
 
-updateInterfaceBasedOnRole() {
-    if (!this.currentUser) return;
-    
-    const headerTitle = document.getElementById('appTitle');
-    const headerSubtitle = document.getElementById('headerSubtitle');
-    
-    if (this.userRole === 'trainer') {
-        headerTitle.textContent = 'Панель тренера';
-        headerSubtitle.textContent = `Тренер: ${this.currentUser.username}`;
-    } else {
-        headerTitle.textContent = 'Диалоговый тренажер';
-        headerSubtitle.textContent = 'Тренировка работы с клиентами';
+    updateInterfaceBasedOnRole() {
+        if (!this.currentUser) return;
+        
+        const headerTitle = document.getElementById('appTitle');
+        const headerSubtitle = document.getElementById('headerSubtitle');
+        
+        if (headerTitle && headerSubtitle) {
+            if (this.userRole === 'trainer') {
+                headerTitle.textContent = 'Панель тренера';
+                headerSubtitle.textContent = `Тренер: ${this.currentUser.username}`;
+            } else {
+                headerTitle.textContent = 'Диалоговый тренажер';
+                headerSubtitle.textContent = 'Тренировка работы с клиентами';
+            }
+        }
+        
+        const currentUserName = document.getElementById('currentUserName');
+        if (currentUserName) {
+            currentUserName.textContent = this.currentUser.username;
+        }
+        
+        const groupBadge = document.getElementById('userGroupBadge');
+        if (groupBadge) {
+            if (this.userRole === 'trainer') {
+                groupBadge.textContent = 'Тренер';
+                groupBadge.style.background = 'linear-gradient(135deg, #155d27, #27ae60)';
+            } else if (this.currentUser.group) {
+                groupBadge.textContent = this.currentUser.group;
+                groupBadge.style.background = 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))';
+            } else {
+                groupBadge.style.display = 'none';
+            }
+            groupBadge.style.display = 'inline-block';
+        }
+        
+        loadInterfaceForRole();
     }
-    
-    document.getElementById('currentUserName').textContent = this.currentUser.username;
-    const groupBadge = document.getElementById('userGroupBadge');
-    
-    if (this.userRole === 'trainer') {
-        groupBadge.textContent = 'Тренер';
-        groupBadge.style.background = 'linear-gradient(135deg, #155d27, #27ae60)';
-    } else if (this.currentUser.group) {
-        groupBadge.textContent = this.currentUser.group;
-        groupBadge.style.background = 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))';
-    } else {
-        groupBadge.style.display = 'none';
-    }
-    groupBadge.style.display = 'inline-block';
-    
-    loadInterfaceForRole();
-}
     
     isTrainer() {
         return this.userRole === 'trainer';
@@ -648,13 +667,10 @@ let isRandomClient = false;
 
 async function sendPromptToAI() {
     try {
-        // 1. Получаем информацию о типе клиента
         const clientType = clientTypes[selectedClientType];
         
-        // Формируем ЧЁТКУЮ инструкцию для AI
         let clientTypeInstruction;
         if (isRandomClient) {
-            // Для случайного - ВЫБИРАЕМ случайный тип НА УРОВНЕ КОДА
             const types = Object.keys(clientTypes);
             const randomTypeKey = types[Math.floor(Math.random() * types.length)];
             const randomType = clientTypes[randomTypeKey];
@@ -669,7 +685,6 @@ async function sendPromptToAI() {
             clientTypeInstruction = "ТИП КЛИЕНТА: СТАНДАРТНЫЙ";
         }
         
-        // 2. Получаем промпт для вертикали
         let promptContent = currentPrompt || `Ты играешь роль клиента. Веди диалог естественно, как реальный клиент обращается в поддержку.
 
 Вертикаль: ${auth.currentUser.group}
@@ -688,66 +703,52 @@ ${clientTypeInstruction}
 
 В остальных случаях - просто продолжай диалог как клиент.`;
 
-        // 3. ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ: удаляем старые инструкции
         promptContent = promptContent.replace(/выбери.*?случайно.*?\n/gi, '');
         promptContent = promptContent.replace(/выбери.*?один.*?\n/gi, '');
         promptContent = promptContent.replace(/выбери.*?сценарий.*?\n/gi, '');
         
-        // 4. ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ: ищем сценарии (если есть)
         const hasScenarios = promptContent.includes('Сценарий') || 
                             promptContent.includes('сценарий') ||
                             promptContent.match(/\d+\.\s+.*?(?=\n|$)/) ||
                             promptContent.match(/-\s+.*?(?=\n|$)/);
         
         if (hasScenarios) {
-            // Разбиваем на строки
             const lines = promptContent.split('\n');
             const scenarioLines = [];
             
-            // Ищем строки, которые выглядят как сценарии
             for (const line of lines) {
                 const trimmed = line.trim();
-                // Разные форматы сценариев
                 if ((trimmed.includes('Сценарий') || trimmed.includes('сценарий')) && 
                     trimmed.length > 15 && 
                     !trimmed.startsWith('**СЦЕНАРИИ') &&
                     !trimmed.startsWith('**сценарии')) {
                     scenarioLines.push(trimmed);
                 }
-                // Формат "1. Описание" или "- Описание"
                 else if ((trimmed.match(/^\d+\.\s+/) || trimmed.match(/^-\s+/)) && 
                          trimmed.length > 10) {
                     scenarioLines.push(trimmed);
                 }
             }
             
-            // Если нашли сценарии - выбираем случайный
             if (scenarioLines.length > 0) {
                 const randomIndex = Math.floor(Math.random() * scenarioLines.length);
                 const chosenScenario = scenarioLines[randomIndex];
                 
-                // Добавляем выбранный сценарий в начало
                 promptContent = `ВЫБРАННЫЙ СЦЕНАРИЙ:\n${chosenScenario}\n\n${promptContent}`;
                 
-                // Удаляем старые заголовки про выбор сценариев
                 promptContent = promptContent.replace(/\*\*СЦЕНАРИИ[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
                 promptContent = promptContent.replace(/\*\*сценарии[\s\S]*?(?=\n\*\*|\n\n|$)/gi, '');
             }
         }
         
-        // 5. Убедимся что инструкция по типу клиента есть
         if (!promptContent.includes(clientTypeInstruction)) {
             promptContent = `${clientTypeInstruction}\n\n${promptContent}`;
         }
         
-        // 6. ОТЛАДКА
-        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ДЛЯ ВСЕХ ВЕРТИКАЛЕЙ ===");
+        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ===");
         console.log("Тип клиента:", isRandomClient ? "Случайный" : selectedClientType);
         console.log("Вертикаль:", auth.currentUser?.group);
-        console.log("Длина:", promptContent.length, "символов");
-        console.log("Первые 400 символов:", promptContent.substring(0, 400));
         
-        // 7. Отправляем к AI
         const systemMessage = {
             role: "system",
             content: promptContent
@@ -797,7 +798,6 @@ ${clientTypeInstruction}
         resetTrainingState();
     }
 }
-        
 
 document.addEventListener('DOMContentLoaded', async function() {
     const savedUser = localStorage.getItem('dialogue_currentUser');
@@ -840,12 +840,6 @@ function checkAndResetDailyLimit() {
             lastResetTime = now;
             
             auth.saveUserStats(stats);
-            
-            if (document.getElementById('dailyLimitNotification')) {
-                updateDailyLimitNotification();
-            }
-        } else {
-            dailySessionsUsed = stats.dailySessions || 0;
         }
     }
     
@@ -877,22 +871,26 @@ function updateDailyLimitNotification() {
 }
 
 function loadInterfaceForRole() {
-     const sidebar = document.getElementById('sidebar');
+    const sidebar = document.getElementById('sidebar');
     const contentWrapper = document.getElementById('contentWrapper');
     
-    sidebar.innerHTML = '';
-    contentWrapper.innerHTML = '';
-    
-    if (auth.isTrainer()) {
-        loadTrainerInterface();
-    } else {
-        loadStudentInterface();
+    if (sidebar && contentWrapper) {
+        sidebar.innerHTML = '';
+        contentWrapper.innerHTML = '';
+        
+        if (auth.isTrainer()) {
+            loadTrainerInterface();
+        } else {
+            loadStudentInterface();
+        }
     }
 }
 
 function loadStudentInterface() {
     const sidebar = document.getElementById('sidebar');
-    const mainContent = document.querySelector('.main-content');
+    const contentWrapper = document.getElementById('contentWrapper');
+    
+    if (!sidebar || !contentWrapper) return;
     
     sidebar.innerHTML = `
         <a href="javascript:void(0);" onclick="switchTab('home')" class="nav-item active" data-tab="home">
@@ -915,7 +913,7 @@ function loadStudentInterface() {
         </a>
     `;
     
-    mainContent.innerHTML = `
+    contentWrapper.innerHTML = `
         <div class="tab-content active" id="home-tab">
             <div class="welcome-section">
                 <div class="section-title">
@@ -1218,21 +1216,25 @@ function selectClientType(type, isRandom = false) {
         selectedClientType = type;
         isRandomClient = false;
     } else {
-        // Для случайного клиента не выделяем опцию
         selectedClientType = type;
         isRandomClient = true;
     }
     
-    document.getElementById('startTrainingBtn').disabled = false;
+    const startBtn = document.getElementById('startTrainingBtn');
+    if (startBtn) startBtn.disabled = false;
     
-    if (isRandomClient) {
-        // Не показываем тип случайного клиента
-        document.getElementById('scenarioTitle').textContent = 'Случайный клиент';
-        document.getElementById('scenarioDescription').textContent = 'Выбран случайный тип клиента. Диалог начнется с сообщения от клиента.';
-    } else {
-        const clientType = clientTypes[type];
-        document.getElementById('scenarioTitle').textContent = clientType.name;
-        document.getElementById('scenarioDescription').textContent = clientType.description;
+    const scenarioTitle = document.getElementById('scenarioTitle');
+    const scenarioDesc = document.getElementById('scenarioDescription');
+    
+    if (scenarioTitle && scenarioDesc) {
+        if (isRandomClient) {
+            scenarioTitle.textContent = 'Случайный клиент';
+            scenarioDesc.textContent = 'Выбран случайный тип клиента. Диалог начнется с сообщения от клиента.';
+        } else {
+            const clientType = clientTypes[type];
+            scenarioTitle.textContent = clientType.name;
+            scenarioDesc.textContent = clientType.description;
+        }
     }
 }
 
@@ -1275,25 +1277,31 @@ async function startTraining() {
     chatMessages = [];
     lastAIFeedback = "";
     
-    document.getElementById('startTrainingBtn').style.display = 'none';
-    document.getElementById('chatInput').disabled = false;
-    document.getElementById('sendBtn').disabled = false;
-    document.getElementById('chatStatus').textContent = 'Тренировка активна';
-    document.getElementById('chatStatus').className = 'chat-status training-active';
+    const startBtn = document.getElementById('startTrainingBtn');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatStatus = document.getElementById('chatStatus');
+    
+    if (startBtn) startBtn.style.display = 'none';
+    if (chatInput) chatInput.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (chatStatus) {
+        chatStatus.textContent = 'Тренировка активна';
+        chatStatus.className = 'chat-status training-active';
+    }
     
     document.querySelectorAll('.client-type-option').forEach(opt => opt.style.pointerEvents = 'none');
     
     const chatMessagesDiv = document.getElementById('chatMessages');
-    chatMessagesDiv.innerHTML = '';
+    if (chatMessagesDiv) chatMessagesDiv.innerHTML = '';
     
-    // Диалог начнется с первого сообщения от AI
     await sendPromptToAI();
     
     startTrainingTimer();
     
     setTimeout(() => {
-        document.getElementById('chatInput').focus();
-        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+        if (chatInput) chatInput.focus();
+        if (chatMessagesDiv) chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
     }, 100);
 }
 
@@ -1304,7 +1312,8 @@ function startTrainingTimer() {
         const elapsed = Math.floor((now - trainingStartTime) / 1000);
         const minutes = Math.floor(elapsed / 60);
         const seconds = elapsed % 60;
-        document.getElementById('trainingTimer').textContent = `Время: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        const timer = document.getElementById('trainingTimer');
+        if (timer) timer.textContent = `Время: ${minutes}:${seconds.toString().padStart(2, '0')}`;
         
         if (elapsed >= 900) {
             endTraining();
@@ -1370,22 +1379,36 @@ function resetTrainingState() {
     isRandomClient = false;
     clearInterval(trainingTimerInterval);
     
-    document.getElementById('startTrainingBtn').style.display = 'flex';
-    document.getElementById('endTrainingBtn').style.display = 'none';
-    document.getElementById('startTrainingBtn').disabled = true;
-    document.getElementById('trainingTimer').textContent = '';
-    document.getElementById('chatInput').disabled = true;
-    document.getElementById('sendBtn').disabled = true;
-    document.getElementById('chatStatus').textContent = 'Ожидание начала';
-    document.getElementById('chatStatus').className = 'chat-status';
+    const startBtn = document.getElementById('startTrainingBtn');
+    const endBtn = document.getElementById('endTrainingBtn');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const trainingTimer = document.getElementById('trainingTimer');
+    const chatStatus = document.getElementById('chatStatus');
+    
+    if (startBtn) {
+        startBtn.style.display = 'flex';
+        startBtn.disabled = true;
+    }
+    if (endBtn) endBtn.style.display = 'none';
+    if (trainingTimer) trainingTimer.textContent = '';
+    if (chatInput) chatInput.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+    if (chatStatus) {
+        chatStatus.textContent = 'Ожидание начала';
+        chatStatus.className = 'chat-status';
+    }
     
     document.querySelectorAll('.client-type-option').forEach(opt => {
         opt.classList.remove('selected');
         opt.style.pointerEvents = 'auto';
     });
     
-    document.getElementById('scenarioTitle').textContent = 'Выберите тип клиента';
-    document.getElementById('scenarioDescription').textContent = 'Выберите тип клиента из списка выше, чтобы начать тренировку. Тренировка длится до 15 минут.';
+    const scenarioTitle = document.getElementById('scenarioTitle');
+    const scenarioDesc = document.getElementById('scenarioDescription');
+    
+    if (scenarioTitle) scenarioTitle.textContent = 'Выберите тип клиента';
+    if (scenarioDesc) scenarioDesc.textContent = 'Выберите тип клиента из списка выше, чтобы начать тренировку. Тренировка длится до 15 минут.';
 }
 
 function handleChatInput(event) {
@@ -1397,14 +1420,16 @@ function handleChatInput(event) {
 
 function sendMessage() {
     const input = document.getElementById('chatInput');
-    const message = input.value.trim();
+    const message = input ? input.value.trim() : '';
     
     if (!message || !trainingInProgress) return;
     
     addMessage('user', message);
     
-    input.value = '';
-    input.style.height = 'auto';
+    if (input) {
+        input.value = '';
+        input.style.height = 'auto';
+    }
     
     sendPromptToAI().catch(error => {
         console.error('Ошибка при отправке сообщения:', error);
@@ -1456,7 +1481,7 @@ function extractAIFeedback(aiMessage) {
         }
     }
     
-    return aiMessage.substring(Math.max(0, aiMessage.length - 3000)).trim(); // Увеличиваем до 3000 символов
+    return aiMessage.substring(Math.max(0, aiMessage.length - 3000)).trim();
 }
 
 function evaluateDialogue(messages, clientType) {
@@ -1887,7 +1912,8 @@ async function renderDynamicNews() {
 function showFeedbackModal() {
     if (!feedbackShown && auth.currentUser && auth.userRole === 'user') {
         setTimeout(() => {
-            document.getElementById('feedbackModal').style.display = 'flex';
+            const feedbackModal = document.getElementById('feedbackModal');
+            if (feedbackModal) feedbackModal.style.display = 'flex';
             feedbackShown = true;
         }, 1000);
     }
@@ -1899,7 +1925,8 @@ function openFeedbackForm() {
 }
 
 function closeFeedbackModal() {
-    document.getElementById('feedbackModal').style.display = 'none';
+    const feedbackModal = document.getElementById('feedbackModal');
+    if (feedbackModal) feedbackModal.style.display = 'none';
 }
 
 function showRegisterForm() {
@@ -2131,8 +2158,11 @@ function switchTab(tabName) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
-    document.querySelector(`.nav-item[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(`${tabName}-tab`).classList.add('active');
+    const navItem = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
+    const tabContent = document.getElementById(`${tabName}-tab`);
+    
+    if (navItem) navItem.classList.add('active');
+    if (tabContent) tabContent.classList.add('active');
     
     if (auth.isTrainer()) {
         switch(tabName) {
@@ -2184,10 +2214,15 @@ async function loadSystemStats() {
     try {
         const stats = await auth.getSystemStats();
         
-        document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
-        document.getElementById('totalSessions').textContent = stats.totalSessions || 0;
-        document.getElementById('avgSystemScore').textContent = (stats.avgScore || 0).toFixed(1);
-        document.getElementById('activeToday').textContent = stats.activeToday || 0;
+        const totalUsers = document.getElementById('totalUsers');
+        const totalSessions = document.getElementById('totalSessions');
+        const avgSystemScore = document.getElementById('avgSystemScore');
+        const activeToday = document.getElementById('activeToday');
+        
+        if (totalUsers) totalUsers.textContent = stats.totalUsers || 0;
+        if (totalSessions) totalSessions.textContent = stats.totalSessions || 0;
+        if (avgSystemScore) avgSystemScore.textContent = (stats.avgScore || 0).toFixed(1);
+        if (activeToday) activeToday.textContent = stats.activeToday || 0;
     } catch (error) {
         console.error('Ошибка загрузки статистики системы:', error);
     }
@@ -2200,8 +2235,16 @@ async function updateProgressUI() {
     const currentLevel = levels.find(l => l.level === userStats.currentLevel) || levels[0];
     const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
     
-    document.getElementById('currentLevelBadge').textContent = `Уровень ${userStats.currentLevel}`;
-    document.getElementById('currentLevelName').textContent = currentLevel.name;
+    const levelBadge = document.getElementById('currentLevelBadge');
+    const levelName = document.getElementById('currentLevelName');
+    const xpFill = document.getElementById('xpFill');
+    const xpText = document.getElementById('xpText');
+    const sessionsCount = document.getElementById('sessionsCount');
+    const avgScore = document.getElementById('avgScore');
+    const streakCount = document.getElementById('streakCount');
+    
+    if (levelBadge) levelBadge.textContent = `Уровень ${userStats.currentLevel}`;
+    if (levelName) levelName.textContent = currentLevel.name;
     
     const currentLevelXP = currentLevel.requiredXP;
     const nextLevelXP = nextLevel ? nextLevel.requiredXP : currentLevelXP + 100;
@@ -2209,12 +2252,11 @@ async function updateProgressUI() {
     const xpNeeded = nextLevelXP - currentLevelXP;
     const percentage = Math.min(100, (xpProgress / xpNeeded) * 100);
     
-    document.getElementById('xpFill').style.width = `${percentage}%`;
-    document.getElementById('xpText').textContent = `${userStats.totalXP}/${nextLevelXP} XP`;
-    
-    document.getElementById('sessionsCount').textContent = userStats.completedSessions;
-    document.getElementById('avgScore').textContent = userStats.averageScore.toFixed(1);
-    document.getElementById('streakCount').textContent = userStats.currentStreak;
+    if (xpFill) xpFill.style.width = `${percentage}%`;
+    if (xpText) xpText.textContent = `${userStats.totalXP}/${nextLevelXP} XP`;
+    if (sessionsCount) sessionsCount.textContent = userStats.completedSessions;
+    if (avgScore) avgScore.textContent = userStats.averageScore.toFixed(1);
+    if (streakCount) streakCount.textContent = userStats.currentStreak;
     
     checkLevelUp();
 }
@@ -2225,10 +2267,12 @@ async function updateRankPosition() {
     try {
         const verticalLeaderboard = await auth.getLeaderboard(auth.currentUser.group);
         const verticalRank = verticalLeaderboard.findIndex(p => p.id === auth.currentUser.id) + 1;
-        document.getElementById('rankPosition').textContent = verticalRank > 0 ? verticalRank : '-';
+        const rankPosition = document.getElementById('rankPosition');
+        if (rankPosition) rankPosition.textContent = verticalRank > 0 ? verticalRank : '-';
     } catch (error) {
         console.error('Ошибка обновления позиции в рейтинге:', error);
-        document.getElementById('rankPosition').textContent = '-';
+        const rankPosition = document.getElementById('rankPosition');
+        if (rankPosition) rankPosition.textContent = '-';
     }
 }
 
@@ -2275,7 +2319,10 @@ function renderProgressChart() {
     const history = auth.currentUser.stats.trainingHistory;
     if (history.length === 0) return;
     
-    const ctx = document.getElementById('progressChart').getContext('2d');
+    const ctx = document.getElementById('progressChart');
+    if (!ctx) return;
+    
+    const chartCtx = ctx.getContext('2d');
     
     const typeStats = {};
     Object.keys(clientTypes).forEach(type => {
@@ -2302,7 +2349,7 @@ function renderProgressChart() {
         progressChart.destroy();
     }
     
-    progressChart = new Chart(ctx, {
+    progressChart = new Chart(chartCtx, {
         type: 'bar',
         data: {
             labels: labels,
@@ -2570,7 +2617,9 @@ function resetChat() {
 
 function loadTrainerInterface() {
     const sidebar = document.getElementById('sidebar');
-    const mainContent = document.querySelector('.main-content');
+    const contentWrapper = document.getElementById('contentWrapper');
+    
+    if (!sidebar || !contentWrapper) return;
     
     sidebar.innerHTML = `
         <a href="javascript:void(0);" onclick="switchTab('trainer_dashboard')" class="nav-item active" data-tab="trainer_dashboard">
@@ -2587,7 +2636,7 @@ function loadTrainerInterface() {
         </a>
     `;
     
-    mainContent.innerHTML = `
+    contentWrapper.innerHTML = `
         <div class="tab-content active" id="trainer_dashboard-tab">
             <div class="welcome-section">
                 <div class="section-title">
@@ -2685,7 +2734,6 @@ function loadTrainerInterface() {
     loadTrainerDashboard();
 }
 
-// ИСПРАВЛЕНИЕ 1: Добавляем контейнеры с прокруткой в панели тренера
 async function loadTrainerDashboard() {
     const dashboardContent = document.getElementById('trainerDashboardContent');
     if (!dashboardContent) return;
@@ -2713,12 +2761,10 @@ async function loadTrainerDashboard() {
                 <span>Последние тренировки</span>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 400px; overflow-y: auto; margin-top: 10px;">
         `;
         
         if (allSessions?.length) {
-            // Показываем больше тренировок
             allSessions.slice(0, 50).forEach(session => {
                 const student = students.find(s => s.id === session.user_id);
                 const clientType = clientTypes[session.client_type];
@@ -2749,7 +2795,6 @@ async function loadTrainerDashboard() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         dashboardContent.innerHTML = html;
@@ -2783,7 +2828,6 @@ async function loadAllStudents() {
                 <span>Все ученики</span>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -2810,7 +2854,6 @@ async function loadAllStudents() {
                         <div class="vertical-content" id="${groupId}_content">
                 `;
                 
-                // Показываем всех учеников в группе
                 groupStudents.forEach(student => {
                     const studentSessions = allSessions?.filter(s => s.user_id === student.id) || [];
                     const totalScore = studentSessions.reduce((sum, s) => sum + (s.score || 0), 0);
@@ -2850,7 +2893,6 @@ async function loadAllStudents() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         studentsContent.innerHTML = html;
@@ -2935,7 +2977,6 @@ async function searchStudents() {
                 ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -2989,7 +3030,6 @@ async function searchStudents() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         studentsContent.innerHTML = html;
@@ -3072,7 +3112,6 @@ async function searchSessions() {
                 ${searchTerm ? `<span style="font-size: 12px; color: #666; margin-left: 10px;">По запросу: "${searchTerm}"</span>` : ''}
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 600px; overflow-y: auto;">
         `;
         
@@ -3099,7 +3138,6 @@ async function searchSessions() {
                         <div class="vertical-content" id="${dateId}_content">
                 `;
                 
-                // Показываем ВСЕ тренировки за выбранный день
                 dateSessions.forEach(session => {
                     const student = students.find(s => s.id === session.user_id);
                     const clientType = clientTypes[session.client_type];
@@ -3141,7 +3179,6 @@ async function searchSessions() {
             html += '<div style="text-align: center; padding: 20px; color: #666;">По вашему запросу ничего не найдено</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         sessionsContent.innerHTML = html;
@@ -3174,7 +3211,6 @@ async function viewStudentSessions(studentId, studentName) {
                 <span>Тренировки ученика: ${studentName}</span>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -3207,16 +3243,21 @@ async function viewStudentSessions(studentId, studentName) {
             html += '<div style="text-align: center; padding: 20px; color: #666;">У ученика нет тренировок</div>';
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         const tempContainer = document.createElement('div');
         tempContainer.innerHTML = html;
         
-        document.getElementById('chatModalTitle').textContent = `Тренировки ученика: ${studentName}`;
-        document.getElementById('chatModalMessages').innerHTML = '';
-        document.getElementById('chatModalMessages').appendChild(tempContainer);
-        document.getElementById('chatModal').style.display = 'flex';
+        const chatModalTitle = document.getElementById('chatModalTitle');
+        const chatModalMessages = document.getElementById('chatModalMessages');
+        const chatModal = document.getElementById('chatModal');
+        
+        if (chatModalTitle) chatModalTitle.textContent = `Тренировки ученика: ${studentName}`;
+        if (chatModalMessages) {
+            chatModalMessages.innerHTML = '';
+            chatModalMessages.appendChild(tempContainer);
+        }
+        if (chatModal) chatModal.style.display = 'flex';
         
     } catch (error) {
         console.error('Ошибка загрузки тренировок ученика:', error);
@@ -3234,13 +3275,18 @@ async function viewStudentChat(studentId, sessionId) {
         const studentName = student?.[0] ? student[0].username : 'Студент';
         const clientType = clientTypes[sessionData.client_type];
         
-        document.getElementById('chatModalTitle').textContent = `Диалог: ${studentName}`;
-        document.getElementById('chatModalClientType').textContent = clientType ? clientType.name : sessionData.client_type || '-';
-        document.getElementById('chatModalDate').textContent = formatDate(sessionData.date);
-        document.getElementById('chatModalScore').textContent = sessionData.score || 0;
-        
+        const chatModalTitle = document.getElementById('chatModalTitle');
+        const chatModalClientType = document.getElementById('chatModalClientType');
+        const chatModalDate = document.getElementById('chatModalDate');
+        const chatModalScore = document.getElementById('chatModalScore');
         const messagesContainer = document.getElementById('chatModalMessages');
-        messagesContainer.innerHTML = '';
+        const chatModal = document.getElementById('chatModal');
+        
+        if (chatModalTitle) chatModalTitle.textContent = `Диалог: ${studentName}`;
+        if (chatModalClientType) chatModalClientType.textContent = clientType ? clientType.name : sessionData.client_type || '-';
+        if (chatModalDate) chatModalDate.textContent = formatDate(sessionData.date);
+        if (chatModalScore) chatModalScore.textContent = sessionData.score || 0;
+        if (messagesContainer) messagesContainer.innerHTML = '';
         
         let messages = [];
         if (sessionData.messages && Array.isArray(sessionData.messages)) {
@@ -3253,19 +3299,18 @@ async function viewStudentChat(studentId, sessionId) {
             }
         }
         
-        if (messages.length > 0) {
+        if (messages.length > 0 && messagesContainer) {
             messages.forEach(msg => {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${msg.sender === 'user' ? 'user' : 'ai'}`;
                 messageDiv.textContent = msg.text;
                 messagesContainer.appendChild(messageDiv);
             });
-        } else {
+        } else if (messagesContainer) {
             messagesContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Нет данных о диалоге</div>';
         }
         
-        // ИСПРАВЛЕНИЕ 2: Увеличиваем отображение полной обратной связи
-        if (sessionData.ai_feedback?.trim()) {
+        if (sessionData.ai_feedback?.trim() && messagesContainer) {
             const aiFeedbackContainer = document.createElement('div');
             aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
             aiFeedbackContainer.innerHTML = `
@@ -3275,7 +3320,7 @@ async function viewStudentChat(studentId, sessionId) {
             messagesContainer.appendChild(aiFeedbackContainer);
         }
         
-        if (sessionData.trainer_comments?.length) {
+        if (sessionData.trainer_comments?.length && messagesContainer) {
             const commentsContainer = document.createElement('div');
             commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
             commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
@@ -3296,14 +3341,16 @@ async function viewStudentChat(studentId, sessionId) {
             messagesContainer.appendChild(commentsContainer);
         }
         
-        const commentButton = document.createElement('button');
-        commentButton.className = 'btn btn-primary';
-        commentButton.style.cssText = 'margin-top: 15px; align-self: center;';
-        commentButton.innerHTML = '<i class="fas fa-comment"></i> Добавить комментарий';
-        commentButton.onclick = () => openCommentModal(studentId, sessionId, studentName);
-        messagesContainer.appendChild(commentButton);
+        if (messagesContainer) {
+            const commentButton = document.createElement('button');
+            commentButton.className = 'btn btn-primary';
+            commentButton.style.cssText = 'margin-top: 15px; align-self: center;';
+            commentButton.innerHTML = '<i class="fas fa-comment"></i> Добавить комментарий';
+            commentButton.onclick = () => openCommentModal(studentId, sessionId, studentName);
+            messagesContainer.appendChild(commentButton);
+        }
         
-        document.getElementById('chatModal').style.display = 'flex';
+        if (chatModal) chatModal.style.display = 'flex';
         
     } catch (error) {
         console.error('Ошибка загрузки чата:', error);
@@ -3315,17 +3362,25 @@ function openCommentModal(studentId, sessionId, studentName) {
     selectedStudentForComment = studentId;
     selectedSessionForComment = sessionId;
     
-    document.getElementById('commentModalTitle').textContent = `Комментарий для: ${studentName}`;
-    document.getElementById('commentModalStudentInfo').textContent = `Сессия: ${sessionId}`;
-    document.getElementById('commentText').value = '';
+    const commentModalTitle = document.getElementById('commentModalTitle');
+    const commentModalStudentInfo = document.getElementById('commentModalStudentInfo');
+    const commentModal = document.getElementById('commentModal');
+    
+    if (commentModalTitle) commentModalTitle.textContent = `Комментарий для: ${studentName}`;
+    if (commentModalStudentInfo) commentModalStudentInfo.textContent = `Сессия: ${sessionId}`;
+    
+    const commentText = document.getElementById('commentText');
+    if (commentText) commentText.value = '';
     
     loadExistingComments(sessionId);
     
-    document.getElementById('commentModal').style.display = 'flex';
+    if (commentModal) commentModal.style.display = 'flex';
 }
 
 async function loadExistingComments(sessionId) {
     const existingComments = document.getElementById('existingComments');
+    if (!existingComments) return;
+    
     existingComments.innerHTML = '<div style="color: #666; font-size: 13px; margin-bottom: 10px;">Загрузка комментариев...</div>';
     
     try {
@@ -3360,9 +3415,12 @@ async function loadExistingComments(sessionId) {
 }
 
 async function submitComment() {
-    const commentText = document.getElementById('commentText').value.trim();
+    const commentText = document.getElementById('commentText');
+    if (!commentText) return;
     
-    if (!commentText) {
+    const comment = commentText.value.trim();
+    
+    if (!comment) {
         alert('Введите текст комментария');
         return;
     }
@@ -3373,14 +3431,14 @@ async function submitComment() {
     }
     
     try {
-        const success = await auth.addTrainerComment(selectedSessionForComment, commentText);
+        const success = await auth.addTrainerComment(selectedSessionForComment, comment);
         
         if (success) {
             alert('Комментарий успешно добавлен!');
             closeCommentModal();
             
             const chatModal = document.getElementById('chatModal');
-            if (chatModal.style.display === 'flex') {
+            if (chatModal && chatModal.style.display === 'flex') {
                 viewStudentChat(selectedStudentForComment, selectedSessionForComment);
             }
         } else {
@@ -3393,7 +3451,8 @@ async function submitComment() {
 }
 
 function closeCommentModal() {
-    document.getElementById('commentModal').style.display = 'none';
+    const commentModal = document.getElementById('commentModal');
+    if (commentModal) commentModal.style.display = 'none';
     selectedStudentForComment = null;
     selectedSessionForComment = null;
 }
@@ -3407,13 +3466,18 @@ function viewChatHistory(session) {
     
     const clientType = clientTypes[session.clientType];
     
-    document.getElementById('chatModalTitle').textContent = clientType ? clientType.name : 'Диалог с клиентом';
-    document.getElementById('chatModalClientType').textContent = clientType ? clientType.name : '-';
-    document.getElementById('chatModalDate').textContent = formatDate(session.date);
-    document.getElementById('chatModalScore').textContent = session.score || 0;
-    
+    const chatModalTitle = document.getElementById('chatModalTitle');
+    const chatModalClientType = document.getElementById('chatModalClientType');
+    const chatModalDate = document.getElementById('chatModalDate');
+    const chatModalScore = document.getElementById('chatModalScore');
     const messagesContainer = document.getElementById('chatModalMessages');
-    messagesContainer.innerHTML = '';
+    const chatModal = document.getElementById('chatModal');
+    
+    if (chatModalTitle) chatModalTitle.textContent = clientType ? clientType.name : 'Диалог с клиентом';
+    if (chatModalClientType) chatModalClientType.textContent = clientType ? clientType.name : '-';
+    if (chatModalDate) chatModalDate.textContent = formatDate(session.date);
+    if (chatModalScore) chatModalScore.textContent = session.score || 0;
+    if (messagesContainer) messagesContainer.innerHTML = '';
     
     let messages = [];
     
@@ -3428,7 +3492,7 @@ function viewChatHistory(session) {
         }
     }
     
-    if (messages.length === 0) {
+    if (messages.length === 0 && messagesContainer) {
         messages = [
             { sender: 'ai', text: 'Добрый день! Чем могу помочь?', timestamp: session.date },
             { sender: 'user', text: 'У меня проблема с...', timestamp: new Date(new Date(session.date).getTime() + 60000).toISOString() },
@@ -3437,54 +3501,56 @@ function viewChatHistory(session) {
         ];
     }
     
-    messages.forEach(msg => {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${msg.sender}`;
-        messageDiv.textContent = msg.text;
-        messagesContainer.appendChild(messageDiv);
-    });
-    
-    // ИСПРАВЛЕНИЕ 2: Увеличиваем отображение полной обратной связи
-    if (session.ai_feedback?.trim()) {
-        const aiFeedbackContainer = document.createElement('div');
-        aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-        aiFeedbackContainer.innerHTML = `
-            <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
-            <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${session.ai_feedback}</div>
-        `;
-        messagesContainer.appendChild(aiFeedbackContainer);
-    }
-    
-    if (session.trainer_comments?.length) {
-        const commentsContainer = document.createElement('div');
-        commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-        commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
-        
-        session.trainer_comments.forEach(comment => {
-            const commentDiv = document.createElement('div');
-            commentDiv.className = 'trainer-comment';
-            commentDiv.innerHTML = `
-                <div class="comment-header">
-                    <span>${comment.trainer}</span>
-                    <span>${formatDate(comment.date)}</span>
-                </div>
-                <div class="comment-text">${comment.comment}</div>
-            `;
-            commentsContainer.appendChild(commentDiv);
+    if (messagesContainer) {
+        messages.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${msg.sender}`;
+            messageDiv.textContent = msg.text;
+            messagesContainer.appendChild(messageDiv);
         });
         
-        messagesContainer.appendChild(commentsContainer);
+        if (session.ai_feedback?.trim()) {
+            const aiFeedbackContainer = document.createElement('div');
+            aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
+            aiFeedbackContainer.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
+                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${session.ai_feedback}</div>
+            `;
+            messagesContainer.appendChild(aiFeedbackContainer);
+        }
+        
+        if (session.trainer_comments?.length) {
+            const commentsContainer = document.createElement('div');
+            commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
+            commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
+            
+            session.trainer_comments.forEach(comment => {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'trainer-comment';
+                commentDiv.innerHTML = `
+                    <div class="comment-header">
+                        <span>${comment.trainer}</span>
+                        <span>${formatDate(comment.date)}</span>
+                    </div>
+                    <div class="comment-text">${comment.comment}</div>
+                `;
+                commentsContainer.appendChild(commentDiv);
+            });
+            
+            messagesContainer.appendChild(commentsContainer);
+        }
     }
     
     setTimeout(() => {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }, 100);
     
-    document.getElementById('chatModal').style.display = 'flex';
+    if (chatModal) chatModal.style.display = 'flex';
 }
 
 function closeChatModal() {
-    document.getElementById('chatModal').style.display = 'none';
+    const chatModal = document.getElementById('chatModal');
+    if (chatModal) chatModal.style.display = 'none';
 }
 
 function formatDate(dateString) {
@@ -3503,11 +3569,18 @@ function formatDuration(seconds) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// ИСПРАВЛЕНИЕ 2: Улучшаем показ полной обратной связи в модальном окне результатов
 function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, aiFeedback = "") {
-    document.getElementById('resultTitle').textContent = title;
-    document.getElementById('resultIcon').textContent = icon;
-    document.getElementById('resultXP').textContent = `+${xpEarned} XP`;
+    const resultTitle = document.getElementById('resultTitle');
+    const resultIcon = document.getElementById('resultIcon');
+    const resultXP = document.getElementById('resultXP');
+    const resultDetails = document.getElementById('resultDetails');
+    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
+    const aiFeedbackContent = document.getElementById('aiFeedbackContent');
+    const resultModal = document.getElementById('resultModal');
+    
+    if (resultTitle) resultTitle.textContent = title;
+    if (resultIcon) resultIcon.textContent = icon;
+    if (resultXP) resultXP.textContent = `+${xpEarned} XP`;
     
     let details = `<div style="margin-bottom: 10px;"><strong>Сценарий:</strong> ${scenario}</div>`;
     
@@ -3525,22 +3598,22 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
         }
     }
     
-    document.getElementById('resultDetails').innerHTML = details;
-    
-    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
-    const aiFeedbackContent = document.getElementById('aiFeedbackContent');
+    if (resultDetails) resultDetails.innerHTML = details;
     
     if (aiFeedback && aiFeedback.trim().length > 0) {
-        aiFeedbackContent.textContent = aiFeedback;
-        aiFeedbackContainer.style.display = 'block';
-        // Увеличиваем высоту для полного отображения
-        aiFeedbackContent.style.maxHeight = '400px';
-        aiFeedbackContent.style.overflowY = 'auto';
-    } else {
+        if (aiFeedbackContent) aiFeedbackContent.textContent = aiFeedback;
+        if (aiFeedbackContainer) {
+            aiFeedbackContainer.style.display = 'block';
+            if (aiFeedbackContent) {
+                aiFeedbackContent.style.maxHeight = '400px';
+                aiFeedbackContent.style.overflowY = 'auto';
+            }
+        }
+    } else if (aiFeedbackContainer) {
         aiFeedbackContainer.style.display = 'none';
     }
     
-    document.getElementById('resultModal').style.display = 'flex';
+    if (resultModal) resultModal.style.display = 'flex';
 }
 
 function showAchievementNotification(achievement) {
@@ -3579,8 +3652,12 @@ function showAchievementNotification(achievement) {
 }
 
 function closeResultModal() {
-    document.getElementById('resultModal').style.display = 'none';
-    document.getElementById('aiFeedbackContainer').style.display = 'none';
+    const resultModal = document.getElementById('resultModal');
+    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
+    
+    if (resultModal) resultModal.style.display = 'none';
+    if (aiFeedbackContainer) aiFeedbackContainer.style.display = 'none';
+    
     loadDemoChat();
 }
 
@@ -3719,7 +3796,6 @@ async function loadTrainerStatistics() {
                 <span>Статистика по вертикалям</span>
             </div>
             
-            <!-- КОНТЕЙНЕР С ПРОКРУТКОЙ -->
             <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
         `;
         
@@ -3741,7 +3817,6 @@ async function loadTrainerStatistics() {
             `;
         }
         
-        // ЗАКРЫВАЕМ КОНТЕЙНЕР
         html += `</div>`;
         
         statisticsContent.innerHTML = html;
