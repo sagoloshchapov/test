@@ -7,9 +7,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Модальное окно авторизации -->
@@ -218,18 +215,18 @@
         </div>
     </div>
 
-    <!-- Модальное окно фидбэка -->
+    <!-- Модальное окно фидбэка (исправленное) -->
     <div class="modal" id="feedbackModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 400px;">
             <div class="result-icon">📝</div>
-            <h2 class="result-title">Пожалуйста, поделитесь впечатлениями</h2>
-            <p class="result-subtitle">Ваше мнение поможет улучшить тренажер</p>
+            <h2 class="result-title" style="font-size: 20px; padding: 0 10px;">Пожалуйста, поделитесь впечатлениями</h2>
+            <p class="result-subtitle" style="padding: 0 10px; font-size: 14px;">Ваше мнение поможет улучшить тренажер</p>
             
-            <div class="modal-actions">
-                <button class="btn btn-primary btn-large" onclick="openFeedbackForm()">
+            <div class="modal-actions" style="padding: 20px;">
+                <button class="btn btn-primary btn-large" onclick="openFeedbackForm()" style="width: 100%;">
                     <i class="fas fa-edit"></i> Заполнить форму
                 </button>
-                <button class="btn btn-secondary" onclick="closeFeedbackModal()">
+                <button class="btn btn-secondary" onclick="closeFeedbackModal()" style="width: 100%; margin-top: 10px;">
                     Сделаю позже
                 </button>
             </div>
@@ -317,7 +314,10 @@
             </div>
             
             <div class="header-right">
-                <div class="user-profile">
+                <a href="https://forms.yandex.ru/u/696634f8d046880022dab232/" target="_blank" class="feedback-btn-header">
+                    <i class="far fa-comment-dots"></i> Обратная связь
+                </a>
+                <div class="user-profile" onclick="switchTab('profile')">
                     <div class="user-avatar">
                         <i class="fas fa-user"></i>
                     </div>
@@ -328,10 +328,10 @@
                             <span class="limit-badge" id="dailyLimitBadge">0/5</span>
                         </div>
                     </div>
-                    <button class="logout-btn" onclick="logout()" title="Выйти">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
                 </div>
+                <button class="logout-btn" onclick="logout()" title="Выйти">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </header>
 
@@ -398,6 +398,6 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
