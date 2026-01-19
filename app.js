@@ -120,13 +120,7 @@ class SupabaseAuth {
                     vertical: group.trim(),
                     trainerComments: [],
                     dailySessions: 0,
-                    lastSessionDate: null,
-                    profileSettings: {
-                        showAchievements: true,
-                        showProgressChart: true,
-                        notifyOnLevelUp: true,
-                        notifyOnAchievements: true
-                    }
+                    lastSessionDate: null
                 })
             };
             
@@ -224,13 +218,7 @@ class SupabaseAuth {
             vertical: group,
             trainerComments: [],
             dailySessions: 0,
-            lastSessionDate: null,
-            profileSettings: {
-                showAchievements: true,
-                showProgressChart: true,
-                notifyOnLevelUp: true,
-                notifyOnAchievements: true
-            }
+            lastSessionDate: null
         };
     }
 
@@ -584,6 +572,16 @@ class SupabaseAuth {
                 groupBadge.style.display = 'none';
             }
             groupBadge.style.display = 'inline-block';
+        }
+        
+        // Обновляем аватар в хедере
+        const headerAvatar = document.getElementById('headerUserAvatar');
+        if (headerAvatar) {
+            if (this.currentUser.avatar_url) {
+                headerAvatar.innerHTML = `<img src="${this.currentUser.avatar_url}" alt="${this.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+            } else {
+                headerAvatar.innerHTML = '<i class="fas fa-user"></i>';
+            }
         }
         
         loadInterfaceForRole();
@@ -1026,7 +1024,15 @@ function loadStudentInterface() {
                         <i class="fas fa-newspaper"></i>
                         <span>Новости тренажера</span>
                     </div>
-                    <div class="news-grid" id="newsGrid"></div>
+                    <div class="news-container">
+                        <div class="news-scroll-container" id="newsScrollContainer">
+                            <div class="news-grid" id="newsGrid"></div>
+                        </div>
+                        <div class="scroll-indicator">
+                            <i class="fas fa-chevron-left scroll-arrow left" onclick="scrollNews(-1)"></i>
+                            <i class="fas fa-chevron-right scroll-arrow right" onclick="scrollNews(1)"></i>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="section-title" style="margin-top: 20px;">
@@ -1113,8 +1119,8 @@ function loadStudentInterface() {
                             <button class="btn btn-primary" id="startTrainingBtn" onclick="startTraining()" disabled>
                                 Начать тренировку
                             </button>
-                            <button class="btn btn-secondary" id="endTrainingBtn" onclick="finishChat()">
-                                Завершить тренировку
+                            <button class="btn btn-secondary" id="endTrainingBtn" onclick="finishChat()" style="display: none;">
+                                Завершить диалог
                             </button>
                             <div class="training-timer" id="trainingTimer"></div>
                         </div>
@@ -1237,7 +1243,7 @@ function loadStudentInterface() {
                         <div class="profile-avatar" id="profileAvatar">
                             ${auth.currentUser.avatar_url ? `<img src="${auth.currentUser.avatar_url}" alt="${auth.currentUser.username}">` : '<i class="fas fa-user"></i>'}
                         </div>
-                        <button class="btn btn-sm btn-secondary" onclick="openAvatarUploadModal()" style="margin-top: 10px;">
+                        <button class="btn btn-sm btn-secondary" onclick="openAvatarModal()" style="margin-top: 10px;">
                             <i class="fas fa-camera"></i> Сменить аватар
                         </button>
                     </div>
@@ -1256,47 +1262,6 @@ function loadStudentInterface() {
                 </div>
 
                 <div class="profile-settings">
-                    <div class="settings-section">
-                        <h3 class="settings-title">
-                            <i class="fas fa-user-cog"></i>
-                            Настройки профиля
-                        </h3>
-                        <div class="settings-grid">
-                            <div class="setting-item">
-                                <label class="setting-label">Показывать достижения</label>
-                                <p class="setting-description">Отображать ваши достижения на странице прогресса</p>
-                                <div class="form-check">
-                                    <input type="checkbox" id="showAchievements" ${auth.currentUser.stats.profileSettings?.showAchievements ? 'checked' : ''} onchange="updateProfileSetting('showAchievements', this.checked)">
-                                    <label for="showAchievements">Включено</label>
-                                </div>
-                            </div>
-                            <div class="setting-item">
-                                <label class="setting-label">Показывать график прогресса</label>
-                                <p class="setting-description">Отображать график статистики по типам клиентов</p>
-                                <div class="form-check">
-                                    <input type="checkbox" id="showProgressChart" ${auth.currentUser.stats.profileSettings?.showProgressChart ? 'checked' : ''} onchange="updateProfileSetting('showProgressChart', this.checked)">
-                                    <label for="showProgressChart">Включено</label>
-                                </div>
-                            </div>
-                            <div class="setting-item">
-                                <label class="setting-label">Уведомления о повышении уровня</label>
-                                <p class="setting-description">Показывать уведомления при повышении уровня</p>
-                                <div class="form-check">
-                                    <input type="checkbox" id="notifyOnLevelUp" ${auth.currentUser.stats.profileSettings?.notifyOnLevelUp ? 'checked' : ''} onchange="updateProfileSetting('notifyOnLevelUp', this.checked)">
-                                    <label for="notifyOnLevelUp">Включено</label>
-                                </div>
-                            </div>
-                            <div class="setting-item">
-                                <label class="setting-label">Уведомления о достижениях</label>
-                                <p class="setting-description">Показывать уведомления о новых достижениях</p>
-                                <div class="form-check">
-                                    <input type="checkbox" id="notifyOnAchievements" ${auth.currentUser.stats.profileSettings?.notifyOnAchievements ? 'checked' : ''} onchange="updateProfileSetting('notifyOnAchievements', this.checked)">
-                                    <label for="notifyOnAchievements">Включено</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="settings-section">
                         <h3 class="settings-title">
                             <i class="fas fa-medal"></i>
@@ -1345,6 +1310,14 @@ function loadStudentInterface() {
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="settings-section">
+                        <h3 class="settings-title">
+                            <i class="fas fa-history"></i>
+                            История тренировок
+                        </h3>
+                        <div style="margin-top: 15px;" id="profileHistoryList"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1371,6 +1344,7 @@ function loadStudentInterface() {
     setupLeaderboardTabs();
     renderProfileAchievements();
     renderHistory();
+    renderProfileHistory();
     renderDynamicNews();
 }
 
@@ -1424,27 +1398,6 @@ function renderProfileAchievements() {
             badgesGrid.appendChild(badge);
         }
     });
-}
-
-function updateProfileSetting(setting, value) {
-    if (!auth.currentUser) return;
-    
-    if (!auth.currentUser.stats.profileSettings) {
-        auth.currentUser.stats.profileSettings = {
-            showAchievements: true,
-            showProgressChart: true,
-            notifyOnLevelUp: true,
-            notifyOnAchievements: true
-        };
-    }
-    
-    auth.currentUser.stats.profileSettings[setting] = value;
-    auth.saveUserStats(auth.currentUser.stats);
-    
-    // Обновляем UI если нужно
-    if (setting === 'showAchievements' || setting === 'showProgressChart') {
-        switchTab('progress'); // Перезагружаем страницу прогресса
-    }
 }
 
 function selectClientType(type, isRandom = false) {
@@ -1543,6 +1496,10 @@ async function startTraining() {
                 const clientType = clientTypes[selectedClientType];
                 chatTitle.textContent = `💬 Диалог с ${isRandomClient ? 'случайным клиентом' : clientType.name.toLowerCase()}`;
             }
+            
+            // Показываем кнопку "Завершить диалог"
+            const endBtn = document.getElementById('endTrainingBtn');
+            if (endBtn) endBtn.style.display = 'block';
             
             setTimeout(() => {
                 startTrainingProcess();
@@ -1961,6 +1918,7 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     updateProgressUI();
     updateLeaderboard('all');
     renderHistory();
+    renderProfileHistory();
     renderProgressChart();
     loadSystemStats();
     renderProfileAchievements();
@@ -2029,9 +1987,7 @@ function checkLevelUp() {
     const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
     if (nextLevel && userStats.totalXP >= nextLevel.requiredXP) {
         userStats.currentLevel++;
-        if (userStats.profileSettings?.notifyOnLevelUp) {
-            showResultModal(`Уровень повышен!`, `Теперь вы ${levels.find(l => l.level === userStats.currentLevel).name}!`, "🆙", 0, {score: 5, feedback: "Поздравляем с повышением уровня!"}, 0, "");
-        }
+        showResultModal(`Уровень повышен!`, `Теперь вы ${levels.find(l => l.level === userStats.currentLevel).name}!`, "🆙", 0, {score: 5, feedback: "Поздравляем с повышением уровня!"}, 0, "");
         auth.saveUserStats(userStats);
         updateProgressUI();
     }
@@ -2164,7 +2120,7 @@ function checkAchievements(score, clientType, duration) {
         if (!userStats.achievementsUnlocked.includes(ach)) {
             userStats.achievementsUnlocked.push(ach);
             const achievement = achievements.find(a => a.id === ach);
-            if (achievement && userStats.profileSettings?.notifyOnAchievements) {
+            if (achievement) {
                 showAchievementNotification(achievement);
             }
         }
@@ -2182,9 +2138,8 @@ async function renderDynamicNews() {
     
     if (dynamicNews.length > 0) {
         let newsHTML = '';
-        // Показываем только последние 3 новости
-        const recentNews = dynamicNews.slice(0, 3);
-        recentNews.forEach(newsItem => {
+        // Показываем все новости в скроллере
+        dynamicNews.forEach(newsItem => {
             const date = newsItem.created_at ? formatDate(newsItem.created_at) : 'Нет даты';
             const tag = newsItem.tag || 'НОВОСТИ';
             
@@ -2216,6 +2171,14 @@ async function renderDynamicNews() {
             </div>
         `;
     }
+}
+
+function scrollNews(direction) {
+    const container = document.getElementById('newsScrollContainer');
+    if (!container) return;
+    
+    const scrollAmount = 300; // Количество пикселей для прокрутки
+    container.scrollLeft += direction * scrollAmount;
 }
 
 function showFeedbackModal() {
@@ -2506,6 +2469,7 @@ function switchTab(tabName) {
                 break;
             case 'profile':
                 renderProfileAchievements();
+                renderProfileHistory();
                 break;
             case 'history':
                 renderHistory();
@@ -2878,6 +2842,53 @@ async function renderHistory() {
     } catch (error) {
         console.error('Ошибка рендеринга истории:', error);
         historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Ошибка загрузки истории</div>';
+    }
+}
+
+async function renderProfileHistory() {
+    if (!auth.currentUser) return;
+    
+    const profileHistoryList = document.getElementById('profileHistoryList');
+    if (!profileHistoryList) return;
+    
+    try {
+        const localHistory = auth.currentUser.stats.trainingHistory || [];
+        
+        let history = [...localHistory];
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        history = history.slice(0, 5); // Показываем только последние 5 тренировок
+        
+        profileHistoryList.innerHTML = '';
+        
+        if (history.length === 0) {
+            profileHistoryList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
+            return;
+        }
+        
+        history.forEach(item => {
+            const clientType = clientTypes[item.clientType];
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.onclick = () => viewChatHistory(item);
+            
+            historyItem.innerHTML = `
+                <div class="history-item-header">
+                    <div class="history-item-title">${clientType ? clientType.name : 'Тренировка'}</div>
+                    <div class="history-item-score">${item.score}/5</div>
+                </div>
+                <div class="history-item-details">${item.scenario || ''}</div>
+                <div class="history-item-footer">
+                    <div>
+                        <span>${formatDate(item.date)}</span>
+                        <span style="margin-left: 10px; color: #10a37f;">+${item.xp} XP</span>
+                    </div>
+                </div>
+            `;
+            profileHistoryList.appendChild(historyItem);
+        });
+    } catch (error) {
+        console.error('Ошибка рендеринга истории профиля:', error);
+        profileHistoryList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Ошибка загрузки истории</div>';
     }
 }
 
@@ -3884,38 +3895,9 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     if (evaluation) {
         details += `<div style="margin-bottom: 5px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>`;
         details += `<div style="margin-bottom: 5px;"><strong>Время:</strong> ${formatDuration(duration)}</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</strong> ${evaluation.feedback}</div>`;
-        
-        if (evaluation.criteria) {
-            details += `<div style="margin-top: 10px; font-size: 12px; color: #666;">`;
-            details += `<div>✓ Сообщений: ${evaluation.criteria.messageCount}</div>`;
-            details += `<div>✓ Профессиональных фраз: ${evaluation.criteria.professionalPhrases}</div>`;
-            details += `<div>✓ Корректное завершение: ${evaluation.criteria.properEnding ? 'Да' : 'Можно лучше'}</div>`;
-            details += `</div>`;
-        }
-    }
-    
-    if (resultDetails) resultDetails.innerHTML = details;
-    
-    if (aiFeedback && aiFeedback.trim().length > 0) {
-        if (aiFeedbackContent) aiFeedbackContent.textContent = aiFeedback;
-        if (aiFeedbackContainer) {
-            aiFeedbackContainer.style.display = 'block';
-            if (aiFeedbackContent) {
-                aiFeedbackContent.style.maxHeight = '400px';
-                aiFeedbackContent.style.overflowY = 'auto';
-            }
-        }
-    } else if (aiFeedbackContainer) {
-        aiFeedbackContainer.style.display = 'none';
-    }
-    
-    if (resultModal) resultModal.style.display = 'flex';
-}
+        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</</div>`;
 
 function showAchievementNotification(achievement) {
-    if (!auth.currentUser?.stats.profileSettings?.notifyOnAchievements) return;
-    
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;
@@ -3960,91 +3942,26 @@ function closeResultModal() {
     loadDemoChat();
 }
 
-// Аватар функции
-function openAvatarUploadModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.id = 'avatarModal';
-    modal.style.display = 'flex';
-    
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <div class="result-icon">📷</div>
-                <h3 class="result-title">Сменить аватар</h3>
-            </div>
-            
-            <div class="modal-body">
-                <div class="avatar-preview-container">
-                    <div class="avatar-preview" id="avatarPreview">
-                        ${auth.currentUser.avatar_url ? 
-                            `<img src="${auth.currentUser.avatar_url}" alt="Текущий аватар">` : 
-                            '<i class="fas fa-user"></i>'}
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">URL изображения:</label>
-                    <input type="url" id="avatarUrl" class="form-input" placeholder="https://example.com/your-photo.jpg" 
-                           value="${auth.currentUser.avatar_url || ''}">
-                    <div class="help-text" style="font-size: 12px; color: #666; margin-top: 5px;">
-                        Вставьте ссылку на изображение из интернета
-                    </div>
-                </div>
-                
-                <div class="avatar-options">
-                    <div class="avatar-option" onclick="selectDefaultAvatar('male')">
-                        <div class="avatar-option-preview">
-                            <i class="fas fa-male"></i>
-                        </div>
-                        <span>Мужской</span>
-                    </div>
-                    <div class="avatar-option" onclick="selectDefaultAvatar('female')">
-                        <div class="avatar-option-preview">
-                            <i class="fas fa-female"></i>
-                        </div>
-                        <span>Женский</span>
-                    </div>
-                    <div class="avatar-option" onclick="selectDefaultAvatar('robot')">
-                        <div class="avatar-option-preview">
-                            <i class="fas fa-robot"></i>
-                        </div>
-                        <span>Робот</span>
-                    </div>
-                    <div class="avatar-option" onclick="selectDefaultAvatar('cat')">
-                        <div class="avatar-option-preview">
-                            <i class="fas fa-cat"></i>
-                        </div>
-                        <span>Котик</span>
-                    </div>
-                </div>
-                
-                <div class="modal-actions">
-                    <button class="btn btn-primary" onclick="saveAvatar()">
-                        <i class="fas fa-save"></i> Сохранить
-                    </button>
-                    <button class="btn btn-secondary" onclick="closeAvatarModal()">
-                        Отмена
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Обновляем превью при вводе URL
-    const avatarUrlInput = document.getElementById('avatarUrl');
+// Функции для работы с аватаром
+function openAvatarModal() {
+    const modal = document.getElementById('avatarModal');
     const avatarPreview = document.getElementById('avatarPreview');
     
-    avatarUrlInput.addEventListener('input', function() {
-        const url = this.value.trim();
-        if (url) {
-            avatarPreview.innerHTML = `<img src="${url}" alt="Превью аватара" onerror="this.onerror=null; this.src=''; avatarPreview.innerHTML='<i class=\\'fas fa-user\\'></i>';">`;
-        } else {
-            avatarPreview.innerHTML = '<i class="fas fa-user"></i>';
-        }
-    });
+    if (auth.currentUser.avatar_url) {
+        avatarPreview.innerHTML = `<img src="${auth.currentUser.avatar_url}" alt="Текущий аватар">`;
+    } else {
+        avatarPreview.innerHTML = '<i class="fas fa-user"></i>';
+    }
+    
+    const avatarUrlInput = document.getElementById('avatarUrl');
+    avatarUrlInput.value = auth.currentUser.avatar_url || '';
+    
+    modal.style.display = 'flex';
+}
+
+function closeAvatarModal() {
+    const modal = document.getElementById('avatarModal');
+    modal.style.display = 'none';
 }
 
 function selectDefaultAvatar(type) {
@@ -4090,9 +4007,9 @@ async function saveAvatar() {
             }
             
             // Обновляем аватар в заголовке
-            const userAvatar = document.querySelector('.user-avatar');
-            if (userAvatar) {
-                userAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+            const headerAvatar = document.getElementById('headerUserAvatar');
+            if (headerAvatar) {
+                headerAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
             }
             
             closeAvatarModal();
@@ -4102,13 +4019,6 @@ async function saveAvatar() {
     } catch (error) {
         console.error('Ошибка сохранения аватара:', error);
         alert('Ошибка при сохранении аватара');
-    }
-}
-
-function closeAvatarModal() {
-    const modal = document.getElementById('avatarModal');
-    if (modal) {
-        modal.remove();
     }
 }
 
@@ -4142,25 +4052,6 @@ style.textContent = `
     .vertical-content.expanded {
         max-height: 1000px;
         transition: max-height 0.5s ease-in;
-    }
-    
-    .form-check {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 10px;
-    }
-    
-    .form-check input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-    }
-    
-    .form-check label {
-        cursor: pointer;
-        font-size: 14px;
-        color: var(--text-primary);
     }
     
     .profile-stats {
@@ -4350,6 +4241,93 @@ style.textContent = `
     .avatar-option span {
         font-size: 12px;
         color: var(--text-secondary);
+    }
+    
+    .help-text {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    /* Стили для скроллера новостей */
+    .news-container {
+        position: relative;
+    }
+    
+    .news-scroll-container {
+        overflow-x: auto;
+        white-space: nowrap;
+        padding: 10px 0;
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary-color) var(--bg-surface);
+    }
+    
+    .news-scroll-container::-webkit-scrollbar {
+        height: 8px;
+    }
+    
+    .news-scroll-container::-webkit-scrollbar-track {
+        background: var(--bg-surface);
+        border-radius: 4px;
+    }
+    
+    .news-scroll-container::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 4px;
+    }
+    
+    .news-grid {
+        display: inline-flex;
+        gap: 15px;
+    }
+    
+    .news-item {
+        flex: 0 0 auto;
+        width: 300px;
+        white-space: normal;
+    }
+    
+    .scroll-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+    }
+    
+    .scroll-arrow {
+        width: 36px;
+        height: 36px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: var(--text-secondary);
+    }
+    
+    .scroll-arrow:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        transform: scale(1.1);
+    }
+    
+    .scroll-arrow.left {
+        transform: rotate(90deg);
+    }
+    
+    .scroll-arrow.right {
+        transform: rotate(-90deg);
+    }
+    
+    .scroll-arrow.left:hover {
+        transform: rotate(90deg) scale(1.1);
+    }
+    
+    .scroll-arrow.right:hover {
+        transform: rotate(-90deg) scale(1.1);
     }
 `;
 document.head.appendChild(style);
