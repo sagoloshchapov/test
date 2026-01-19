@@ -334,43 +334,39 @@ class SupabaseAuth {
         }
     }
     
-    async getLeaderboard(filterVertical = 'all') {
-        try {
-            const users = await this.supabaseRequest('users?select=id,username,group_name,stats,avatar_url');
+async getLeaderboard(filterVertical = 'all') {
+    try {
+
+        const users = await this.supabaseRequest('users');
+        
+        if (!users || users.length === 0) return [];
+        
+        const leaderboard = users.map(user => {
+            let stats = {};
+            try {
+                stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
+            } catch { }
             
-            if (!users?.length) return [];
-            
-            const leaderboard = users
-                .filter(user => filterVertical === 'all' || user.group_name === filterVertical)
-                .map(user => {
-                    let userStats;
-                    try {
-                        userStats = typeof user.stats === 'string' ? 
-                            JSON.parse(user.stats) : 
-                            (user.stats || {});
-                    } catch {
-                        userStats = {};
-                    }
-                    
-                    return {
-                        id: user.id,
-                        username: user.username,
-                        group: user.group_name || 'Без вертикали',
-                        level: userStats.currentLevel || 1,
-                        sessions: userStats.completedSessions || 0,
-                        avgScore: userStats.averageScore || 0,
-                        xp: userStats.totalXP || 0,
-                        avatar_url: user.avatar_url || ''
-                    };
-                })
-                .sort((a, b) => b.xp - a.xp);
-            
-            return leaderboard.slice(0, 100);
-        } catch (error) {
-            console.error('Ошибка получения рейтинга:', error);
-            return [];
-        }
+            return {
+                id: user.id,
+                username: user.username || 'Без имени',
+                group: user.group_name || 'Без вертикали',
+                level: stats.currentLevel || 1,
+                sessions: stats.completedSessions || 0,
+                avgScore: stats.averageScore || 0,
+                xp: stats.totalXP || 0,
+                avatar_url: user.avatar_url || ''
+            };
+        })
+        .filter(user => filterVertical === 'all' || user.group === filterVertical)
+        .sort((a, b) => b.xp - a.xp);
+        
+        return leaderboard.slice(0, 100);
+    } catch (error) {
+        console.error('Ошибка получения рейтинга:', error);
+        return [];
     }
+}
             
     async getSystemStats() {
         try {
