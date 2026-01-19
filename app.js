@@ -119,7 +119,13 @@ class SupabaseAuth {
                     vertical: group.trim(),
                     trainerComments: [],
                     dailySessions: 0,
-                    lastSessionDate: null
+                    lastSessionDate: null,
+                    profileSettings: {
+                        showAchievements: true,
+                        showProgressChart: true,
+                        notifyOnLevelUp: true,
+                        notifyOnAchievements: true
+                    }
                 })
             };
             
@@ -216,7 +222,13 @@ class SupabaseAuth {
             vertical: group,
             trainerComments: [],
             dailySessions: 0,
-            lastSessionDate: null
+            lastSessionDate: null,
+            profileSettings: {
+                showAchievements: true,
+                showProgressChart: true,
+                notifyOnLevelUp: true,
+                notifyOnAchievements: true
+            }
         };
     }
 
@@ -905,8 +917,8 @@ function loadStudentInterface() {
         <a href="javascript:void(0);" onclick="switchTab('leaderboard')" class="nav-item" data-tab="leaderboard">
             <i class="fas fa-trophy"></i> Рейтинг
         </a>
-        <a href="javascript:void(0);" onclick="switchTab('achievements')" class="nav-item" data-tab="achievements">
-            <i class="fas fa-medal"></i> Достижения
+        <a href="javascript:void(0);" onclick="switchTab('profile')" class="nav-item" data-tab="profile">
+            <i class="fas fa-user-circle"></i> Профиль
         </a>
         <a href="javascript:void(0);" onclick="switchTab('history')" class="nav-item" data-tab="history">
             <i class="fas fa-history"></i> История
@@ -921,49 +933,69 @@ function loadStudentInterface() {
                     <span>Добро пожаловать в диалоговый тренажер!</span>
                 </div>
                 
+                <div class="about-section">
+                    <div class="about-content">
+                        <h3 class="about-title">
+                            <i class="fas fa-robot"></i>
+                            О тренажере
+                        </h3>
+                        <p class="about-description">
+                            Этот тренажер выполняет функции клиента, чтобы операторы могли тренироваться отрабатывать возражения и сложные ситуации. 
+                            Искусственный интеллект играет роль клиента с различными типами поведения, но не знает внутренние логики и процессы вашей компании.
+                        </p>
+                        <p class="about-description">
+                            <strong>Ваша задача:</strong> помочь виртуальному клиенту, отработать его возражения, объяснить что ему нужно делать, 
+                            и найти оптимальное решение в рамках своей компетенции.
+                        </p>
+                        <div class="about-features">
+                            <div class="about-feature">
+                                <h5><i class="fas fa-graduation-cap"></i> Обучение на практике</h5>
+                                <p>Тренируйтесь в безопасной среде без риска для реальных клиентов</p>
+                            </div>
+                            <div class="about-feature">
+                                <h5><i class="fas fa-users"></i> Разные типы клиентов</h5>
+                                <p>Отрабатывайте навыки с агрессивными, пассивными, требовательными и другими типами клиентов</p>
+                            </div>
+                            <div class="about-feature">
+                                <h5><i class="fas fa-chart-line"></i> Отслеживание прогресса</h5>
+                                <p>Получайте обратную связь и следите за своим профессиональным ростом</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="confidentiality-warning">
                     <h4><i class="fas fa-exclamation-triangle"></i> ВАЖНО: Конфиденциальность данных</h4>
                     <div class="confidentiality-list">
                         <div class="prohibited">
                             <strong>ЗАПРЕЩЕНО указывать:</strong>
-                            <ul style="margin: 5px 0 0 15px; padding: 0; font-size: 10px;">
+                            <ul>
                                 <li>Конфиденциальную информацию компании</li>
                                 <li>Персональные данные клиентов</li>
                                 <li>Банковские/паспортные данные</li>
+                                <li>Внутренние логики и процессы</li>
+                                <li>Коммерческие тайны</li>
                             </ul>
                         </div>
                         <div class="recommended">
                             <strong>РЕКОМЕНДАЦИИ:</strong>
-                            <ul style="margin: 5px 0 0 15px; padding: 0; font-size: 10px;">
+                            <ul>
                                 <li>Используйте вымышленные данные</li>
                                 <li>Не указывайте реальные имена</li>
                                 <li>Сохраняйте конфиденциальность</li>
+                                <li>Используйте общие формулировки</li>
+                                <li>Обращайтесь к тренеру при сомнениях</li>
                             </ul>
                         </div>
                     </div>
                 </div>
                 
-                <div class="news-section" id="newsSection">
+                <div class="news-section">
                     <div class="news-title">
                         <i class="fas fa-newspaper"></i>
                         <span>Новости тренажера</span>
                     </div>
                     <div class="news-grid" id="newsGrid"></div>
-                </div>
-                
-                <div class="vertical-info">
-                    <h3><i class="fas fa-info-circle"></i> Ваша вертикаль: <span id="userVerticalDisplay">${auth.currentUser.group || 'Не указана'}</span></h3>
-                    <p>Вы будете тренироваться только на сценариях своей вертикали.</p>
-                    <div>
-                        <span class="client-type-badge">😠 Агрессивный</span>
-                        <span class="client-type-badge">😔 Пассивный</span>
-                        <span class="client-type-badge">🧐 Требовательный</span>
-                        <span class="client-type-badge">🤔 Нерешительный</span>
-                        <span class="client-type-badge">😄 Славный малый</span>
-                    </div>
-                    <div class="storage-info" style="margin-top: 10px;">
-                        <i class="fas fa-database"></i> История чатов хранится 30 дней
-                    </div>
                 </div>
                 
                 <div class="section-title" style="margin-top: 20px;">
@@ -1167,15 +1199,117 @@ function loadStudentInterface() {
             </div>
         </div>
 
-        <div class="tab-content" id="achievements-tab">
-            <div class="badges-section">
-                <div class="section-title">
-                    <span>🏆 Все достижения</span>
+        <div class="tab-content" id="profile-tab">
+            <div class="welcome-section">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="profileUserName">${auth.currentUser.username}</div>
+                        <div class="profile-group">
+                            <span>Вертикаль:</span>
+                            <span class="profile-group-badge" id="profileUserGroup">${auth.currentUser.group || 'Не указана'}</span>
+                        </div>
+                        <div class="profile-stats">
+                            <div class="limit-badge">Уровень: ${auth.currentUser.stats.currentLevel || 1}</div>
+                            <div class="limit-badge">Тренировок: ${auth.currentUser.stats.completedSessions || 0}</div>
+                            <div class="limit-badge">XP: ${auth.currentUser.stats.totalXP || 0}</div>
+                        </div>
+                    </div>
                 </div>
-                <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
-                    Зарабатывайте бейджи, совершенствуя навыки работы с клиентами.
-                </p>
-                <div class="badges-grid" id="allBadgesGrid"></div>
+
+                <div class="profile-settings">
+                    <div class="settings-section">
+                        <h3 class="settings-title">
+                            <i class="fas fa-user-cog"></i>
+                            Настройки профиля
+                        </h3>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label class="setting-label">Показывать достижения</label>
+                                <p class="setting-description">Отображать ваши достижения на странице прогресса</p>
+                                <div class="form-check">
+                                    <input type="checkbox" id="showAchievements" ${auth.currentUser.stats.profileSettings?.showAchievements ? 'checked' : ''} onchange="updateProfileSetting('showAchievements', this.checked)">
+                                    <label for="showAchievements">Включено</label>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <label class="setting-label">Показывать график прогресса</label>
+                                <p class="setting-description">Отображать график статистики по типам клиентов</p>
+                                <div class="form-check">
+                                    <input type="checkbox" id="showProgressChart" ${auth.currentUser.stats.profileSettings?.showProgressChart ? 'checked' : ''} onchange="updateProfileSetting('showProgressChart', this.checked)">
+                                    <label for="showProgressChart">Включено</label>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <label class="setting-label">Уведомления о повышении уровня</label>
+                                <p class="setting-description">Показывать уведомления при повышении уровня</p>
+                                <div class="form-check">
+                                    <input type="checkbox" id="notifyOnLevelUp" ${auth.currentUser.stats.profileSettings?.notifyOnLevelUp ? 'checked' : ''} onchange="updateProfileSetting('notifyOnLevelUp', this.checked)">
+                                    <label for="notifyOnLevelUp">Включено</label>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <label class="setting-label">Уведомления о достижениях</label>
+                                <p class="setting-description">Показывать уведомления о новых достижениях</p>
+                                <div class="form-check">
+                                    <input type="checkbox" id="notifyOnAchievements" ${auth.currentUser.stats.profileSettings?.notifyOnAchievements ? 'checked' : ''} onchange="updateProfileSetting('notifyOnAchievements', this.checked)">
+                                    <label for="notifyOnAchievements">Включено</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3 class="settings-title">
+                            <i class="fas fa-medal"></i>
+                            Ваши достижения
+                        </h3>
+                        <div class="badges-grid" id="profileBadgesGrid"></div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3 class="settings-title">
+                            <i class="fas fa-chart-line"></i>
+                            Прогресс обучения
+                        </h3>
+                        <div class="progress-panel">
+                            <div class="level-info">
+                                <div class="level-badge">Уровень ${auth.currentUser.stats.currentLevel || 1}</div>
+                                <div class="level-name">${levels.find(l => l.level === auth.currentUser.stats.currentLevel)?.name || 'Новичок'}</div>
+                            </div>
+                            
+                            <div class="xp-bar">
+                                <div class="xp-fill" style="width: ${calculateXPProgress()}%"></div>
+                                <div class="xp-text">${auth.currentUser.stats.totalXP || 0}/${getNextLevelXP()} XP</div>
+                            </div>
+                            
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-icon">🎯</span>
+                                    <span class="stat-value">${auth.currentUser.stats.completedSessions || 0}</span>
+                                    <span class="stat-label">тренировок</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-icon">⭐</span>
+                                    <span class="stat-value">${(auth.currentUser.stats.averageScore || 0).toFixed(1)}</span>
+                                    <span class="stat-label">средний балл</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-icon">🔥</span>
+                                    <span class="stat-value">${auth.currentUser.stats.currentStreak || 0}</span>
+                                    <span class="stat-label">дней подряд</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-icon">🏆</span>
+                                    <span class="stat-value">${auth.currentUser.stats.achievementsUnlocked?.length || 0}</span>
+                                    <span class="stat-label">достижений</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1199,9 +1333,82 @@ function loadStudentInterface() {
     loadStats();
     loadSystemStats();
     setupLeaderboardTabs();
-    renderAllAchievements();
+    renderProfileAchievements();
     renderHistory();
     renderDynamicNews();
+}
+
+function calculateXPProgress() {
+    if (!auth.currentUser) return 0;
+    const userStats = auth.currentUser.stats;
+    const currentLevel = levels.find(l => l.level === userStats.currentLevel) || levels[0];
+    const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
+    
+    const currentLevelXP = currentLevel.requiredXP;
+    const nextLevelXP = nextLevel ? nextLevel.requiredXP : currentLevelXP + 100;
+    const xpProgress = userStats.totalXP - currentLevelXP;
+    const xpNeeded = nextLevelXP - currentLevelXP;
+    
+    return Math.min(100, (xpProgress / xpNeeded) * 100);
+}
+
+function getNextLevelXP() {
+    if (!auth.currentUser) return 100;
+    const userStats = auth.currentUser.stats;
+    const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
+    return nextLevel ? nextLevel.requiredXP : (levels.find(l => l.level === userStats.currentLevel)?.requiredXP || 0) + 100;
+}
+
+function renderProfileAchievements() {
+    if (!auth.currentUser) return;
+    
+    const badgesGrid = document.getElementById('profileBadgesGrid');
+    if (!badgesGrid) return;
+    
+    badgesGrid.innerHTML = '';
+    
+    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
+    
+    if (userAchievements.length === 0) {
+        badgesGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #666; padding: 20px;">У вас пока нет достижений. Начните тренировки!</div>';
+        return;
+    }
+    
+    userAchievements.forEach(achievementId => {
+        const achievement = achievements.find(a => a.id === achievementId);
+        if (achievement) {
+            const badge = document.createElement('div');
+            badge.className = 'badge earned';
+            badge.innerHTML = `
+                <span class="badge-icon">${achievement.icon}</span>
+                <span class="badge-name">${achievement.name}</span>
+                <span class="badge-desc">${achievement.description}</span>
+            `;
+            badge.title = achievement.description;
+            badgesGrid.appendChild(badge);
+        }
+    });
+}
+
+function updateProfileSetting(setting, value) {
+    if (!auth.currentUser) return;
+    
+    if (!auth.currentUser.stats.profileSettings) {
+        auth.currentUser.stats.profileSettings = {
+            showAchievements: true,
+            showProgressChart: true,
+            notifyOnLevelUp: true,
+            notifyOnAchievements: true
+        };
+    }
+    
+    auth.currentUser.stats.profileSettings[setting] = value;
+    auth.saveUserStats(auth.currentUser.stats);
+    
+    // Обновляем UI если нужно
+    if (setting === 'showAchievements' || setting === 'showProgressChart') {
+        switchTab('progress'); // Перезагружаем страницу прогресса
+    }
 }
 
 function selectClientType(type, isRandom = false) {
@@ -1659,13 +1866,14 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     renderHistory();
     renderProgressChart();
     loadSystemStats();
+    renderProfileAchievements();
     
     return {
         xp: xpEarned,
         session: sessionData
     };
 }
-    
+        
 function checkForEvaluationInResponse(response) {
     const lowerResponse = response.toLowerCase();
     
@@ -1724,7 +1932,9 @@ function checkLevelUp() {
     const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
     if (nextLevel && userStats.totalXP >= nextLevel.requiredXP) {
         userStats.currentLevel++;
-        showResultModal(`Уровень повышен!`, `Теперь вы ${levels.find(l => l.level === userStats.currentLevel).name}!`, "🆙", 0, {score: 5, feedback: "Поздравляем с повышением уровня!"}, 0, "");
+        if (userStats.profileSettings?.notifyOnLevelUp) {
+            showResultModal(`Уровень повышен!`, `Теперь вы ${levels.find(l => l.level === userStats.currentLevel).name}!`, "🆙", 0, {score: 5, feedback: "Поздравляем с повышением уровня!"}, 0, "");
+        }
         auth.saveUserStats(userStats);
         updateProgressUI();
     }
@@ -1857,7 +2067,7 @@ function checkAchievements(score, clientType, duration) {
         if (!userStats.achievementsUnlocked.includes(ach)) {
             userStats.achievementsUnlocked.push(ach);
             const achievement = achievements.find(a => a.id === ach);
-            if (achievement) {
+            if (achievement && userStats.profileSettings?.notifyOnAchievements) {
                 showAchievementNotification(achievement);
             }
         }
@@ -1865,7 +2075,7 @@ function checkAchievements(score, clientType, duration) {
     
     if (newAchievements.length > 0) {
         auth.saveUserStats(userStats);
-        renderAllAchievements();
+        renderProfileAchievements();
     }
 }
 
@@ -1875,7 +2085,9 @@ async function renderDynamicNews() {
     
     if (dynamicNews.length > 0) {
         let newsHTML = '';
-        dynamicNews.forEach(newsItem => {
+        // Показываем только последние 3 новости
+        const recentNews = dynamicNews.slice(0, 3);
+        recentNews.forEach(newsItem => {
             const date = newsItem.created_at ? formatDate(newsItem.created_at) : 'Нет даты';
             const tag = newsItem.tag || 'НОВОСТИ';
             
@@ -2195,6 +2407,9 @@ function switchTab(tabName) {
             case 'leaderboard':
                 updateLeaderboard('all');
                 break;
+            case 'profile':
+                renderProfileAchievements();
+                break;
             case 'history':
                 renderHistory();
                 break;
@@ -2274,43 +2489,6 @@ async function updateRankPosition() {
         const rankPosition = document.getElementById('rankPosition');
         if (rankPosition) rankPosition.textContent = '-';
     }
-}
-
-function renderAllAchievements() {
-    if (!auth.currentUser) return;
-    
-    const badgesGrid = document.getElementById('allBadgesGrid');
-    if (!badgesGrid) return;
-    
-    badgesGrid.innerHTML = '';
-    
-    const categories = {};
-    achievements.forEach(achievement => {
-        if (!categories[achievement.category]) {
-            categories[achievement.category] = [];
-        }
-        categories[achievement.category].push(achievement);
-    });
-    
-    Object.keys(categories).forEach(category => {
-        const categoryHeader = document.createElement('div');
-        categoryHeader.style.cssText = 'grid-column: 1/-1; font-weight: 600; margin-top: 15px; color: #333; font-size: 14px;';
-        categoryHeader.textContent = category.charAt(0).toUpperCase() + category.slice(1);
-        badgesGrid.appendChild(categoryHeader);
-        
-        categories[category].forEach(achievement => {
-            const isUnlocked = auth.currentUser.stats.achievementsUnlocked.includes(achievement.id);
-            const badge = document.createElement('div');
-            badge.className = `badge ${isUnlocked ? 'earned' : 'locked'}`;
-            badge.innerHTML = `
-                <span class="badge-icon">${achievement.icon}</span>
-                <span class="badge-name">${achievement.name}</span>
-                <span class="badge-desc">${achievement.description}</span>
-            `;
-            badge.title = achievement.description;
-            badgesGrid.appendChild(badge);
-        });
-    });
 }
 
 function renderProgressChart() {
@@ -3617,6 +3795,8 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
 }
 
 function showAchievementNotification(achievement) {
+    if (!auth.currentUser?.stats.profileSettings?.notifyOnAchievements) return;
+    
     const notification = document.createElement('div');
     notification.style.cssText = `
         position: fixed;
@@ -3661,6 +3841,7 @@ function closeResultModal() {
     loadDemoChat();
 }
 
+// Добавляем стили для анимаций
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideIn {
@@ -3690,6 +3871,32 @@ style.textContent = `
     .vertical-content.expanded {
         max-height: 1000px;
         transition: max-height 0.5s ease-in;
+    }
+    
+    .form-check {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .form-check input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    
+    .form-check label {
+        cursor: pointer;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+    
+    .profile-stats {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+        flex-wrap: wrap;
     }
 `;
 document.head.appendChild(style);
