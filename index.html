@@ -347,8 +347,8 @@
                     <i class="far fa-comment-dots"></i> Обратная связь
                 </a>
                 <div class="user-profile" onclick="switchTab('profile')">
-                    <div class="user-avatar">
-                        ${auth.currentUser?.avatar_url ? `<img src="${auth.currentUser.avatar_url}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : '<i class="fas fa-user"></i>'}
+                    <div class="user-avatar" id="headerUserAvatar">
+                        <i class="fas fa-user"></i>
                     </div>
                     <div class="user-info">
                         <div class="user-name" id="currentUserName"></div>
@@ -393,9 +393,77 @@
                 </a>
             </div>
             <div class="footer-copyright">
-                © 2024 Dialog.AI Trainer | Тренажер клиентских коммуникаций
+                © 2025 Dialog.AI Trainer | Тренажер клиентских коммуникаций
             </div>
         </footer>
+    </div>
+
+    <!-- Модальное окно загрузки аватара -->
+    <div class="modal" id="avatarModal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="result-icon">📷</div>
+                <h3 class="result-title">Сменить аватар</h3>
+                <button class="btn btn-icon" onclick="closeAvatarModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="avatar-preview-container">
+                    <div class="avatar-preview" id="avatarPreview">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">URL изображения:</label>
+                    <input type="url" id="avatarUrl" class="form-input" placeholder="https://example.com/your-photo.jpg">
+                    <div class="help-text">
+                        Вставьте ссылку на изображение из интернета
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Или выберите стандартный аватар:</label>
+                    <div class="avatar-options">
+                        <div class="avatar-option" onclick="selectDefaultAvatar('male')">
+                            <div class="avatar-option-preview">
+                                <i class="fas fa-male"></i>
+                            </div>
+                            <span>Мужской</span>
+                        </div>
+                        <div class="avatar-option" onclick="selectDefaultAvatar('female')">
+                            <div class="avatar-option-preview">
+                                <i class="fas fa-female"></i>
+                            </div>
+                            <span>Женский</span>
+                        </div>
+                        <div class="avatar-option" onclick="selectDefaultAvatar('robot')">
+                            <div class="avatar-option-preview">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <span>Робот</span>
+                        </div>
+                        <div class="avatar-option" onclick="selectDefaultAvatar('cat')">
+                            <div class="avatar-option-preview">
+                                <i class="fas fa-cat"></i>
+                            </div>
+                            <span>Котик</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="saveAvatar()">
+                        <i class="fas fa-save"></i> Сохранить
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeAvatarModal()">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>
