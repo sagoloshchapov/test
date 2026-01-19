@@ -79,97 +79,98 @@ class SupabaseAuth {
         return hash.toString(36);
     }
     
-    async register(username, group = '', password) {
-        try {
-            console.log('Начало регистрации:', username);
-            
-            // Проверяем существующего пользователя
-            const existing = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
-            
-            if (existing && existing.length > 0) {
-                return { success: false, message: 'Пользователь с таким никнеймом уже существует' };
-            }
-            
-            if (password.length < 6) {
-                return { success: false, message: 'Пароль должен быть не менее 6 символов' };
-            }
-            
-            if (!group) {
-                return { success: false, message: 'Выберите вертикаль' };
-            }
-            
-            const passwordHash = this.hashPassword(password);
-            const now = new Date().toISOString();
-            
-            const newUser = {
-                username: username.trim(),
-                group_name: group.trim(),
-                password_hash: passwordHash,
-                role: 'user',
-                avatar_url: '',
-                stats: JSON.stringify({
-                    currentLevel: 1,
-                    totalXP: 0,
-                    completedSessions: 0,
-                    totalScore: 0,
-                    averageScore: 0,
-                    currentStreak: 0,
-                    lastTrainingDate: null,
-                    registrationDate: now,
-                    achievementsUnlocked: ["first_blood"],
-                    clientTypesCompleted: Object.fromEntries(
-                        ['aggressive', 'passive', 'demanding', 'indecisive', 'chatty'].map(type => [
-                            type,
-                            { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 }
-                        ])
-                    ),
-                    trainingHistory: [],
-                    vertical: group.trim(),
-                    trainerComments: [],
-                    dailySessions: 0,
-                    lastSessionDate: null
-                })
-            };
-            
-            console.log('Отправка данных нового пользователя:', newUser);
-            
-            const response = await fetch('/api/supabase-proxy', {
+async function register(username, group = '', password) {
+    try {
+        console.log('Начало регистрации:', username);
+        
+        // Проверяем существующего пользователя
+        const existing = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
+        
+        if (existing && existing.length > 0) {
+            return { success: false, message: 'Пользователь с таким никнеймом уже существует' };
+        }
+        
+        if (password.length < 6) {
+            return { success: false, message: 'Пароль должен быть не менее 6 символов' };
+        }
+        
+        if (!group) {
+            return { success: false, message: 'Выберите вертикаль' };
+        }
+        
+        const passwordHash = this.hashPassword(password);
+        const now = new Date().toISOString();
+        
+        // УБРАТЬ avatar_url из данных пользователя
+        const newUser = {
+            username: username.trim(),
+            group_name: group.trim(),
+            password_hash: passwordHash,
+            role: 'user',
+            // avatar_url: '', // УДАЛИТЬ эту строку
+            stats: JSON.stringify({
+                currentLevel: 1,
+                totalXP: 0,
+                completedSessions: 0,
+                totalScore: 0,
+                averageScore: 0,
+                currentStreak: 0,
+                lastTrainingDate: null,
+                registrationDate: now,
+                achievementsUnlocked: ["first_blood"],
+                clientTypesCompleted: Object.fromEntries(
+                    ['aggressive', 'passive', 'demanding', 'indecisive', 'chatty'].map(type => [
+                        type,
+                        { sessions: 0, totalXP: 0, totalScore: 0, avgScore: 0 }
+                    ])
+                ),
+                trainingHistory: [],
+                vertical: group.trim(),
+                trainerComments: [],
+                dailySessions: 0,
+                lastSessionDate: null
+            })
+        };
+        
+        console.log('Отправка данных нового пользователя:', newUser);
+        
+        const response = await fetch('/api/supabase-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                endpoint: 'users',
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    endpoint: 'users',
-                    method: 'POST',
-                    body: newUser,
-                    headers: { 'Prefer': 'return=representation' }
-                })
-            });
-            
-            console.log('Ответ от сервера:', response.status);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Ошибка регистрации:', errorText);
-                return { 
-                    success: false, 
-                    message: `Ошибка регистрации: ${response.status} ${response.statusText}` 
-                };
-            }
-            
-            const responseData = await response.json();
-            console.log('Данные ответа:', responseData);
-            
-            return { 
-                success: true, 
-                message: 'Регистрация успешна! Теперь войдите в систему.' 
-            };
-        } catch (error) {
-            console.error('Ошибка регистрации:', error);
+                body: newUser,
+                headers: { 'Prefer': 'return=representation' }
+            })
+        });
+        
+        console.log('Ответ от сервера:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Ошибка регистрации:', errorText);
             return { 
                 success: false, 
-                message: 'Ошибка соединения с базой данных. Проверьте подключение к интернету.' 
+                message: `Ошибка регистрации: ${response.status} ${response.statusText}` 
             };
         }
+        
+        const responseData = await response.json();
+        console.log('Данные ответа:', responseData);
+        
+        return { 
+            success: true, 
+            message: 'Регистрация успешна! Теперь войдите в систему.' 
+        };
+    } catch (error) {
+        console.error('Ошибка регистрации:', error);
+        return { 
+            success: false, 
+            message: 'Ошибка соединения с базой данных. Проверьте подключение к интернету.' 
+        };
     }
+}
 
     async login(username, password) {
         try {
@@ -2642,9 +2643,20 @@ async function updateRankPosition() {
     
     try {
         const verticalLeaderboard = await auth.getLeaderboard(auth.currentUser.group);
+        
+        // Проверяем, что currentUser существует и имеет id
+        if (!auth.currentUser || !auth.currentUser.id) {
+            console.warn('Пользователь не загружен');
+            const rankPosition = document.getElementById('rankPosition');
+            if (rankPosition) rankPosition.textContent = '-';
+            return;
+        }
+        
         const verticalRank = verticalLeaderboard.findIndex(p => p.id === auth.currentUser.id) + 1;
         const rankPosition = document.getElementById('rankPosition');
-        if (rankPosition) rankPosition.textContent = verticalRank > 0 ? verticalRank : '-';
+        if (rankPosition) {
+            rankPosition.textContent = verticalRank > 0 ? verticalRank : '-';
+        }
     } catch (error) {
         console.error('Ошибка обновления позиции в рейтинге:', error);
         const rankPosition = document.getElementById('rankPosition');
