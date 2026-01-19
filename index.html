@@ -215,7 +215,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно фидбэка (исправленное) -->
+    <!-- Модальное окно фидбэка -->
     <div class="modal" id="feedbackModal">
         <div class="modal-content" style="max-width: 400px;">
             <div class="result-icon">📝</div>
@@ -295,6 +295,35 @@
         </div>
     </div>
 
+    <!-- Модальное окно комментария тренера -->
+    <div class="modal" id="commentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="result-icon">💬</div>
+                <h3 class="result-title" id="commentModalTitle">Комментарий тренера</h3>
+                <div class="student-info" id="commentModalStudentInfo"></div>
+            </div>
+            
+            <div class="modal-body">
+                <div id="existingComments" class="existing-comments"></div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ваш комментарий:</label>
+                    <textarea class="form-textarea" id="commentText" placeholder="Введите комментарий к диалогу..."></textarea>
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="submitComment()">
+                        <i class="fas fa-paper-plane"></i> Отправить комментарий
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeCommentModal()">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Основной контейнер приложения -->
     <div class="app-container" id="mainContainer" style="display: none;">
         <!-- Верхняя панель -->
@@ -319,7 +348,7 @@
                 </a>
                 <div class="user-profile" onclick="switchTab('profile')">
                     <div class="user-avatar">
-                        <i class="fas fa-user"></i>
+                        ${auth.currentUser?.avatar_url ? `<img src="${auth.currentUser.avatar_url}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : '<i class="fas fa-user"></i>'}
                     </div>
                     <div class="user-info">
                         <div class="user-name" id="currentUserName"></div>
@@ -367,35 +396,6 @@
                 © 2024 Dialog.AI Trainer | Тренажер клиентских коммуникаций
             </div>
         </footer>
-    </div>
-
-    <!-- Модальное окно комментария тренера -->
-    <div class="modal" id="commentModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="result-icon">💬</div>
-                <h3 class="result-title" id="commentModalTitle">Комментарий тренера</h3>
-                <div class="student-info" id="commentModalStudentInfo"></div>
-            </div>
-            
-            <div class="modal-body">
-                <div id="existingComments" class="existing-comments"></div>
-                
-                <div class="form-group">
-                    <label class="form-label">Ваш комментарий:</label>
-                    <textarea class="form-textarea" id="commentText" placeholder="Введите комментарий к диалогу..."></textarea>
-                </div>
-                
-                <div class="modal-actions">
-                    <button class="btn btn-primary" onclick="submitComment()">
-                        <i class="fas fa-paper-plane"></i> Отправить комментарий
-                    </button>
-                    <button class="btn btn-secondary" onclick="closeCommentModal()">
-                        Отмена
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="app.js"></script>
