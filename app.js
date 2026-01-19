@@ -1,5 +1,3 @@
-[file name]: app.js
-[file content begin]
 let feedbackShown = false;
 const SUPABASE_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD';
