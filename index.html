@@ -3,295 +3,270 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Диалоговый тренажер</title>
+    <title>Диалоговый тренажер AI | Тренировка клиентских навыков</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Модальное окно авторизации -->
     <div class="modal" id="authModal">
-        <div class="modal-content">
+        <div class="modal-content auth-modal">
             <div class="modal-header">
-                <div class="modal-icon">👤</div>
-                <h2>Диалоговый тренажер</h2>
+                <div class="logo">
+                    <div class="logo-icon">💬</div>
+                    <div class="logo-text">
+                        <span class="logo-title">Dialog.AI</span>
+                        <span class="logo-subtitle">Тренажер для операторов</span>
+                    </div>
+                </div>
             </div>
             
             <div class="modal-body">
-                <p class="modal-subtitle">Войдите в систему для начала тренировок</p>
-                
-                <!-- Форма входа -->
-                <div id="loginForm" class="auth-form">
+                <div id="loginForm" class="auth-form active">
+                    <h2 class="auth-title">Вход в систему</h2>
+                    <p class="auth-subtitle">Для начала тренировок войдите в свой аккаунт</p>
+                    
                     <div class="form-group">
-                        <label for="loginUsername">Никнейм:</label>
-                        <input type="text" id="loginUsername" placeholder="Введите ваш никнейм">
+                        <label class="form-label">Никнейм</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="loginUsername" placeholder="Введите ваш никнейм" class="form-input">
+                        </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="loginPassword">Пароль:</label>
-                        <div class="password-input">
-                            <input type="password" id="loginPassword" placeholder="Введите пароль">
-                            <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label">Пароль</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="loginPassword" placeholder="Введите пароль" class="form-input">
+                            <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
                         </div>
                         <div class="error-message" id="loginError"></div>
                     </div>
                     
-                    <button class="btn btn-primary btn-block" onclick="handleLogin()">
-                        <i class="fas fa-sign-in-alt"></i> Войти
+                    <button class="btn btn-primary btn-large" onclick="handleLogin()">
+                        <i class="fas fa-sign-in-alt"></i> Войти в аккаунт
                     </button>
                     
-                    <button class="btn btn-secondary btn-block" onclick="showRegisterForm()">
-                        <i class="fas fa-user-plus"></i> Создать аккаунт
-                    </button>
-                    
-                    <button class="btn btn-secondary btn-block" onclick="showResetPasswordForm()">
-                        <i class="fas fa-key"></i> Забыли пароль?
-                    </button>
+                    <div class="auth-links">
+                        <a href="javascript:void(0);" onclick="showRegisterForm()" class="auth-link">Создать аккаунт</a>
+                        <a href="javascript:void(0);" onclick="showResetPasswordForm()" class="auth-link">Забыли пароль?</a>
+                    </div>
                     
                     <div class="divider">
                         <span>или</span>
                     </div>
                     
-                    <button class="btn btn-trainer btn-block" onclick="showTrainerLogin()">
+                    <button class="btn btn-secondary btn-outline" onclick="showTrainerLogin()">
                         <i class="fas fa-chalkboard-teacher"></i> Войти как тренер
                     </button>
                 </div>
                 
-                <!-- Форма регистрации -->
-                <div id="registerForm" class="auth-form" style="display: none;">
-                    <div class="warning-box">
-                        <i class="fas fa-exclamation-triangle"></i>
+                <div id="registerForm" class="auth-form">
+                    <h2 class="auth-title">Регистрация</h2>
+                    <p class="auth-subtitle">Создайте аккаунт для доступа к тренажеру</p>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle"></i>
                         <div>
-                            <strong>ВНИМАНИЕ!</strong>
-                            <p>Не используйте реальные фамилии, матерные или оскорбительные слова. Рекомендуем: Оператор_1, Спец_Иван</p>
+                            <strong>Внимание!</strong> Не используйте реальные фамилии или оскорбительные слова в никнейме.
+                            Рекомендуем: Оператор_1, Спец_Иван
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="registerUsername">Никнейм:</label>
-                        <input type="text" id="registerUsername" placeholder="Придумайте никнейм (от 3 символов)">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="registerGroup">Вертикаль:</label>
-                        <select id="registerGroup">
-                            <option value="">Выберите вашу вертикаль</option>
-                            <option value="Программа лояльности">Программа лояльности</option>
-                            <option value="ОПК">ОПК</option>
-                            <option value="Фудтех">Фудтех</option>
-                            <option value="Маркет">Маркет</option>
-                            <option value="Аптека">Аптека</option>
-                            <option value="Сборка">Сборка</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="registerPassword">Пароль:</label>
-                        <div class="password-input">
-                            <input type="password" id="registerPassword" placeholder="Пароль (от 6 символов)">
-                            <button type="button" class="password-toggle" onclick="togglePassword('registerPassword')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label">Никнейм (от 3 символов)</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-user-tag"></i>
+                            <input type="text" id="registerUsername" placeholder="Придумайте никнейм" class="form-input">
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="registerPasswordConfirm">Подтвердите пароль:</label>
-                        <div class="password-input">
-                            <input type="password" id="registerPasswordConfirm" placeholder="Повторите пароль">
-                            <button type="button" class="password-toggle" onclick="togglePassword('registerPasswordConfirm')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label">Ваша вертикаль</label>
+                        <div class="select-with-icon">
+                            <i class="fas fa-building"></i>
+                            <select id="registerGroup" class="form-select" required>
+                                <option value="">Выберите вертикаль</option>
+                                <option value="Программа лояльности">Программа лояльности</option>
+                                <option value="ОПК">ОПК</option>
+                                <option value="Фудтех">Фудтех</option>
+                                <option value="Маркет">Маркет</option>
+                                <option value="Аптека">Аптека</option>
+                                <option value="Сборка">Сборка</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Пароль (от 6 символов)</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="registerPassword" placeholder="Создайте пароль" class="form-input">
+                            <span class="password-toggle" onclick="togglePassword('registerPassword', this)">👁️</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Подтвердите пароль</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="registerPasswordConfirm" placeholder="Повторите пароль" class="form-input">
+                            <span class="password-toggle" onclick="togglePassword('registerPasswordConfirm', this)">👁️</span>
                         </div>
                         <div class="error-message" id="passwordMatchError"></div>
                     </div>
                     
-                    <div class="confidentiality-box">
-                        <h4><i class="fas fa-shield-alt"></i> Конфиденциальность данных</h4>
-                        <div class="confidentiality-content">
-                            <div class="confidentiality-item">
-                                <i class="fas fa-ban"></i>
-                                <span>Не указывайте конфиденциальную информацию</span>
-                            </div>
-                            <div class="confidentiality-item">
-                                <i class="fas fa-check-circle"></i>
-                                <span>Используйте вымышленные данные</span>
-                            </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-shield-alt"></i>
+                        <div>
+                            <strong>Конфиденциальность данных:</strong><br>
+                            Запрещено указывать конфиденциальную информацию компании, персональные данные клиентов, банковские реквизиты.
                         </div>
                     </div>
                     
-                    <button class="btn btn-primary btn-block" onclick="handleRegister()">
-                        <i class="fas fa-user-check"></i> Зарегистрироваться
+                    <button class="btn btn-primary btn-large" onclick="handleRegister()">
+                        <i class="fas fa-user-plus"></i> Зарегистрироваться
                     </button>
                     
-                    <button class="btn btn-secondary btn-block" onclick="showLoginForm()">
-                        <i class="fas fa-arrow-left"></i> Назад ко входу
-                    </button>
+                    <div class="auth-links center">
+                        <a href="javascript:void(0);" onclick="showLoginForm()" class="auth-link">
+                            <i class="fas fa-arrow-left"></i> Назад ко входу
+                        </a>
+                    </div>
                 </div>
                 
-                <!-- Форма сброса пароля -->
-                <div id="resetPasswordForm" class="auth-form" style="display: none;">
-                    <div class="form-group">
-                        <label for="resetUsername">Никнейм:</label>
-                        <input type="text" id="resetUsername" placeholder="Введите никнейм">
-                    </div>
+                <div id="resetPasswordForm" class="auth-form">
+                    <h2 class="auth-title">Сброс пароля</h2>
+                    <p class="auth-subtitle">Восстановите доступ к своему аккаунту</p>
                     
                     <div class="form-group">
-                        <label for="resetNewPassword">Новый пароль:</label>
-                        <div class="password-input">
-                            <input type="password" id="resetNewPassword" placeholder="Новый пароль (от 6 символов)">
-                            <button type="button" class="password-toggle" onclick="togglePassword('resetNewPassword')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label">Никнейм</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="resetUsername" placeholder="Введите ваш никнейм" class="form-input">
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="resetPasswordConfirm">Подтвердите пароль:</label>
-                        <div class="password-input">
-                            <input type="password" id="resetPasswordConfirm" placeholder="Повторите пароль">
-                            <button type="button" class="password-toggle" onclick="togglePassword('resetPasswordConfirm')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label">Новый пароль</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="resetNewPassword" placeholder="Новый пароль" class="form-input">
+                            <span class="password-toggle" onclick="togglePassword('resetNewPassword', this)">👁️</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Подтвердите пароль</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="resetPasswordConfirm" placeholder="Повторите пароль" class="form-input">
+                            <span class="password-toggle" onclick="togglePassword('resetPasswordConfirm', this)">👁️</span>
                         </div>
                         <div class="error-message" id="resetPasswordError"></div>
                     </div>
                     
-                    <button class="btn btn-primary btn-block" onclick="handleResetPassword()">
-                        <i class="fas fa-sync-alt"></i> Сбросить пароль
+                    <button class="btn btn-primary btn-large" onclick="handleResetPassword()">
+                        <i class="fas fa-key"></i> Сбросить пароль
                     </button>
                     
-                    <button class="btn btn-secondary btn-block" onclick="showLoginForm()">
-                        <i class="fas fa-arrow-left"></i> Назад ко входу
-                    </button>
+                    <div class="auth-links center">
+                        <a href="javascript:void(0);" onclick="showLoginForm()" class="auth-link">
+                            <i class="fas fa-arrow-left"></i> Назад ко входу
+                        </a>
+                    </div>
                 </div>
                 
-                <!-- Форма входа тренера -->
-                <div id="trainerLoginForm" class="auth-form" style="display: none;">
-                    <div class="modal-icon trainer-icon">
-                        <i class="fas fa-chalkboard-teacher"></i>
-                    </div>
-                    <h3 style="text-align: center; margin-bottom: 10px;">Режим тренера</h3>
-                    <p style="text-align: center; color: #666; margin-bottom: 20px;">Панель управления тренировками</p>
+                <div id="trainerLoginForm" class="auth-form">
+                    <h2 class="auth-title">Панель тренера</h2>
+                    <p class="auth-subtitle">Доступ к управлению тренировками</p>
                     
                     <div class="form-group">
-                        <label for="trainerUsername">Логин тренера:</label>
-                        <input type="text" id="trainerUsername" placeholder="Введите логин тренера">
+                        <label class="form-label">Логин тренера</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                            <input type="text" id="trainerUsername" placeholder="Введите логин" class="form-input">
+                        </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="trainerPassword">Пароль:</label>
-                        <div class="password-input">
-                            <input type="password" id="trainerPassword" placeholder="Введите пароль тренера">
-                            <button type="button" class="password-toggle" onclick="togglePassword('trainerPassword')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label">Пароль</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="trainerPassword" placeholder="Введите пароль" class="form-input">
+                            <span class="password-toggle" onclick="togglePassword('trainerPassword', this)">👁️</span>
                         </div>
                         <div class="error-message" id="trainerLoginError"></div>
                     </div>
                     
-                    <button class="btn btn-primary btn-block" onclick="handleTrainerLogin()">
+                    <button class="btn btn-primary btn-large" onclick="handleTrainerLogin()">
                         <i class="fas fa-sign-in-alt"></i> Войти как тренер
                     </button>
                     
-                    <button class="btn btn-secondary btn-block" onclick="showLoginForm()">
-                        <i class="fas fa-arrow-left"></i> Назад к обычному входу
-                    </button>
+                    <div class="auth-links center">
+                        <a href="javascript:void(0);" onclick="showLoginForm()" class="auth-link">
+                            <i class="fas fa-arrow-left"></i> Обычный вход
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Основной интерфейс -->
-    <div class="app-container" id="appContainer">
-        <!-- Шапка -->
-        <header class="app-header">
-            <div class="header-content">
-                <div class="logo">
-                    <i class="fas fa-comments"></i>
-                    <h1>Диалоговый тренажер</h1>
-                </div>
-                <div class="header-subtitle" id="headerSubtitle">Тренировка работы с клиентами</div>
-            </div>
+    <!-- Модальное окно фидбэка -->
+    <div class="modal" id="feedbackModal">
+        <div class="modal-content">
+            <div class="result-icon">📝</div>
+            <h2 class="result-title">Пожалуйста, поделитесь впечатлениями</h2>
+            <p class="result-subtitle">Ваше мнение поможет улучшить тренажер</p>
             
-            <div class="user-panel">
-                <div class="user-info">
-                    <span class="user-name" id="currentUserName">Гость</span>
-                    <span class="user-badge" id="userGroupBadge">Не авторизован</span>
-                </div>
-                <button class="logout-btn" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
+            <div class="modal-actions">
+                <button class="btn btn-primary btn-large" onclick="openFeedbackForm()">
+                    <i class="fas fa-edit"></i> Заполнить форму
+                </button>
+                <button class="btn btn-secondary" onclick="closeFeedbackModal()">
+                    Сделаю позже
                 </button>
             </div>
-        </header>
-
-        <!-- Основное содержимое -->
-        <div class="app-main">
-            <!-- Боковая панель -->
-            <nav class="sidebar" id="sidebar">
-                <!-- Навигация будет загружена динамически -->
-            </nav>
-
-            <!-- Основной контент -->
-            <main class="main-content" id="mainContent">
-                <!-- Контент будет загружен динамически -->
-            </main>
         </div>
-
-        <!-- Футер -->
-        <footer class="app-footer">
-            <div class="footer-links">
-                <a href="https://forms.yandex.ru/u/696634f8d046880022dab232" target="_blank" class="footer-link">
-                    <i class="fas fa-comment-alt"></i> Обратная связь
-                </a>
-                <a href="https://forms.yandex.ru/u/69663c041f1eb503751e7994" target="_blank" class="footer-link">
-                    <i class="fas fa-bug"></i> Сообщить об ошибке
-                </a>
-                <a href="https://forms.yandex.ru/u/69663c46e010db02b85ec117" target="_blank" class="footer-link">
-                    <i class="fas fa-lightbulb"></i> Предложить идею
-                </a>
-            </div>
-            <div class="footer-info">
-                <i class="fas fa-info-circle"></i> История чатов хранится 30 дней
-            </div>
-        </footer>
     </div>
 
-    <!-- Модальное окно чата -->
-    <div class="modal" id="chatModal">
-        <div class="modal-content modal-lg">
-            <div class="modal-header">
-                <h3 id="chatModalTitle">Диалог с клиентом</h3>
-                <button class="close-btn" onclick="closeChatModal()">
+    <!-- Модальное окно просмотра чата -->
+    <div class="modal chat-modal" id="chatModal">
+        <div class="modal-content">
+            <div class="chat-modal-header">
+                <div>
+                    <h3 id="chatModalTitle">Диалог с клиентом</h3>
+                    <div class="chat-modal-info">
+                        <div class="info-item">
+                            <i class="fas fa-user-tag"></i>
+                            <span id="chatModalClientType">-</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="far fa-calendar"></i>
+                            <span id="chatModalDate"></span>
+                        </div>
+                        <div class="info-item score">
+                            <i class="fas fa-star"></i>
+                            <span id="chatModalScore">-</span>/5
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-icon" onclick="closeChatModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
-            <div class="chat-info-bar">
-                <div class="chat-info-item">
-                    <strong>Тип клиента:</strong>
-                    <span id="chatModalClientType">-</span>
-                </div>
-                <div class="chat-info-item">
-                    <strong>Дата:</strong>
-                    <span id="chatModalDate">-</span>
-                </div>
-                <div class="chat-info-item">
-                    <strong>Оценка:</strong>
-                    <span id="chatModalScore">-</span>/5
-                </div>
-            </div>
+            <div class="chat-modal-messages" id="chatModalMessages"></div>
             
-            <div class="chat-messages-container" id="chatModalMessages">
-                <!-- Сообщения будут загружены динамически -->
-            </div>
-            
-            <div class="modal-footer">
-                <div class="export-actions">
-                    <button class="btn btn-export" onclick="openExportModal()">
-                        <i class="fas fa-download"></i> Скачать чат
-                    </button>
+            <div class="chat-modal-footer">
+                <div class="storage-info">
+                    <i class="fas fa-info-circle"></i> История чатов хранится 30 дней
                 </div>
                 <button class="btn btn-secondary" onclick="closeChatModal()">
                     Закрыть
@@ -300,240 +275,129 @@
         </div>
     </div>
 
-    <!-- Модальное окно экспорта -->
-    <div class="modal" id="exportModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-icon">
-                    <i class="fas fa-file-export"></i>
-                </div>
-                <h3>Экспорт диалога</h3>
-            </div>
-            
-            <div class="modal-body">
-                <div class="export-options">
-                    <div class="export-option selected" data-format="pdf" onclick="selectExportFormat('pdf')">
-                        <div class="export-icon">
-                            <i class="fas fa-file-pdf"></i>
-                        </div>
-                        <div class="export-info">
-                            <div class="export-title">PDF документ</div>
-                            <div class="export-desc">Формат для печати и просмотра</div>
-                        </div>
-                    </div>
-                    
-                    <div class="export-option" data-format="txt" onclick="selectExportFormat('txt')">
-                        <div class="export-icon">
-                            <i class="fas fa-file-alt"></i>
-                        </div>
-                        <div class="export-info">
-                            <div class="export-title">Текстовый файл</div>
-                            <div class="export-desc">Простой текст, легко редактировать</div>
-                        </div>
-                    </div>
-                    
-                    <div class="export-option" data-format="html" onclick="selectExportFormat('html')">
-                        <div class="export-icon">
-                            <i class="fas fa-code"></i>
-                        </div>
-                        <div class="export-info">
-                            <div class="export-title">HTML страница</div>
-                            <div class="export-desc">Красивое оформление в браузере</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="export-settings">
-                    <h4>Настройки экспорта:</h4>
-                    <div class="settings-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="includeFeedback" checked>
-                            <span>Включить обратную связь от AI</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="includeComments" checked>
-                            <span>Включить комментарии тренера</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="includeMetadata" checked>
-                            <span>Включить информацию о сессии</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="modal-footer">
-                <button class="btn btn-primary" onclick="exportChat()">
-                    <i class="fas fa-download"></i> Экспортировать
-                </button>
-                <button class="btn btn-secondary" onclick="closeExportModal()">
-                    Отмена
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно отчетов тренера -->
-    <div class="modal" id="reportModal">
-        <div class="modal-content modal-lg">
-            <div class="modal-header">
-                <div class="modal-icon">
-                    <i class="fas fa-chart-bar"></i>
-                </div>
-                <h3>Экспорт отчетов</h3>
-            </div>
-            
-            <div class="modal-body">
-                <div class="report-type-selector">
-                    <div class="report-type selected" data-type="excel" onclick="selectReportType('excel')">
-                        <div class="report-icon">
-                            <i class="fas fa-file-excel"></i>
-                        </div>
-                        <div class="report-info">
-                            <div class="report-title">Excel отчет</div>
-                            <div class="report-desc">Статистика и таблицы данных</div>
-                        </div>
-                    </div>
-                    
-                    <div class="report-type" data-type="pdf" onclick="selectReportType('pdf')">
-                        <div class="report-icon">
-                            <i class="fas fa-file-pdf"></i>
-                        </div>
-                        <div class="report-info">
-                            <div class="report-title">PDF отчет</div>
-                            <div class="report-desc">Детальный отчет с графиками</div>
-                        </div>
-                    </div>
-                    
-                    <div class="report-type" data-type="chats" onclick="selectReportType('chats')">
-                        <div class="report-icon">
-                            <i class="fas fa-comments"></i>
-                        </div>
-                        <div class="report-info">
-                            <div class="report-title">Массовый экспорт чатов</div>
-                            <div class="report-desc">Все диалоги в ZIP архиве</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="report-filters">
-                    <h4>Параметры отчета:</h4>
-                    
-                    <div class="filter-row">
-                        <div class="form-group">
-                            <label>Дата с:</label>
-                            <input type="date" id="reportDateFrom" class="filter-input">
-                        </div>
-                        <div class="form-group">
-                            <label>Дата по:</label>
-                            <input type="date" id="reportDateTo" class="filter-input">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Вертикаль:</label>
-                        <select id="reportVertical" class="filter-select">
-                            <option value="all">Все вертикали</option>
-                            <option value="Программа лояльности">Лояльность</option>
-                            <option value="ОПК">ОПК</option>
-                            <option value="Фудтех">Фудтех</option>
-                            <option value="Маркет">Маркет</option>
-                            <option value="Аптека">Аптека</option>
-                            <option value="Сборка">Сборка</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Ученик:</label>
-                        <select id="reportStudent" class="filter-select">
-                            <option value="all">Все ученики</option>
-                        </select>
-                    </div>
-                    
-                    <div class="report-options">
-                        <h4>Данные для включения:</h4>
-                        <div class="options-grid">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="optScores" checked>
-                                <span>Оценки по тренировкам</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="optAverages" checked>
-                                <span>Средние показатели</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="optProgress" checked>
-                                <span>Прогресс учеников</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="optClientTypes" checked>
-                                <span>Статистика по типам клиентов</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="modal-footer">
-                <button class="btn btn-primary" onclick="generateReport()">
-                    <i class="fas fa-download"></i> Сформировать отчет
-                </button>
-                <button class="btn btn-secondary" onclick="closeReportModal()">
-                    Отмена
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно результатов -->
+    <!-- Модальное окно результата -->
     <div class="modal" id="resultModal">
         <div class="modal-content">
+            <div class="result-icon" id="resultIcon">🏆</div>
+            <h2 class="result-title" id="resultTitle">Тренировка завершена!</h2>
+            <div class="result-xp" id="resultXP">+0 XP</div>
+            
+            <div class="result-details" id="resultDetails"></div>
+            
+            <div id="aiFeedbackContainer" class="ai-feedback-container">
+                <div class="ai-feedback-header">
+                    <i class="fas fa-robot"></i>
+                    <h4>Обратная связь от DeepSeek</h4>
+                </div>
+                <div class="ai-feedback-content" id="aiFeedbackContent"></div>
+            </div>
+            
+            <button class="btn btn-primary btn-large" onclick="closeResultModal()">
+                Продолжить тренировки
+            </button>
+        </div>
+    </div>
+
+    <!-- Основной контейнер приложения -->
+    <div class="app-container" id="mainContainer" style="display: none;">
+        <!-- Верхняя панель -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <div class="logo-icon">💬</div>
+                    <div class="logo-text">
+                        <span class="logo-title">Dialog.AI</span>
+                        <span class="logo-subtitle" id="headerSubtitle">Тренировка работы с клиентами</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <h1 class="app-title" id="appTitle">Диалоговый тренажер</h1>
+            </div>
+            
+            <div class="header-right">
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name" id="currentUserName"></div>
+                        <div class="user-badges">
+                            <span class="user-badge" id="userGroupBadge"></span>
+                            <span class="limit-badge" id="dailyLimitBadge">0/5</span>
+                        </div>
+                    </div>
+                    <button class="logout-btn" onclick="logout()" title="Выйти">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Основной контент -->
+        <div class="app-main">
+            <!-- Боковая панель навигации -->
+            <nav class="app-sidebar" id="sidebar">
+                <!-- Навигация будет загружена динамически -->
+            </nav>
+
+            <!-- Основная область контента -->
+            <main class="app-content">
+                <div class="content-wrapper" id="contentWrapper">
+                    <!-- Контент будет загружен динамически -->
+                </div>
+            </main>
+        </div>
+
+        <!-- Футер с ссылками -->
+        <footer class="app-footer">
+            <div class="footer-links">
+                <a href="https://forms.yandex.ru/u/696634f8d046880022dab232" target="_blank" class="footer-link">
+                    <i class="far fa-comment-dots"></i> Обратная связь
+                </a>
+                <a href="https://forms.yandex.ru/u/69663c041f1eb503751e7994" target="_blank" class="footer-link">
+                    <i class="fas fa-bug"></i> Сообщить об ошибке
+                </a>
+                <a href="https://forms.yandex.ru/u/69663c46e010db02b85ec117" target="_blank" class="footer-link">
+                    <i class="fas fa-lightbulb"></i> Предложить идею
+                </a>
+            </div>
+            <div class="footer-copyright">
+                © 2024 Dialog.AI Trainer | Тренажер клиентских коммуникаций
+            </div>
+        </footer>
+    </div>
+
+    <!-- Модальное окно комментария тренера -->
+    <div class="modal" id="commentModal">
+        <div class="modal-content">
             <div class="modal-header">
-                <div class="result-icon" id="resultIcon">🏆</div>
-                <h3 id="resultTitle">Тренировка завершена!</h3>
+                <div class="result-icon">💬</div>
+                <h3 class="result-title" id="commentModalTitle">Комментарий тренера</h3>
+                <div class="student-info" id="commentModalStudentInfo"></div>
             </div>
             
             <div class="modal-body">
-                <div class="result-stats">
-                    <div class="stat-item">
-                        <div class="stat-value" id="resultScore">0</div>
-                        <div class="stat-label">Оценка</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="resultXP">+0</div>
-                        <div class="stat-label">Опыт</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="resultTime">0:00</div>
-                        <div class="stat-label">Время</div>
-                    </div>
+                <div id="existingComments" class="existing-comments"></div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ваш комментарий:</label>
+                    <textarea class="form-textarea" id="commentText" placeholder="Введите комментарий к диалогу..."></textarea>
                 </div>
                 
-                <div class="result-feedback" id="resultFeedback">
-                    <!-- Обратная связь будет загружена динамически -->
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="submitComment()">
+                        <i class="fas fa-paper-plane"></i> Отправить комментарий
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeCommentModal()">
+                        Отмена
+                    </button>
                 </div>
-                
-                <div class="ai-feedback" id="aiFeedback" style="display: none;">
-                    <h4><i class="fas fa-robot"></i> Обратная связь от AI:</h4>
-                    <div class="feedback-content" id="aiFeedbackContent"></div>
-                </div>
-            </div>
-            
-            <div class="modal-footer">
-                <button class="btn btn-primary" onclick="closeResultModal()">
-                    Продолжить
-                </button>
             </div>
         </div>
     </div>
 
-    <!-- Уведомления -->
-    <div class="notification-container" id="notificationContainer"></div>
-
-    <!-- Подключаем скрипты -->
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
