@@ -490,44 +490,42 @@ class SupabaseAuth {
         document.getElementById('trainerLoginForm').style.display = 'none';
     }
     
-    showMainApp() {
-        document.getElementById('authModal').style.display = 'none';
-        document.getElementById('mainContainer').style.display = 'block';
-        this.updateInterfaceBasedOnRole();
+showMainApp() {
+    document.getElementById('authModal').style.display = 'none';
+    document.getElementById('mainContainer').style.display = 'flex'; // changed to flex
+    this.updateInterfaceBasedOnRole();
+}
+
+updateInterfaceBasedOnRole() {
+    if (!this.currentUser) return;
+    
+    const headerTitle = document.getElementById('appTitle');
+    const headerSubtitle = document.getElementById('headerSubtitle');
+    
+    if (this.userRole === 'trainer') {
+        headerTitle.textContent = 'Панель тренера';
+        headerSubtitle.textContent = `Тренер: ${this.currentUser.username}`;
+    } else {
+        headerTitle.textContent = 'Диалоговый тренажер';
+        headerSubtitle.textContent = 'Тренировка работы с клиентами';
     }
     
-    updateInterfaceBasedOnRole() {
-        if (!this.currentUser) return;
-        
-        const headerTitle = document.querySelector('.header h1');
-        const headerSubtitle = document.getElementById('headerSubtitle');
-        
-        if (this.userRole === 'trainer') {
-            headerTitle.innerHTML = 'Панель тренера';
-            headerSubtitle.textContent = `Тренер: ${this.currentUser.username}`;
-        } else {
-            headerTitle.innerHTML = 'Диалоговый тренажер';
-            headerSubtitle.textContent = 'Тренировка работы с клиентами';
-        }
-        
-        document.getElementById('currentUserName').textContent = this.currentUser.username;
-        const groupBadge = document.getElementById('userGroupBadge');
-        
-        if (this.userRole === 'trainer') {
-            groupBadge.textContent = 'Тренер';
-            groupBadge.style.backgroundColor = '#155d27';
-            groupBadge.style.color = 'white';
-        } else if (this.currentUser.group) {
-            groupBadge.textContent = this.currentUser.group;
-            groupBadge.style.backgroundColor = '#e3f2fd';
-            groupBadge.style.color = '#1976d2';
-        } else {
-            groupBadge.style.display = 'none';
-        }
-        groupBadge.style.display = 'inline-block';
-        
-        loadInterfaceForRole();
+    document.getElementById('currentUserName').textContent = this.currentUser.username;
+    const groupBadge = document.getElementById('userGroupBadge');
+    
+    if (this.userRole === 'trainer') {
+        groupBadge.textContent = 'Тренер';
+        groupBadge.style.background = 'linear-gradient(135deg, #155d27, #27ae60)';
+    } else if (this.currentUser.group) {
+        groupBadge.textContent = this.currentUser.group;
+        groupBadge.style.background = 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))';
+    } else {
+        groupBadge.style.display = 'none';
     }
+    groupBadge.style.display = 'inline-block';
+    
+    loadInterfaceForRole();
+}
     
     isTrainer() {
         return this.userRole === 'trainer';
@@ -879,11 +877,11 @@ function updateDailyLimitNotification() {
 }
 
 function loadInterfaceForRole() {
-    const sidebar = document.getElementById('sidebar');
-    const mainContent = document.querySelector('.main-content');
+     const sidebar = document.getElementById('sidebar');
+    const contentWrapper = document.getElementById('contentWrapper');
     
     sidebar.innerHTML = '';
-    mainContent.innerHTML = '';
+    contentWrapper.innerHTML = '';
     
     if (auth.isTrainer()) {
         loadTrainerInterface();
