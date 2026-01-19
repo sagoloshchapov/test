@@ -502,6 +502,38 @@ class SupabaseAuth {
         }
     }
     
+    async uploadAvatar(userId, file) {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('userId', userId);
+            
+            const response = await fetch('/api/upload-avatar', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Upload failed: ${errorText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.url) {
+                const success = await this.updateAvatar(userId, data.url);
+                if (success) {
+                    return { success: true, url: data.url };
+                }
+            }
+            
+            return { success: false, message: 'Не удалось сохранить аватар' };
+        } catch (error) {
+            console.error('Ошибка загрузки аватара:', error);
+            return { success: false, message: 'Ошибка загрузки файла' };
+        }
+    }
+    
     logout() {
         this.currentUser = null;
         this.isAuthenticated = false;
@@ -574,7 +606,6 @@ class SupabaseAuth {
             groupBadge.style.display = 'inline-block';
         }
         
-        // Обновляем аватар в хедере
         const headerAvatar = document.getElementById('headerUserAvatar');
         if (headerAvatar) {
             if (this.currentUser.avatar_url) {
@@ -785,10 +816,6 @@ ${clientTypeInstruction}
         if (!promptContent.includes(clientTypeInstruction)) {
             promptContent = `${clientTypeInstruction}\n\n${promptContent}`;
         }
-        
-        console.log("=== ФИНАЛЬНЫЙ ПРОМПТ ===");
-        console.log("Тип клиента:", isRandomClient ? "Случайный" : selectedClientType);
-        console.log("Вертикаль:", auth.currentUser?.group);
         
         const systemMessage = {
             role: "system",
@@ -1122,6 +1149,9 @@ function loadStudentInterface() {
                             <button class="btn btn-secondary" id="endTrainingBtn" onclick="finishChat()" style="display: none;">
                                 Завершить диалог
                             </button>
+                            <button class="btn btn-danger" id="finishTrainingBtn" onclick="finishChat()" style="display: none;">
+                                <i class="fas fa-flag-checkered"></i> Завершить диалог
+                            </button>
                             <div class="training-timer" id="trainingTimer"></div>
                         </div>
                     </div>
@@ -1152,6 +1182,12 @@ function loadStudentInterface() {
                             <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
                                 Отправить
                             </button>
+                        </div>
+                        <div class="chat-controls" id="chatControls" style="display: none; margin-top: 10px; text-align: center;">
+                            <button class="btn btn-danger btn-sm" onclick="finishChat()">
+                                <i class="fas fa-flag-checkered"></i> Завершить диалог
+                            </button>
+                            <span style="margin-left: 10px; font-size: 12px; color: #666;">или отправьте [[ДИАЛОГ ЗАВЕРШЕН]]</span>
                         </div>
                     </div>
                 </div>
@@ -1265,9 +1301,11 @@ function loadStudentInterface() {
                     <div class="settings-section">
                         <h3 class="settings-title">
                             <i class="fas fa-medal"></i>
-                            Ваши достижения
+                            Последние достижения
                         </h3>
-                        <div class="badges-grid" id="profileBadgesGrid"></div>
+                        <div class="recent-achievements" id="recentAchievements">
+                            <div class="loading-achievements">Загрузка достижений...</div>
+                        </div>
                     </div>
 
                     <div class="settings-section">
@@ -1342,10 +1380,147 @@ function loadStudentInterface() {
     loadStats();
     loadSystemStats();
     setupLeaderboardTabs();
-    renderProfileAchievements();
+    renderRecentAchievements();
     renderHistory();
     renderProfileHistory();
     renderDynamicNews();
+}
+
+function renderRecentAchievements() {
+    const recentAchievements = document.getElementById('recentAchievements');
+    if (!recentAchievements) return;
+    
+    if (!auth.currentUser) {
+        recentAchievements.innerHTML = '<div class="no-achievements">Нет данных</div>';
+        return;
+    }
+    
+    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
+    
+    if (userAchievements.length === 0) {
+        recentAchievements.innerHTML = `
+            <div class="no-achievements">
+                <div class="no-achievements-icon">🏆</div>
+                <div class="no-achievements-text">У вас пока нет достижений</div>
+                <div class="no-achievements-subtext">Начните тренировки, чтобы заработать достижения!</div>
+            </div>
+        `;
+        return;
+    }
+    
+    let recentAchievementIds = [...userAchievements].reverse().slice(0, 3);
+    
+    recentAchievements.innerHTML = '<div class="recent-achievements-grid"></div>';
+    const grid = recentAchievements.querySelector('.recent-achievements-grid');
+    
+    recentAchievementIds.forEach(achievementId => {
+        const achievement = achievements.find(a => a.id === achievementId);
+        if (achievement) {
+            const badge = document.createElement('div');
+            badge.className = 'recent-badge';
+            badge.innerHTML = `
+                <div class="recent-badge-icon">${achievement.icon}</div>
+                <div class="recent-badge-info">
+                    <div class="recent-badge-name">${achievement.name}</div>
+                    <div class="recent-badge-desc">${achievement.description}</div>
+                </div>
+            `;
+            badge.title = achievement.description;
+            grid.appendChild(badge);
+        }
+    });
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .recent-achievements {
+            padding: 15px;
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+        }
+        
+        .no-achievements {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .no-achievements-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+        
+        .no-achievements-text {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .no-achievements-subtext {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .recent-achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .recent-badge {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            border: 2px solid var(--border-color);
+            transition: all var(--transition-fast);
+        }
+        
+        .recent-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary-color);
+        }
+        
+        .recent-badge-icon {
+            font-size: 24px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .recent-badge-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .recent-badge-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .recent-badge-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 function calculateXPProgress() {
@@ -1367,37 +1542,6 @@ function getNextLevelXP() {
     const userStats = auth.currentUser.stats;
     const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
     return nextLevel ? nextLevel.requiredXP : (levels.find(l => l.level === userStats.currentLevel)?.requiredXP || 0) + 100;
-}
-
-function renderProfileAchievements() {
-    if (!auth.currentUser) return;
-    
-    const badgesGrid = document.getElementById('profileBadgesGrid');
-    if (!badgesGrid) return;
-    
-    badgesGrid.innerHTML = '';
-    
-    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
-    
-    if (userAchievements.length === 0) {
-        badgesGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #666; padding: 20px;">У вас пока нет достижений. Начните тренировки!</div>';
-        return;
-    }
-    
-    userAchievements.forEach(achievementId => {
-        const achievement = achievements.find(a => a.id === achievementId);
-        if (achievement) {
-            const badge = document.createElement('div');
-            badge.className = 'badge earned';
-            badge.innerHTML = `
-                <span class="badge-icon">${achievement.icon}</span>
-                <span class="badge-name">${achievement.name}</span>
-                <span class="badge-desc">${achievement.description}</span>
-            `;
-            badge.title = achievement.description;
-            badgesGrid.appendChild(badge);
-        }
-    });
 }
 
 function selectClientType(type, isRandom = false) {
@@ -1468,13 +1612,10 @@ async function startTraining() {
         return;
     }
     
-    // Анимация перехода
     const scenarioSection = document.getElementById('scenarioSection');
     const chatSection = document.getElementById('chatSection');
-    const trainingContainer = document.querySelector('.training-container');
     
-    if (scenarioSection && chatSection && trainingContainer) {
-        // Плавно скрываем выбор клиента
+    if (scenarioSection && chatSection) {
         scenarioSection.style.opacity = '0';
         scenarioSection.style.transform = 'translateX(-20px)';
         scenarioSection.style.transition = 'all 0.5s ease';
@@ -1482,24 +1623,23 @@ async function startTraining() {
         setTimeout(() => {
             scenarioSection.style.display = 'none';
             
-            // Увеличиваем чат на место скрытого выбора клиента
             chatSection.style.gridColumn = '1 / -1';
             chatSection.style.transition = 'all 0.5s ease';
             chatSection.style.width = '100%';
             
-            // Добавляем анимацию расширения
             chatSection.classList.add('chat-expanded');
             
-            // Обновляем заголовок чата
             const chatTitle = document.querySelector('.chat-title');
             if (chatTitle) {
                 const clientType = clientTypes[selectedClientType];
                 chatTitle.textContent = `💬 Диалог с ${isRandomClient ? 'случайным клиентом' : clientType.name.toLowerCase()}`;
             }
             
-            // Показываем кнопку "Завершить диалог"
             const endBtn = document.getElementById('endTrainingBtn');
             if (endBtn) endBtn.style.display = 'block';
+            
+            const finishBtn = document.getElementById('finishTrainingBtn');
+            if (finishBtn) finishBtn.style.display = 'block';
             
             setTimeout(() => {
                 startTrainingProcess();
@@ -1520,6 +1660,7 @@ async function startTrainingProcess() {
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
     const chatStatus = document.getElementById('chatStatus');
+    const chatControls = document.getElementById('chatControls');
     
     if (startBtn) startBtn.style.display = 'none';
     if (chatInput) chatInput.disabled = false;
@@ -1528,6 +1669,7 @@ async function startTrainingProcess() {
         chatStatus.textContent = 'Тренировка активна';
         chatStatus.className = 'chat-status training-active';
     }
+    if (chatControls) chatControls.style.display = 'block';
     
     const chatMessagesDiv = document.getElementById('chatMessages');
     if (chatMessagesDiv) chatMessagesDiv.innerHTML = '';
@@ -1555,6 +1697,27 @@ function startTrainingTimer() {
         if (elapsed >= 900) {
             endTraining();
         }
+    }, 1000);
+}
+
+function finishChat() {
+    if (!trainingInProgress) return;
+    
+    addMessage('user', "[[ДИАЛОГ ЗАВЕРШЕН]]");
+    
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) chatInput.disabled = true;
+    
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) sendBtn.disabled = true;
+    
+    const chatControls = document.getElementById('chatControls');
+    if (chatControls) chatControls.style.display = 'none';
+    
+    addMessage('ai', "Подготовка результатов чата...");
+    
+    setTimeout(() => {
+        sendPromptToAI();
     }, 1000);
 }
 
@@ -1618,16 +1781,19 @@ function resetTrainingState() {
     
     const startBtn = document.getElementById('startTrainingBtn');
     const endBtn = document.getElementById('endTrainingBtn');
+    const finishBtn = document.getElementById('finishTrainingBtn');
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
     const trainingTimer = document.getElementById('trainingTimer');
     const chatStatus = document.getElementById('chatStatus');
+    const chatControls = document.getElementById('chatControls');
     
     if (startBtn) {
         startBtn.style.display = 'flex';
         startBtn.disabled = true;
     }
     if (endBtn) endBtn.style.display = 'none';
+    if (finishBtn) finishBtn.style.display = 'none';
     if (trainingTimer) trainingTimer.textContent = '';
     if (chatInput) chatInput.disabled = true;
     if (sendBtn) sendBtn.disabled = true;
@@ -1635,6 +1801,7 @@ function resetTrainingState() {
         chatStatus.textContent = 'Ожидание начала';
         chatStatus.className = 'chat-status';
     }
+    if (chatControls) chatControls.style.display = 'none';
     
     document.querySelectorAll('.client-type-option').forEach(opt => {
         opt.classList.remove('selected');
@@ -1647,24 +1814,20 @@ function resetTrainingState() {
     if (scenarioTitle) scenarioTitle.textContent = 'Выберите тип клиента';
     if (scenarioDesc) scenarioDesc.textContent = 'Выберите тип клиента из списка выше, чтобы начать тренировку. Тренировка длится до 15 минут.';
     
-    // Восстанавливаем исходный вид интерфейса
     const scenarioSection = document.getElementById('scenarioSection');
     const chatSection = document.getElementById('chatSection');
     
     if (scenarioSection && chatSection) {
-        // Убираем расширение чата
         chatSection.style.gridColumn = '';
         chatSection.style.width = '';
         chatSection.classList.remove('chat-expanded');
         
-        // Показываем выбор клиента
         scenarioSection.style.display = 'block';
         setTimeout(() => {
             scenarioSection.style.opacity = '1';
             scenarioSection.style.transform = 'translateX(0)';
         }, 10);
         
-        // Возвращаем заголовок чата
         const chatTitle = document.querySelector('.chat-title');
         if (chatTitle) {
             chatTitle.textContent = '💬 Тренировочный чат';
@@ -1684,6 +1847,11 @@ function sendMessage() {
     const message = input ? input.value.trim() : '';
     
     if (!message || !trainingInProgress) return;
+    
+    if (message === '[[ДИАЛОГ ЗАВЕРШЕН]]') {
+        finishChat();
+        return;
+    }
     
     addMessage('user', message);
     
@@ -1921,7 +2089,7 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     renderProfileHistory();
     renderProgressChart();
     loadSystemStats();
-    renderProfileAchievements();
+    renderRecentAchievements();
     
     return {
         xp: xpEarned,
@@ -2128,7 +2296,7 @@ function checkAchievements(score, clientType, duration) {
     
     if (newAchievements.length > 0) {
         auth.saveUserStats(userStats);
-        renderProfileAchievements();
+        renderRecentAchievements();
     }
 }
 
@@ -2138,7 +2306,6 @@ async function renderDynamicNews() {
     
     if (dynamicNews.length > 0) {
         let newsHTML = '';
-        // Показываем все новости в скроллере
         dynamicNews.forEach(newsItem => {
             const date = newsItem.created_at ? formatDate(newsItem.created_at) : 'Нет даты';
             const tag = newsItem.tag || 'НОВОСТИ';
@@ -2177,7 +2344,7 @@ function scrollNews(direction) {
     const container = document.getElementById('newsScrollContainer');
     if (!container) return;
     
-    const scrollAmount = 300; // Количество пикселей для прокрутки
+    const scrollAmount = 300;
     container.scrollLeft += direction * scrollAmount;
 }
 
@@ -2468,7 +2635,7 @@ function switchTab(tabName) {
                 updateLeaderboard('all');
                 break;
             case 'profile':
-                renderProfileAchievements();
+                renderRecentAchievements();
                 renderProfileHistory();
                 break;
             case 'history':
@@ -2705,7 +2872,6 @@ async function updateLeaderboard(filter = 'all') {
                 trophy = '🥉';
             }
             
-            // Используем аватар, если есть, иначе иконку
             const avatar = player.avatar_url ? 
                 `<img src="${player.avatar_url}" alt="${player.username}" class="leaderboard-avatar">` : 
                 '<i class="fas fa-user"></i>';
@@ -2856,7 +3022,7 @@ async function renderProfileHistory() {
         
         let history = [...localHistory];
         history.sort((a, b) => new Date(b.date) - new Date(a.date));
-        history = history.slice(0, 5); // Показываем только последние 5 тренировок
+        history = history.slice(0, 5);
         
         profileHistoryList.innerHTML = '';
         
@@ -2921,6 +3087,8 @@ function resetChat() {
         chatStatus.textContent = 'Ожидание начала';
         chatStatus.className = 'chat-status';
     }
+    const chatControls = document.getElementById('chatControls');
+    if (chatControls) chatControls.style.display = 'none';
 }
 
 function loadTrainerInterface() {
@@ -4015,7 +4183,6 @@ async function saveAvatar() {
         return;
     }
     
-    // Проверяем URL
     if (!avatarUrl.startsWith('http://') && !avatarUrl.startsWith('https://')) {
         alert('Пожалуйста, введите корректный URL (начинается с http:// или https://)');
         return;
@@ -4027,13 +4194,11 @@ async function saveAvatar() {
         if (success) {
             alert('Аватар успешно обновлен!');
             
-            // Обновляем аватар в интерфейсе
             const profileAvatar = document.getElementById('profileAvatar');
             if (profileAvatar) {
                 profileAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}">`;
             }
             
-            // Обновляем аватар в заголовке
             const headerAvatar = document.getElementById('headerUserAvatar');
             if (headerAvatar) {
                 headerAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
@@ -4049,7 +4214,79 @@ async function saveAvatar() {
     }
 }
 
-// Добавляем стили для анимаций
+// Новая функция для загрузки аватара с компьютера
+function openFileUpload() {
+    const fileInput = document.getElementById('avatarFileInput');
+    if (!fileInput) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.id = 'avatarFileInput';
+        input.accept = 'image/*';
+        input.style.display = 'none';
+        input.onchange = handleAvatarUpload;
+        document.body.appendChild(input);
+        input.click();
+    } else {
+        fileInput.click();
+    }
+}
+
+async function handleAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        alert('Пожалуйста, выберите файл изображения (JPG, PNG, GIF)');
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Размер файла не должен превышать 5 МБ');
+        return;
+    }
+    
+    const avatarPreview = document.getElementById('avatarPreview');
+    const avatarModal = document.getElementById('avatarModal');
+    
+    if (avatarPreview) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Превью аватара">`;
+            
+            const avatarUrlInput = document.getElementById('avatarUrl');
+            if (avatarUrlInput) {
+                avatarUrlInput.value = e.target.result;
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    try {
+        const result = await auth.uploadAvatar(auth.currentUser.id, file);
+        
+        if (result.success) {
+            alert('Аватар успешно загружен!');
+            
+            const profileAvatar = document.getElementById('profileAvatar');
+            if (profileAvatar) {
+                profileAvatar.innerHTML = `<img src="${result.url}" alt="${auth.currentUser.username}">`;
+            }
+            
+            const headerAvatar = document.getElementById('headerUserAvatar');
+            if (headerAvatar) {
+                headerAvatar.innerHTML = `<img src="${result.url}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+            }
+            
+            if (avatarModal) avatarModal.style.display = 'none';
+        } else {
+            alert(result.message || 'Ошибка при загрузке аватара');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки аватара:', error);
+        alert('Ошибка при загрузке аватара');
+    }
+}
+
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideIn {
@@ -4088,7 +4325,6 @@ style.textContent = `
         flex-wrap: wrap;
     }
     
-    /* Стили для аватаров */
     .profile-avatar-container {
         text-align: center;
     }
@@ -4141,7 +4377,6 @@ style.textContent = `
         border-radius: 50%;
     }
     
-    /* Стили для кубков в рейтинге */
     .rank {
         position: relative;
         font-weight: 700;
@@ -4177,7 +4412,6 @@ style.textContent = `
         }
     }
     
-    /* Анимации для тренировки */
     .training-container {
         display: grid;
         grid-template-columns: 1fr 1.5fr;
@@ -4201,7 +4435,6 @@ style.textContent = `
         }
     }
     
-    /* Стили для модального окна аватара */
     .avatar-preview-container {
         display: flex;
         justify-content: center;
@@ -4276,7 +4509,42 @@ style.textContent = `
         margin-top: 5px;
     }
     
-    /* Стили для скроллера новостей */
+    .file-upload-section {
+        margin-top: 20px;
+        padding: 15px;
+        background: var(--bg-surface);
+        border-radius: var(--radius-md);
+        border: 2px dashed var(--border-color);
+        text-align: center;
+    }
+    
+    .file-upload-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 20px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all var(--transition-fast);
+        margin: 0 auto 10px;
+    }
+    
+    .file-upload-btn:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+    }
+    
+    .file-info {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 5px;
+    }
+    
     .news-container {
         position: relative;
     }
@@ -4356,6 +4624,11 @@ style.textContent = `
     .scroll-arrow.right:hover {
         transform: rotate(-90deg) scale(1.1);
     }
+    
+    .chat-controls {
+        text-align: center;
+        margin-top: 10px;
+    }
 `;
 document.head.appendChild(style);
 
@@ -4397,18 +4670,6 @@ setInterval(() => {
         }
     }
 }, 60000);
-
-function finishChat() {
-    if (!trainingInProgress) return;
-    
-    addMessage('user', "[[ДИАЛОГ ЗАВЕРШЕН]]");
-    
-    addMessage('ai', "Подготовка результатов чата...");
-    
-    setTimeout(() => {
-        sendPromptToAI();
-    }, 1000);
-}
 
 async function loadTrainerStatistics() {
     const statisticsContent = document.getElementById('trainerStatisticsContent');
