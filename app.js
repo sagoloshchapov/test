@@ -1,3 +1,5 @@
+[file name]: app.js
+[file content begin]
 let feedbackShown = false;
 const SUPABASE_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD';
@@ -81,14 +83,21 @@ class SupabaseAuth {
     
     async register(username, group = '', password) {
         try {
+            console.log('Начало регистрации:', username);
+            
+            // Проверяем существующего пользователя
             const existing = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
             
-            if (existing?.length > 0) {
+            if (existing && existing.length > 0) {
                 return { success: false, message: 'Пользователь с таким никнеймом уже существует' };
             }
             
             if (password.length < 6) {
                 return { success: false, message: 'Пароль должен быть не менее 6 символов' };
+            }
+            
+            if (!group) {
+                return { success: false, message: 'Выберите вертикаль' };
             }
             
             const passwordHash = this.hashPassword(password);
@@ -124,6 +133,8 @@ class SupabaseAuth {
                 })
             };
             
+            console.log('Отправка данных нового пользователя:', newUser);
+            
             const response = await fetch('/api/supabase-proxy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -135,11 +146,19 @@ class SupabaseAuth {
                 })
             });
             
+            console.log('Ответ от сервера:', response.status);
+            
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('Ошибка регистрации:', errorText);
-                return { success: false, message: 'Ошибка регистрации' };
+                return { 
+                    success: false, 
+                    message: `Ошибка регистрации: ${response.status} ${response.statusText}` 
+                };
             }
+            
+            const responseData = await response.json();
+            console.log('Данные ответа:', responseData);
             
             return { 
                 success: true, 
@@ -147,7 +166,10 @@ class SupabaseAuth {
             };
         } catch (error) {
             console.error('Ошибка регистрации:', error);
-            return { success: false, message: 'Ошибка соединения с базой данных' };
+            return { 
+                success: false, 
+                message: 'Ошибка соединения с базой данных. Проверьте подключение к интернету.' 
+            };
         }
     }
 
@@ -155,7 +177,7 @@ class SupabaseAuth {
         try {
             const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
             
-            if (!users?.length) {
+            if (!users || !users.length) {
                 return { success: false, message: 'Пользователь не найден' };
             }
             
@@ -334,39 +356,38 @@ class SupabaseAuth {
         }
     }
     
-async getLeaderboard(filterVertical = 'all') {
-    try {
-
-        const users = await this.supabaseRequest('users');
-        
-        if (!users || users.length === 0) return [];
-        
-        const leaderboard = users.map(user => {
-            let stats = {};
-            try {
-                stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
-            } catch { }
+    async getLeaderboard(filterVertical = 'all') {
+        try {
+            const users = await this.supabaseRequest('users');
             
-            return {
-                id: user.id,
-                username: user.username || 'Без имени',
-                group: user.group_name || 'Без вертикали',
-                level: stats.currentLevel || 1,
-                sessions: stats.completedSessions || 0,
-                avgScore: stats.averageScore || 0,
-                xp: stats.totalXP || 0,
-                avatar_url: user.avatar_url || ''
-            };
-        })
-        .filter(user => filterVertical === 'all' || user.group === filterVertical)
-        .sort((a, b) => b.xp - a.xp);
-        
-        return leaderboard.slice(0, 100);
-    } catch (error) {
-        console.error('Ошибка получения рейтинга:', error);
-        return [];
+            if (!users || users.length === 0) return [];
+            
+            const leaderboard = users.map(user => {
+                let stats = {};
+                try {
+                    stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
+                } catch { }
+                
+                return {
+                    id: user.id,
+                    username: user.username || 'Без имени',
+                    group: user.group_name || 'Без вертикали',
+                    level: stats.currentLevel || 1,
+                    sessions: stats.completedSessions || 0,
+                    avgScore: stats.averageScore || 0,
+                    xp: stats.totalXP || 0,
+                    avatar_url: user.avatar_url || ''
+                };
+            })
+            .filter(user => filterVertical === 'all' || user.group === filterVertical)
+            .sort((a, b) => b.xp - a.xp);
+            
+            return leaderboard.slice(0, 100);
+        } catch (error) {
+            console.error('Ошибка получения рейтинга:', error);
+            return [];
+        }
     }
-}
             
     async getSystemStats() {
         try {
@@ -500,30 +521,40 @@ async getLeaderboard(filterVertical = 'all') {
     
     async uploadAvatar(userId, file) {
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('userId', userId);
+            if (!file || !file.type.startsWith('image/')) {
+                return { success: false, message: 'Выберите файл изображения (JPG, PNG, GIF)' };
+            }
             
-            const response = await fetch('/api/upload-avatar', {
-                method: 'POST',
-                body: formData
+            if (file.size > 5 * 1024 * 1024) {
+                return { success: false, message: 'Размер файла не должен превышать 5 МБ' };
+            }
+            
+            const reader = new FileReader();
+            
+            return new Promise((resolve) => {
+                reader.onload = async (e) => {
+                    const base64Image = e.target.result;
+                    
+                    try {
+                        const success = await this.updateAvatar(userId, base64Image);
+                        if (success) {
+                            resolve({ success: true, url: base64Image });
+                        } else {
+                            resolve({ success: false, message: 'Не удалось сохранить аватар' });
+                        }
+                    } catch (error) {
+                        console.error('Ошибка сохранения аватара:', error);
+                        resolve({ success: false, message: 'Ошибка сохранения аватара' });
+                    }
+                };
+                
+                reader.onerror = () => {
+                    resolve({ success: false, message: 'Ошибка чтения файла' });
+                };
+                
+                reader.readAsDataURL(file);
             });
             
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Upload failed: ${errorText}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.url) {
-                const success = await this.updateAvatar(userId, data.url);
-                if (success) {
-                    return { success: true, url: data.url };
-                }
-            }
-            
-            return { success: false, message: 'Не удалось сохранить аватар' };
         } catch (error) {
             console.error('Ошибка загрузки аватара:', error);
             return { success: false, message: 'Ошибка загрузки файла' };
@@ -604,7 +635,7 @@ async getLeaderboard(filterVertical = 'all') {
         
         const headerAvatar = document.getElementById('headerUserAvatar');
         if (headerAvatar) {
-            if (this.currentUser.avatar_url) {
+            if (this.currentUser.avatar_url && this.currentUser.avatar_url.startsWith('data:image')) {
                 headerAvatar.innerHTML = `<img src="${this.currentUser.avatar_url}" alt="${this.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
             } else {
                 headerAvatar.innerHTML = '<i class="fas fa-user"></i>';
@@ -1425,98 +1456,6 @@ function renderRecentAchievements() {
             grid.appendChild(badge);
         }
     });
-    
-    const style = document.createElement('style');
-    style.textContent = `
-        .recent-achievements {
-            padding: 15px;
-            background: var(--bg-surface);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border-color);
-        }
-        
-        .no-achievements {
-            text-align: center;
-            padding: 30px 20px;
-            color: var(--text-secondary);
-        }
-        
-        .no-achievements-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-            opacity: 0.3;
-        }
-        
-        .no-achievements-text {
-            font-size: 16px;
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: var(--text-primary);
-        }
-        
-        .no-achievements-subtext {
-            font-size: 13px;
-            color: var(--text-light);
-        }
-        
-        .recent-achievements-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        
-        .recent-badge {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 15px;
-            background: var(--bg-card);
-            border-radius: var(--radius-md);
-            border: 2px solid var(--border-color);
-            transition: all var(--transition-fast);
-        }
-        
-        .recent-badge:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-            border-color: var(--primary-color);
-        }
-        
-        .recent-badge-icon {
-            font-size: 24px;
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            border-radius: var(--radius-md);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            flex-shrink: 0;
-        }
-        
-        .recent-badge-info {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .recent-badge-name {
-            font-weight: 600;
-            font-size: 14px;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .recent-badge-desc {
-            font-size: 12px;
-            color: var(--text-secondary);
-            line-height: 1.4;
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 function calculateXPProgress() {
@@ -2868,7 +2807,7 @@ async function updateLeaderboard(filter = 'all') {
                 trophy = '🥉';
             }
             
-            const avatar = player.avatar_url ? 
+            const avatar = player.avatar_url && player.avatar_url.startsWith('data:image') ? 
                 `<img src="${player.avatar_url}" alt="${player.username}" class="leaderboard-avatar">` : 
                 '<i class="fas fa-user"></i>';
             
@@ -4138,14 +4077,11 @@ function openAvatarModal() {
     const modal = document.getElementById('avatarModal');
     const avatarPreview = document.getElementById('avatarPreview');
     
-    if (auth.currentUser.avatar_url) {
+    if (auth.currentUser.avatar_url && auth.currentUser.avatar_url.startsWith('data:image')) {
         avatarPreview.innerHTML = `<img src="${auth.currentUser.avatar_url}" alt="Текущий аватар">`;
     } else {
         avatarPreview.innerHTML = '<i class="fas fa-user"></i>';
     }
-    
-    const avatarUrlInput = document.getElementById('avatarUrl');
-    avatarUrlInput.value = auth.currentUser.avatar_url || '';
     
     modal.style.display = 'flex';
 }
@@ -4155,49 +4091,29 @@ function closeAvatarModal() {
     modal.style.display = 'none';
 }
 
-function selectDefaultAvatar(type) {
-    const urls = {
-        male: 'https://api.dicebear.com/7.x/avataaars/svg?seed=male&backgroundColor=4cc9f0',
-        female: 'https://api.dicebear.com/7.x/avataaars/svg?seed=female&backgroundColor=f472b6',
-        robot: 'https://api.dicebear.com/7.x/bottts/svg?seed=robot&backgroundColor=60a5fa',
-        cat: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cat&backgroundColor=fbbf24'
-    };
-    
-    const urlInput = document.getElementById('avatarUrl');
-    const avatarPreview = document.getElementById('avatarPreview');
-    
-    urlInput.value = urls[type];
-    avatarPreview.innerHTML = `<img src="${urls[type]}" alt="Превью аватара">`;
-}
-
 async function saveAvatar() {
-    const avatarUrlInput = document.getElementById('avatarUrl');
-    const avatarUrl = avatarUrlInput.value.trim();
+    const avatarPreview = document.getElementById('avatarPreview');
+    const currentImg = avatarPreview.querySelector('img');
     
-    if (!avatarUrl) {
-        alert('Введите URL изображения или выберите один из вариантов');
-        return;
-    }
-    
-    if (!avatarUrl.startsWith('http://') && !avatarUrl.startsWith('https://')) {
-        alert('Пожалуйста, введите корректный URL (начинается с http:// или https://)');
+    if (!currentImg || !currentImg.src.startsWith('data:image')) {
+        alert('Сначала загрузите изображение с компьютера');
         return;
     }
     
     try {
-        const success = await auth.updateAvatar(auth.currentUser.id, avatarUrl);
+        const success = await auth.updateAvatar(auth.currentUser.id, currentImg.src);
         
         if (success) {
             alert('Аватар успешно обновлен!');
             
             const profileAvatar = document.getElementById('profileAvatar');
             if (profileAvatar) {
-                profileAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}">`;
+                profileAvatar.innerHTML = `<img src="${currentImg.src}" alt="${auth.currentUser.username}">`;
             }
             
             const headerAvatar = document.getElementById('headerUserAvatar');
             if (headerAvatar) {
-                headerAvatar.innerHTML = `<img src="${avatarUrl}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                headerAvatar.innerHTML = `<img src="${currentImg.src}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
             }
             
             closeAvatarModal();
@@ -4210,21 +4126,15 @@ async function saveAvatar() {
     }
 }
 
-// Новая функция для загрузки аватара с компьютера
 function openFileUpload() {
-    const fileInput = document.getElementById('avatarFileInput');
-    if (!fileInput) {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.id = 'avatarFileInput';
-        input.accept = 'image/*';
-        input.style.display = 'none';
-        input.onchange = handleAvatarUpload;
-        document.body.appendChild(input);
-        input.click();
-    } else {
-        fileInput.click();
-    }
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    fileInput.onchange = handleAvatarUpload;
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
 }
 
 async function handleAvatarUpload(event) {
@@ -4242,45 +4152,15 @@ async function handleAvatarUpload(event) {
     }
     
     const avatarPreview = document.getElementById('avatarPreview');
-    const avatarModal = document.getElementById('avatarModal');
     
-    if (avatarPreview) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Превью аватара">`;
-            
-            const avatarUrlInput = document.getElementById('avatarUrl');
-            if (avatarUrlInput) {
-                avatarUrlInput.value = e.target.result;
-            }
-        };
-        reader.readAsDataURL(file);
-    }
-    
-    try {
-        const result = await auth.uploadAvatar(auth.currentUser.id, file);
-        
-        if (result.success) {
-            alert('Аватар успешно загружен!');
-            
-            const profileAvatar = document.getElementById('profileAvatar');
-            if (profileAvatar) {
-                profileAvatar.innerHTML = `<img src="${result.url}" alt="${auth.currentUser.username}">`;
-            }
-            
-            const headerAvatar = document.getElementById('headerUserAvatar');
-            if (headerAvatar) {
-                headerAvatar.innerHTML = `<img src="${result.url}" alt="${auth.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-            }
-            
-            if (avatarModal) avatarModal.style.display = 'none';
-        } else {
-            alert(result.message || 'Ошибка при загрузке аватара');
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки аватара:', error);
-        alert('Ошибка при загрузке аватара');
-    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Превью аватара">`;
+    };
+    reader.onerror = () => {
+        alert('Ошибка чтения файла');
+    };
+    reader.readAsDataURL(file);
 }
 
 const style = document.createElement('style');
@@ -4456,47 +4336,7 @@ style.textContent = `
         width: 100%;
         height: 100%;
         object-fit: cover;
-    }
-    
-    .avatar-options {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-        margin: 20px 0;
-    }
-    
-    .avatar-option {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 10px;
-        border-radius: var(--radius-md);
-        border: 2px solid var(--border-color);
-        cursor: pointer;
-        transition: all var(--transition-fast);
-    }
-    
-    .avatar-option:hover {
-        border-color: var(--primary-color);
-        transform: translateY(-2px);
-    }
-    
-    .avatar-option-preview {
-        width: 50px;
-        height: 50px;
         border-radius: 50%;
-        background: var(--bg-surface);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        color: var(--primary-color);
-        margin-bottom: 8px;
-    }
-    
-    .avatar-option span {
-        font-size: 12px;
-        color: var(--text-secondary);
     }
     
     .help-text {
@@ -4748,3 +4588,4 @@ async function loadTrainerStatistics() {
         statisticsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
     }
 }
+[file content end]
