@@ -355,38 +355,59 @@ async register(username, group = '', password) {
         }
     }
     
-    async getLeaderboard(filterVertical = 'all') {
-        try {
-            const users = await this.supabaseRequest('users');
-            
-            if (!users || users.length === 0) return [];
-            
-            const leaderboard = users.map(user => {
-                let stats = {};
-                try {
-                    stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
-                } catch { }
-                
-                return {
-                    id: user.id,
-                    username: user.username || 'Без имени',
-                    group: user.group_name || 'Без вертикали',
-                    level: stats.currentLevel || 1,
-                    sessions: stats.completedSessions || 0,
-                    avgScore: stats.averageScore || 0,
-                    xp: stats.totalXP || 0,
-                    avatar_url: user.avatar_url || ''
-                };
-            })
-            .filter(user => filterVertical === 'all' || user.group === filterVertical)
-            .sort((a, b) => b.xp - a.xp);
-            
-            return leaderboard.slice(0, 100);
-        } catch (error) {
-            console.error('Ошибка получения рейтинга:', error);
-            return [];
+async getLeaderboard(filterVertical = 'all') {
+    try {
+        // Получаем всех пользователей
+        const users = await this.supabaseRequest('users?select=id,username,group_name,stats');
+        
+        if (!users || users.length === 0) return [];
+        
+        // Получаем ВСЕ аватары одним запросом
+        const allAvatars = await this.supabaseRequest('user_avatars?select=user_id,avatar_url');
+        
+        // Создаем Map для быстрого поиска аватаров по user_id
+        const avatarMap = new Map();
+        if (allAvatars && Array.isArray(allAvatars)) {
+            allAvatars.forEach(avatar => {
+                avatarMap.set(avatar.user_id, avatar.avatar_url);
+            });
         }
+        
+        const leaderboard = users.map(user => {
+            let stats = {};
+            try {
+                stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
+            } catch { }
+            
+            // Получаем аватар из Map (быстро)
+            const avatarUrl = avatarMap.get(user.id) || null;
+            
+            return {
+                id: user.id,
+                username: user.username || 'Без имени',
+                group: user.group_name || 'Без вертикали',
+                level: stats.currentLevel || 1,
+                sessions: stats.completedSessions || 0,
+                avgScore: stats.averageScore || 0,
+                xp: stats.totalXP || 0,
+                avatar_url: avatarUrl || ''
+            };
+        });
+        
+        // Фильтрация и сортировка
+        const filtered = leaderboard.filter(user => 
+            filterVertical === 'all' || user.group === filterVertical
+        );
+        
+        return filtered
+            .sort((a, b) => b.xp - a.xp)
+            .slice(0, 100);
+            
+    } catch (error) {
+        console.error('Ошибка получения рейтинга:', error);
+        return [];
     }
+}
             
     async getSystemStats() {
         try {
@@ -490,34 +511,60 @@ async register(username, group = '', password) {
         }
     }
     
-    async updateAvatar(userId, avatarUrl) {
-        try {
-            const response = await fetch('/api/supabase-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    endpoint: `users?id=eq.${userId}`,
-                    method: 'PATCH',
-                    body: { avatar_url: avatarUrl },
-                    headers: { 'Prefer': 'return=representation' }
-                })
-            });
-            
-            if (response.ok) {
-                if (this.currentUser && this.currentUser.id === userId) {
-                    this.currentUser.avatar_url = avatarUrl;
-                    localStorage.setItem('dialogue_currentUser', JSON.stringify(this.currentUser));
+async updateAvatar(userId, avatarUrl) {
+    try {
+        const existingAvatar = await this.supabaseRequest(`user_avatars?user_id=eq.${userId}`);
+        
+        if (existingAvatar && existingAvatar.length > 0) {
+            await this.supabaseRequest(
+                `user_avatars?user_id=eq.${userId}`,
+                'PATCH',
+                { 
+                    avatar_url: avatarUrl,
+                    updated_at: new Date().toISOString()
                 }
-                this.cache.clear();
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Ошибка обновления аватара:', error);
-            return false;
+            );
+        } else {
+            // Создаем новый аватар
+            await this.supabaseRequest(
+                'user_avatars',
+                'POST',
+                { 
+                    user_id: userId,
+                    avatar_url: avatarUrl,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }
+            );
         }
+        
+        // Обновляем локальные данные
+        if (this.currentUser && this.currentUser.id === userId) {
+            this.currentUser.avatar_url = avatarUrl;
+            localStorage.setItem('dialogue_currentUser', JSON.stringify(this.currentUser));
+        }
+        this.cache.clear();
+        return true;
+        
+    } catch (error) {
+        console.error('Ошибка обновления аватара:', error);
+        return false;
     }
-    
+}  
+
+
+async getUserAvatar(userId) {
+    try {
+        const avatars = await this.supabaseRequest(`user_avatars?user_id=eq.${userId}`);
+        if (avatars && avatars.length > 0) {
+            return avatars[0].avatar_url;
+        }
+        return null;
+    } catch (error) {
+        console.error('Ошибка получения аватара:', error);
+        return null;
+    }
+}
     async uploadAvatar(userId, file) {
         try {
             if (!file || !file.type.startsWith('image/')) {
@@ -2817,9 +2864,21 @@ async function updateLeaderboard(filter = 'all') {
                 trophy = '🥉';
             }
             
-            const avatar = player.avatar_url && player.avatar_url.startsWith('data:image') ? 
-                `<img src="${player.avatar_url}" alt="${player.username}" class="leaderboard-avatar">` : 
-                '<i class="fas fa-user"></i>';
+            // Отображение аватара
+            let avatarHTML = '';
+            if (player.avatar_url && player.avatar_url.startsWith('data:image')) {
+                avatarHTML = `<img src="${player.avatar_url}" alt="${player.username}" class="leaderboard-avatar">`;
+            } else {
+                // Иконка по умолчанию
+                const defaultColors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7', '#fa709a'];
+                const colorIndex = player.username.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % defaultColors.length;
+                const initials = player.username.substring(0, 2).toUpperCase();
+                avatarHTML = `
+                    <div class="default-avatar" style="background: ${defaultColors[colorIndex]};">
+                        ${initials}
+                    </div>
+                `;
+            }
             
             row.innerHTML = `
                 <td class="rank ${rankClass}">
@@ -2828,7 +2887,7 @@ async function updateLeaderboard(filter = 'all') {
                 <td class="player-name">
                     <div class="leaderboard-player">
                         <div class="leaderboard-avatar-container">
-                            ${avatar}
+                            ${avatarHTML}
                         </div>
                         <span>${player.username} ${player.id === auth.currentUser?.id ? '(Вы)' : ''}</span>
                     </div>
