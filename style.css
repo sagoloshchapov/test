@@ -1369,16 +1369,18 @@ h4 { font-size: 1.125rem; }
 }
 
 .message.ai {
-    background: var(--bg-card);
+    background: #e8f5e9; /* Светло-зеленый фон */
+    color: #1e3a1e; /* Темно-зеленый текст */
+    border-left: 4px solid #4caf50; /* Зеленая акцентная полоса */
     align-self: flex-start;
     border-bottom-left-radius: 4px;
     box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border-color);
 }
 
 .message.user {
-    background: var(--bg-gradient);
-    color: var(--text-white);
+    background: #e3f2fd; /* Светло-синий фон */
+    color: #0d3a69; /* Темно-синий текст */
+    border-right: 4px solid #2196f3; /* Синяя акцентная полоса */
     align-self: flex-end;
     border-bottom-right-radius: 4px;
     box-shadow: var(--shadow-md);
