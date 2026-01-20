@@ -1347,6 +1347,7 @@ h4 { font-size: 1.125rem; }
     align-self: flex-start;
     border-bottom-left-radius: 4px;
     box-shadow: var(--shadow-sm);
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
 }
 
 .message.user {
@@ -1356,6 +1357,7 @@ h4 { font-size: 1.125rem; }
     align-self: flex-end;
     border-bottom-right-radius: 4px;
     box-shadow: var(--shadow-md);
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
 }
 
 .chat-input-container {
