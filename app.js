@@ -1535,30 +1535,27 @@ function loadStudentInterface() {
     // ДОБАВЛЯЕМ ВКЛАДКУ ДОСТИЖЕНИЙ В САЙДБАР
     sidebar.innerHTML = `
         
-        <a href="javascript:void(0);" onclick="switchTab('home')" class="nav-item active" data-tab="home">
-            <i class="fas fa-home"></i> Главная
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('training')" class="nav-item" data-tab="training">
-            <i class="fas fa-dumbbell"></i> Тренировка
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('progress')" class="nav-item" data-tab="progress">
-            <i class="fas fa-chart-line"></i> Прогресс
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('leaderboard')" class="nav-item" data-tab="leaderboard">
-            <i class="fas fa-trophy"></i> Рейтинг
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('achievements')" class="nav-item" data-tab="achievements">
-            <i class="fas fa-medal"></i> Достижения
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('profile')" class="nav-item" data-tab="profile">
-            <i class="fas fa-user-circle"></i> Профиль
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('achievements')" class="nav-item" data-tab="achievements">
-        <i class="fas fa-medal"></i> Достижения
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('history')" class="nav-item" data-tab="history">
-            <i class="fas fa-history"></i> История
-        </a>
+<a href="javascript:void(0);" onclick="switchTab('home')" class="nav-item active" data-tab="home">
+    <i class="fas fa-home"></i> Главная
+</a>
+<a href="javascript:void(0);" onclick="switchTab('training')" class="nav-item" data-tab="training">
+    <i class="fas fa-dumbbell"></i> Тренировка
+</a>
+<a href="javascript:void(0);" onclick="switchTab('progress')" class="nav-item" data-tab="progress">
+    <i class="fas fa-chart-line"></i> Прогресс
+</a>
+<a href="javascript:void(0);" onclick="switchTab('leaderboard')" class="nav-item" data-tab="leaderboard">
+    <i class="fas fa-trophy"></i> Рейтинг
+</a>
+<a href="javascript:void(0);" onclick="switchTab('achievements')" class="nav-item" data-tab="achievements">
+    <i class="fas fa-medal"></i> Достижения
+</a>
+<a href="javascript:void(0);" onclick="switchTab('profile')" class="nav-item" data-tab="profile">
+    <i class="fas fa-user-circle"></i> Профиль
+</a>
+<a href="javascript:void(0);" onclick="switchTab('history')" class="nav-item" data-tab="history">
+    <i class="fas fa-history"></i> История
+</a>
     `;
     
     // Создаем HTML для вкладки достижений
