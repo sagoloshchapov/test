@@ -3125,7 +3125,7 @@ function loadTrainerInterface() {
                 </div>
                 <div id="trainerDashboardContent">
                     <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
-                        Загрузка данных о студентах...
+                        Загрузка данных об участниках...
                     </p>
                 </div>
             </div>
@@ -3218,7 +3218,7 @@ async function loadTrainerDashboard() {
     const dashboardContent = document.getElementById('trainerDashboardContent');
     if (!dashboardContent) return;
     
-    dashboardContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка данных о студентах...</p>';
+    dashboardContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка данных об участниках...</p>';
     
     try {
         const students = await auth.getStudents();
