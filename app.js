@@ -1515,6 +1515,9 @@ function loadStudentInterface() {
     
     // ДОБАВЛЯЕМ ВКЛАДКУ ДОСТИЖЕНИЙ В САЙДБАР
     sidebar.innerHTML = `
+        <a href="javascript:void(0);" onclick="switchTab('achievements')" class="nav-item" data-tab="achievements">
+        <i class="fas fa-medal"></i> Достижения
+        </a>
         <a href="javascript:void(0);" onclick="switchTab('home')" class="nav-item active" data-tab="home">
             <i class="fas fa-home"></i> Главная
         </a>
