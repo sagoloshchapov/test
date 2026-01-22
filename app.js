@@ -2679,13 +2679,17 @@ async function updateProgressUI() {
 }
 
 async function updateRankPosition() {
-    if (!auth.currentUser) return;
+
+    if (!auth.currentUser || !auth.currentUser.id) {
+        const rankPosition = document.getElementById('rankPosition');
+        if (rankPosition) rankPosition.textContent = '-';
+        return;
+    }
     
     try {
         const verticalLeaderboard = await auth.getLeaderboard(auth.currentUser.group);
         
-        if (!auth.currentUser || !auth.currentUser.id) {
-            console.warn('Пользователь не загружен');
+        if (!verticalLeaderboard || verticalLeaderboard.length === 0) {
             const rankPosition = document.getElementById('rankPosition');
             if (rankPosition) rankPosition.textContent = '-';
             return;
