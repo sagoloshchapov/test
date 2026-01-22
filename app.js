@@ -3136,61 +3136,199 @@ function renderRecentAchievements() {
 
 function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, aiFeedback = "") {
     const resultTitle = document.getElementById('resultTitle');
-    const resultIcon = document.getElementById('resultIcon');
-    const resultXP = document.getElementById('resultXP');
-    const resultDetails = document.getElementById('resultDetails');
-    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
-    const aiFeedbackContent = document.getElementById('aiFeedbackContent');
+    const resultChatContent = document.getElementById('resultChatContent');
+    const resultFeedbackContent = document.getElementById('resultFeedbackContent');
     const resultModal = document.getElementById('resultModal');
     
     if (resultTitle) resultTitle.textContent = title;
-    if (resultIcon) resultIcon.textContent = icon;
-    if (resultXP) resultXP.textContent = `+${xpEarned} XP`;
     
-    let details = `<div style="margin-bottom: 10px;"><strong>Сценарий:</strong> ${scenario}</div>`;
+    // Очищаем содержимое
+    if (resultChatContent) resultChatContent.innerHTML = '';
+    if (resultFeedbackContent) resultFeedbackContent.innerHTML = '';
     
-    if (evaluation) {
-        details += `<div style="margin-bottom: 5px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Время:</strong> ${formatDuration(duration)}</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</strong> ${evaluation.feedback}</div>`;
+    // Заполняем левую колонку (чат)
+    if (resultChatContent && chatMessages && chatMessages.length > 0) {
+        let chatHTML = '<div style="padding: 20px;">';
         
-        if (evaluation.criteria) {
-            details += `<div style="margin-top: 10px; font-size: 12px; color: #666;">`;
-            details += `<div>✓ Сообщений: ${evaluation.criteria.messageCount}</div>`;
-            details += `<div>✓ Профессиональных фраз: ${evaluation.criteria.professionalPhrases}</div>`;
-            details += `<div>✓ Корректное завершение: ${evaluation.criteria.properEnding ? 'Да' : 'Можно лучше'}</div>`;
-            details += `</div>`;
-        }
+        // Краткая статистика
+        chatHTML += `
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <div style="font-size: 32px; font-weight: bold; color: #155d27;">${evaluation.score}/5</div>
+                    <div style="color: #10a37f; font-weight: 600; font-size: 18px;">+${xpEarned} XP</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                    <span>Сценарий:</span>
+                    <span><strong>${scenario}</strong></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                    <span>Тип клиента:</span>
+                    <span>${isRandomClient ? 'Случайный' : clientTypes[selectedClientType]?.name || ''}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+                    <span>Вертикаль:</span>
+                    <span>${auth.currentUser?.group || ''}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                    <span>Время:</span>
+                    <span>${formatDuration(duration)}</span>
+                </div>
+            </div>
+            <div style="font-weight: 600; margin: 20px 0 10px 0; color: #333;">
+                <i class="fas fa-comments"></i> История диалога:
+            </div>
+        `;
+        
+        // Сообщения чата
+        chatMessages.forEach(msg => {
+            const isAI = msg.sender === 'ai';
+            chatHTML += `
+                <div style="margin-bottom: 15px;">
+                    <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px; color: ${isAI ? '#155d27' : '#1e88e5'};">
+                        ${isAI ? 'Клиент (AI)' : 'Вы (Оператор)'}
+                    </div>
+                    <div style="padding: 10px; border-radius: 8px; background: ${isAI ? '#e8f5e9' : '#e3f2fd'}; border-left: 3px solid ${isAI ? '#4caf50' : '#2196f3'};">
+                        ${msg.text}
+                    </div>
+                </div>
+            `;
+        });
+        
+        chatHTML += '</div>';
+        resultChatContent.innerHTML = chatHTML;
     }
     
-    if (resultDetails) resultDetails.innerHTML = details;
-    
-    if (aiFeedback && aiFeedback.trim().length > 0) {
-        if (aiFeedbackContent) aiFeedbackContent.textContent = aiFeedback;
-        if (aiFeedbackContainer) {
-            aiFeedbackContainer.style.display = 'block';
-            if (aiFeedbackContent) {
-                aiFeedbackContent.style.maxHeight = '400px';
-                aiFeedbackContent.style.overflowY = 'auto';
-            }
+    // Заполняем правую колонку (обратная связь)
+    if (resultFeedbackContent) {
+        let feedbackHTML = '<div style="padding: 20px;">';
+        
+        // Обратная связь от AI
+        if (aiFeedback && aiFeedback.trim().length > 0) {
+            feedbackHTML += `
+                <div style="margin-bottom: 20px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #155d27;">
+                        <i class="fas fa-robot"></i> Обратная связь от DeepSeek AI
+                    </div>
+                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+                        ${aiFeedback}
+                    </div>
+                </div>
+            `;
         }
-    } else if (aiFeedbackContainer) {
-        aiFeedbackContainer.style.display = 'none';
+        
+        // Оценка системы
+        if (evaluation) {
+            feedbackHTML += `
+                <div style="margin-bottom: 20px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #333;">
+                        <i class="fas fa-chart-line"></i> Анализ тренажера
+                    </div>
+                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                        <div style="margin-bottom: 10px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>
+                        <div style="margin-bottom: 10px;"><strong>Отзыв:</strong> ${evaluation.feedback}</div>
+                        
+                        <div style="margin-top: 15px; font-size: 13px; color: #666;">
+                            <div style="font-weight: 600; margin-bottom: 5px;">Критерии оценки:</div>
+                            <div style="padding: 5px 0; border-bottom: 1px solid #eee;">
+                                <span style="margin-right: 10px;">Количество сообщений:</span>
+                                <span style="color: ${evaluation.criteria?.messageCount >= 3 ? '#4caf50' : '#ff9800'}">${evaluation.criteria?.messageCount || 0} ${evaluation.criteria?.messageCount >= 3 ? '✓' : '⚠️'}</span>
+                            </div>
+                            <div style="padding: 5px 0; border-bottom: 1px solid #eee;">
+                                <span style="margin-right: 10px;">Профессиональные фразы:</span>
+                                <span style="color: ${evaluation.criteria?.professionalPhrases >= 2 ? '#4caf50' : '#ff9800'}">${evaluation.criteria?.professionalPhrases || 0} ${evaluation.criteria?.professionalPhrases >= 2 ? '✓' : '⚠️'}</span>
+                            </div>
+                            <div style="padding: 5px 0;">
+                                <span style="margin-right: 10px;">Корректное завершение:</span>
+                                <span style="color: ${evaluation.criteria?.properEnding ? '#4caf50' : '#ff9800'}">${evaluation.criteria?.properEnding ? '✓ Да' : '⚠️ Можно лучше'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        feedbackHTML += `
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="downloadChatAsPDF()" style="width: 100%; padding: 12px;">
+                    <i class="fas fa-download"></i> Скачать диалог в PDF
+                </button>
+            </div>
+        `;
+        
+        feedbackHTML += '</div>';
+        resultFeedbackContent.innerHTML = feedbackHTML;
     }
     
     if (resultModal) resultModal.style.display = 'flex';
-    
-    const modalActions = document.querySelector('.modal-actions');
-    if (modalActions) {
-        modalActions.innerHTML = `
-            <button class="btn btn-secondary" onclick="closeResultModal()">
-                Закрыть
-            </button>
-            <button class="btn btn-primary" onclick="viewLastChatSession()">
-                <i class="fas fa-comments"></i> Просмотреть чат
-            </button>
-        `;
+}
+
+function downloadChatAsPDF() {
+    if (!chatMessages || chatMessages.length === 0) {
+        alert('Нет данных диалога для скачивания');
+        return;
     }
+    
+    const printWindow = window.open('', '_blank');
+    const html = `
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .title { color: #155d27; font-size: 24px; }
+                .subtitle { color: #666; font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                td { padding: 8px 12px; border: 1px solid #ddd; }
+                .chat-title { background: #155d27; color: white; padding: 10px; margin-bottom: 15px; }
+                .message { margin-bottom: 15px; }
+                .ai-message { background: #f0f9f0; padding: 10px; border-left: 4px solid #4caf50; }
+                .user-message { background: #f0f8ff; padding: 10px; border-left: 4px solid #2196f3; text-align: right; }
+                .sender { font-weight: bold; margin-bottom: 5px; }
+                .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="title">Отчет по тренировочному диалогу</div>
+                <div class="subtitle">Диалоговый тренажер AI | ${new Date().toLocaleDateString('ru-RU')}</div>
+            </div>
+            
+            <table>
+                <tr><td><strong>Сотрудник:</strong></td><td>${auth.currentUser?.username || ''}</td></tr>
+                <tr><td><strong>Вертикаль:</strong></td><td>${auth.currentUser?.group || ''}</td></tr>
+                <tr><td><strong>Тип клиента:</strong></td><td>${isRandomClient ? 'Случайный' : clientTypes[selectedClientType]?.name || ''}</td></tr>
+                <tr><td><strong>Оценка:</strong></td><td>${lastChatSessionData?.score || '0'}/5</td></tr>
+                <tr><td><strong>Дата:</strong></td><td>${formatDate(lastChatSessionData?.date || '')}</td></tr>
+            </table>
+            
+            <div class="chat-title">Полный диалог</div>
+            ${chatMessages.map(msg => `
+                <div class="message ${msg.sender === 'ai' ? 'ai-message' : 'user-message'}">
+                    <div class="sender">${msg.sender === 'ai' ? 'Клиент' : 'Оператор'}</div>
+                    <div>${msg.text}</div>
+                </div>
+            `).join('')}
+            
+            ${lastAIFeedback ? `
+            <div style="margin-top: 30px; padding: 15px; background: #f8f9fa;">
+                <strong>Обратная связь от AI:</strong><br>
+                ${lastAIFeedback}
+            </div>
+            ` : ''}
+            
+            <div class="footer">
+                © ${new Date().getFullYear()} Dialog.AI Trainer | Magnit-OMNI
+            </div>
+        </body>
+        </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
 }
 
 function viewLastChatSession() {
