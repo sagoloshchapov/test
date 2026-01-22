@@ -2846,12 +2846,11 @@ async function updateLeaderboard(filter = 'all') {
             return;
         }
         
-        players.forEach((player, index) => {
-            players.forEach((player, index) => {
+players.forEach((player, index) => {
 
     const username = player.username.toLowerCase();
     if (['test', 'testf', 'testm', 'testo', 'tests', 'testa'].includes(username)) {
-        return; 
+        return;  // <-- Этот return должен быть внутри блока if
     }
             const row = document.createElement('tr');
             if (player.id === auth.currentUser?.id) {
