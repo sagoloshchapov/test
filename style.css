@@ -475,16 +475,23 @@ h4 { font-size: 1.125rem; }
 }
 
 .logo-icon {
-    font-size: 28px;
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: transparent;
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-white);
     flex-shrink: 0;
+    overflow: hidden;
+}
+
+.logo-icon img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 8px;
 }
 
 .logo-text {
@@ -1341,9 +1348,9 @@ h4 { font-size: 1.125rem; }
 }
 
 .message.ai {
-    background: #e8f5e9; /* Светло-зеленый фон */
-    color: #1e3a1e; /* Темно-зеленый текст */
-    border-left: 4px solid #4caf50; /* Зеленая акцентная полоса */
+    background: #e8f5e9;
+    color: #1e3a1e;
+    border-left: 4px solid #4caf50;
     align-self: flex-start;
     border-bottom-left-radius: 4px;
     box-shadow: var(--shadow-sm);
@@ -1351,9 +1358,9 @@ h4 { font-size: 1.125rem; }
 }
 
 .message.user {
-    background: #e3f2fd; /* Светло-синий фон */
-    color: #0d3a69; /* Темно-синий текст */
-    border-right: 4px solid #2196f3; /* Синяя акцентная полоса */
+    background: #e3f2fd;
+    color: #0d3a69;
+    border-right: 4px solid #2196f3;
     align-self: flex-end;
     border-bottom-right-radius: 4px;
     box-shadow: var(--shadow-md);
