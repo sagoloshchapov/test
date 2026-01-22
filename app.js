@@ -3139,6 +3139,21 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     const resultChatContent = document.getElementById('resultChatContent');
     const resultFeedbackContent = document.getElementById('resultFeedbackContent');
     const resultModal = document.getElementById('resultModal');
+
+
+    let finalScore = evaluation.score;
+    
+
+    if (aiFeedback) {
+        const scoreMatch = aiFeedback.match(/(\d+)[\s]*[\/из\s]*5/i);
+        if (scoreMatch && scoreMatch[1]) {
+            const aiScore = parseInt(scoreMatch[1]);
+
+            if (aiScore >= 1 && aiScore <= 5) {
+                finalScore = aiScore;
+            }
+        }
+    }
     
     if (resultTitle) resultTitle.textContent = title;
     
@@ -3150,11 +3165,11 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
     if (resultChatContent && chatMessages && chatMessages.length > 0) {
         let chatHTML = '<div style="padding: 20px;">';
         
-        // Краткая статистика
+
         chatHTML += `
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="text-align: center; margin-bottom: 10px;">
-                    <div style="font-size: 32px; font-weight: bold; color: #155d27;">${evaluation.score}/5</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #155d27;">${finalScore}/5</div>
                     <div style="color: #10a37f; font-weight: 600; font-size: 18px;">+${xpEarned} XP</div>
                 </div>
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
@@ -3224,7 +3239,7 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
                         <i class="fas fa-chart-line"></i> Анализ тренажера
                     </div>
                     <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
-                        <div style="margin-bottom: 10px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>
+                        <div style="margin-bottom: 10px;"><strong>Оценка:</strong> ${finalScore}/5</div>
                         <div style="margin-bottom: 10px;"><strong>Отзыв:</strong> ${evaluation.feedback}</div>
                         
                         <div style="margin-top: 15px; font-size: 13px; color: #666;">
