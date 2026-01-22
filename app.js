@@ -368,7 +368,24 @@ class SupabaseAuth {
                 });
             }
             
-            const leaderboard = users.map(user => {
+            const leaderboard = users
+    // ФИЛЬТР: исключаем тестовые и демо аккаунты
+    .filter(user => {
+        if (!user.username) return true; // если нет имени, оставляем
+        const username = user.username.toLowerCase();
+        // Исключаем различные варианты тестовых аккаунтов
+        const isTestAccount = 
+            username === 'test' ||
+            username === 'тест' ||
+            username.startsWith('test_') ||
+            username.startsWith('тест_') ||
+            username.includes('demo') ||
+            username.includes('демо') ||
+            username.includes('trainer') ||
+            username.includes('тренер');
+        return !isTestAccount;
+    })
+    .map(user => {
                 let stats = {};
                 try {
                     stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
@@ -2841,10 +2858,27 @@ async function updateLeaderboard(filter = 'all') {
             return;
         }
         
-        players.forEach((player, index) => {
-            const row = document.createElement('tr');
-            if (player.id === auth.currentUser?.id) {
-                row.className = 'player-you';
+players.forEach((player, index) => {
+    // Пропускаем тестовых пользователей - ЭТОТ БЛОК ДОЛЖЕН БЫТЬ ПЕРВЫМ
+    const username = player.username.toLowerCase();
+    const isTestAccount = 
+        username === 'test' ||
+        username === 'тест' ||
+        username.startsWith('test_') ||
+        username.startsWith('тест_') ||
+        username.includes('demo') ||
+        username.includes('демо');
+    
+    if (isTestAccount) return; // пропускаем этот элемент
+    // КОНЕЦ БЛОКА
+    
+    // А ЭТОТ КОД УЖЕ СУЩЕСТВУЕТ - оставляем как есть
+    const row = document.createElement('tr');
+    if (player.id === auth.currentUser?.id) {
+        row.className = 'player-you';
+    }
+    
+    // ... остальной существующий код
             }
             
             let rankClass = '';
