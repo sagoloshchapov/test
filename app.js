@@ -3228,9 +3228,7 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
                         ${aiFeedback}
                     </div>
                 </div>
-            `;
-        }
-        
+            `;        
         }
         
         feedbackHTML += `
