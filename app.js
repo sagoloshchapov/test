@@ -2847,15 +2847,15 @@ async function updateLeaderboard(filter = 'all') {
         }
         
 players.forEach((player, index) => {
-
     const username = player.username.toLowerCase();
     if (['test', 'testf', 'testm', 'testo', 'tests', 'testa'].includes(username)) {
-        return;  // <-- Этот return должен быть внутри блока if
+        return; 
     }
-            const row = document.createElement('tr');
-            if (player.id === auth.currentUser?.id) {
-                row.className = 'player-you';
-            }
+    
+    const row = document.createElement('tr');
+    if (player.id === auth.currentUser?.id) {
+        row.className = 'player-you';
+    }
             
             let rankClass = '';
             let trophy = '';
