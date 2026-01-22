@@ -12,6 +12,22 @@ class SupabaseAuth {
         this.supabaseKey = SUPABASE_ANON_KEY;
         this.cache = new Map();
     }
+
+
+async loadUserWithAvatar(userData) {
+    try {
+        // Загружаем актуальный аватар из базы
+        const avatarUrl = await this.getUserAvatar(userData.id);
+        
+        return {
+            ...userData,
+            avatar_url: avatarUrl || userData.avatar_url || ''
+        };
+    } catch (error) {
+        console.error('Ошибка загрузки аватара:', error);
+        return userData;
+    }
+}
     
 async supabaseRequest(endpoint, method = 'GET', body = null) {
     const cacheKey = `${method}:${endpoint}`;
@@ -157,51 +173,54 @@ async register(username, group = '', password) {
     }
 }
 
-    async login(username, password) {
-        try {
-            const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
-            
-            if (!users || !users.length) {
-                return { success: false, message: 'Пользователь не найден' };
-            }
-            
-            const user = users[0];
-            const passwordHash = this.hashPassword(password);
-            
-            if (user.password_hash !== passwordHash) {
-                return { success: false, message: 'Неверный пароль' };
-            }
-            
-            let userStats;
-            try {
-                userStats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
-            } catch {
-                userStats = this.createDefaultStats(user.group_name);
-            }
-            
-            this.currentUser = {
-                id: user.id,
-                username: user.username,
-                group: user.group_name,
-                role: user.role || 'user',
-                avatar_url: user.avatar_url || '',
-                stats: userStats
-            };
-            
-            this.userRole = this.currentUser.role;
-            this.isAuthenticated = true;
-            localStorage.setItem('dialogue_currentUser', JSON.stringify(this.currentUser));
-            
-            return { 
-                success: true, 
-                user: this.currentUser,
-                message: 'Вход выполнен успешно'
-            };
-        } catch (error) {
-            console.error('Ошибка входа:', error);
-            return { success: false, message: 'Ошибка соединения с базой данных' };
+async login(username, password) {
+    try {
+        const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
+        
+        if (!users || !users.length) {
+            return { success: false, message: 'Пользователь не найден' };
         }
+        
+        const user = users[0];
+        const passwordHash = this.hashPassword(password);
+        
+        if (user.password_hash !== passwordHash) {
+            return { success: false, message: 'Неверный пароль' };
+        }
+        
+        let userStats;
+        try {
+            userStats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
+        } catch {
+            userStats = this.createDefaultStats(user.group_name);
+        }
+        
+        // ПОЛУЧАЕМ АВАТАР ИЗ ТАБЛИЦЫ user_avatars
+        const avatarUrl = await this.getUserAvatar(user.id);
+        
+        this.currentUser = {
+            id: user.id,
+            username: user.username,
+            group: user.group_name,
+            role: user.role || 'user',
+            avatar_url: avatarUrl || '', // Используем аватар из отдельной таблицы
+            stats: userStats
+        };
+        
+        this.userRole = this.currentUser.role;
+        this.isAuthenticated = true;
+        localStorage.setItem('dialogue_currentUser', JSON.stringify(this.currentUser));
+        
+        return { 
+            success: true, 
+            user: this.currentUser,
+            message: 'Вход выполнен успешно'
+        };
+    } catch (error) {
+        console.error('Ошибка входа:', error);
+        return { success: false, message: 'Ошибка соединения с базой данных' };
     }
+}
 
     createDefaultStats(group) {
         return {
@@ -664,18 +683,30 @@ async getUserAvatar(userId) {
             groupBadge.style.display = 'inline-block';
         }
         
-        const headerAvatar = document.getElementById('headerUserAvatar');
-        if (headerAvatar) {
-            if (this.currentUser.avatar_url && this.currentUser.avatar_url.startsWith('data:image')) {
-                headerAvatar.innerHTML = `<img src="${this.currentUser.avatar_url}" alt="${this.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-            } else {
+const headerAvatar = document.getElementById('headerUserAvatar');
+    if (headerAvatar) {
+        // Проверяем, есть ли аватар в currentUser
+        if (this.currentUser.avatar_url && this.currentUser.avatar_url.startsWith('data:image')) {
+            headerAvatar.innerHTML = `<img src="${this.currentUser.avatar_url}" alt="${this.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+        } else {
+
+            this.getUserAvatar(this.currentUser.id).then(avatarUrl => {
+                if (avatarUrl && avatarUrl.startsWith('data:image')) {
+                    this.currentUser.avatar_url = avatarUrl;
+                    headerAvatar.innerHTML = `<img src="${avatarUrl}" alt="${this.currentUser.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                    // Сохраняем обновленного пользователя в localStorage
+                    localStorage.setItem('dialogue_currentUser', JSON.stringify(this.currentUser));
+                } else {
+                    headerAvatar.innerHTML = '<i class="fas fa-user"></i>';
+                }
+            }).catch(() => {
                 headerAvatar.innerHTML = '<i class="fas fa-user"></i>';
-            }
+            });
         }
-        
-        loadInterfaceForRole();
     }
     
+    loadInterfaceForRole();
+}
     isTrainer() {
         return this.userRole === 'trainer';
     }
@@ -933,12 +964,15 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (savedUser) {
         try {
             const user = JSON.parse(savedUser);
+            
+            const avatarUrl = await auth.getUserAvatar(user.id);
+            user.avatar_url = avatarUrl || user.avatar_url || '';
+            
             auth.currentUser = user;
             auth.isAuthenticated = true;
             auth.userRole = user.role || 'user';
             
             checkAndResetDailyLimit();
-            
             auth.showMainApp();
         } catch (e) {
             console.error('Ошибка загрузки пользователя:', e);
