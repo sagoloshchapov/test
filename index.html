@@ -7,6 +7,154 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="https://disk.yandex.ru/i/TAcrmE9sYHEbdg">
+    <style>
+        .logo-icon-img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            border-radius: 12px;
+        }
+        
+        .result-with-chat {
+            max-width: 1000px;
+            width: 90vw;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .result-chat-container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            margin-bottom: 20px;
+            min-height: 0;
+            overflow: hidden;
+        }
+        
+        .result-chat-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        .result-chat-header {
+            padding: 16px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .result-chat-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        
+        .result-feedback-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        .result-feedback-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .result-actions-row {
+            display: flex;
+            gap: 12px;
+            margin-top: auto;
+        }
+        
+        @media (max-width: 1024px) {
+            .result-chat-container {
+                flex-direction: column;
+            }
+            
+            .result-chat-column,
+            .result-feedback-column {
+                min-height: 300px;
+            }
+        }
+        
+        /* Стили для сообщений в режиме просмотра результата */
+        .result-message {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            font-size: 14px;
+            word-break: break-word;
+        }
+        
+        .result-message.ai {
+            background: #e8f5e9;
+            color: #1e3a1e;
+            align-self: flex-start;
+            border-left: 3px solid #4caf50;
+        }
+        
+        .result-message.user {
+            background: #e3f2fd;
+            color: #0d3a69;
+            align-self: flex-end;
+            border-right: 3px solid #2196f3;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 4px;
+            text-align: right;
+        }
+        
+        .result-score-highlight {
+            font-size: 32px;
+            font-weight: 700;
+            text-align: center;
+            margin: 10px 0;
+            color: var(--primary-color);
+        }
+        
+        .quick-summary {
+            background: var(--bg-surface);
+            padding: 15px;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+    </style>
 </head>
 <body>
     <!-- Модальное окно авторизации -->
@@ -14,7 +162,9 @@
         <div class="modal-content auth-modal">
             <div class="modal-header">
                 <div class="logo">
-                    <div class="logo-icon">💬</div>
+                    <div class="logo-icon">
+                        <img src="https://disk.yandex.ru/i/TAcrmE9sYHEbdg" alt="Dialog.AI" class="logo-icon-img">
+                    </div>
                     <div class="logo-text">
                         <span class="logo-title" style="color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">Dialog.AI</span>
                         <span class="logo-subtitle" style="color: rgba(255,255,255,0.9);">Тренажер для операторов</span>
@@ -272,26 +422,45 @@
         </div>
     </div>
 
-    <!-- Модальное окно результата -->
+    <!-- Модальное окно результата с чатом -->
     <div class="modal" id="resultModal">
-        <div class="modal-content">
-            <div class="result-icon" id="resultIcon">🏆</div>
-            <h2 class="result-title" id="resultTitle">Тренировка завершена!</h2>
-            <div class="result-xp" id="resultXP">+0 XP</div>
-            
-            <div class="result-details" id="resultDetails"></div>
-            
-            <div id="aiFeedbackContainer" class="ai-feedback-container">
-                <div class="ai-feedback-header">
-                    <i class="fas fa-robot"></i>
-                    <h4>Обратная связь от DeepSeek</h4>
-                </div>
-                <div class="ai-feedback-content" id="aiFeedbackContent"></div>
+        <div class="modal-content result-with-chat">
+            <div class="modal-header">
+                <div class="result-icon">📊</div>
+                <h3 id="resultTitle">Результаты тренировки</h3>
+                <button class="btn btn-icon" onclick="closeResultModal()">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             
-            <button class="btn btn-primary btn-large" onclick="closeResultModal()">
-                Продолжить тренировки
-            </button>
+            <div class="result-chat-container">
+                <div class="result-chat-column">
+                    <div class="result-chat-header">
+                        <i class="fas fa-comments"></i> Полный диалог
+                    </div>
+                    <div class="result-chat-content" id="resultChatContent">
+                        <!-- Чат будет загружен сюда -->
+                    </div>
+                </div>
+                
+                <div class="result-feedback-column">
+                    <div class="result-chat-header">
+                        <i class="fas fa-chart-line"></i> Анализ и обратная связь
+                    </div>
+                    <div class="result-feedback-content" id="resultFeedbackContent">
+                        <!-- Анализ будет загружен сюда -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="result-actions-row">
+                <button class="btn btn-primary" onclick="saveChatResult()">
+                    <i class="fas fa-save"></i> Сохранить результат
+                </button>
+                <button class="btn btn-secondary" onclick="closeResultModal()">
+                    <i class="fas fa-check"></i> Закрыть
+                </button>
+            </div>
         </div>
     </div>
 
@@ -330,7 +499,9 @@
         <header class="app-header">
             <div class="header-left">
                 <div class="logo">
-                    <div class="logo-icon">💬</div>
+                    <div class="logo-icon">
+                        <img src="https://disk.yandex.ru/i/TAcrmE9sYHEbdg" alt="Dialog.AI" class="logo-icon-img">
+                    </div>
                     <div class="logo-text">
                         <span class="logo-title">Dialog.AI</span>
                         <span class="logo-subtitle" id="headerSubtitle">Тренировка работы с клиентами</span>
@@ -393,7 +564,7 @@
                 </a>
             </div>
             <div class="footer-copyright">
-                © 2025 Dialog.AI Trainer | Тренажер клиентских коммуникаций
+                © 2025 Dialog.AI Trainer | Тренижер клиентских коммуникаций
             </div>
         </footer>
     </div>
