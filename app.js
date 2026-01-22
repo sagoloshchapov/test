@@ -13,39 +13,44 @@ class SupabaseAuth {
         this.cache = new Map();
     }
     
-    async supabaseRequest(endpoint, method = 'GET', body = null) {
-        const cacheKey = `${method}:${endpoint}`;
-        
-        if (method === 'GET' && this.cache.has(cacheKey)) {
-            return this.cache.get(cacheKey);
-        }
-        
-        try {
-            const response = await fetch('/api/supabase-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ endpoint, method, body })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            if (response.status === 204) return { success: true };
-            
-            const data = await response.json();
-            
-            if (method === 'GET') {
-                this.cache.set(cacheKey, data);
-                setTimeout(() => this.cache.delete(cacheKey), 30000);
-            }
-            
-            return data;
-        } catch (error) {
-            console.error('Supabase proxy error:', error);
-            throw error;
-        }
+async supabaseRequest(endpoint, method = 'GET', body = null) {
+    const cacheKey = `${method}:${endpoint}`;
+    
+    if (method === 'GET' && this.cache.has(cacheKey)) {
+        return this.cache.get(cacheKey);
     }
+    
+    try {
+        const response = await fetch('/api/supabase-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint, method, body })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        if (response.status === 204) return { success: true };
+        
+        const data = await response.json();
+        
+
+        if (method !== 'GET') {
+            this.cache.clear();
+            console.log('Кэш очищен после', method, 'запроса');
+        } else {
+            // Для GET запросов кэшируем
+            this.cache.set(cacheKey, data);
+            setTimeout(() => this.cache.delete(cacheKey), 30000);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Supabase proxy error:', error);
+        throw error;
+    }
+}
     
     async loadPrompts() {
         try {
@@ -83,7 +88,7 @@ async register(username, group = '', password) {
     try {
         console.log('Начало регистрации:', username);
         
-        // Проверяем существующего пользователя
+
         const existing = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
         
         if (existing && existing.length > 0) {
@@ -101,13 +106,11 @@ async register(username, group = '', password) {
         const passwordHash = this.hashPassword(password);
         const now = new Date().toISOString();
         
-        // УБРАТЬ avatar_url из данных пользователя
         const newUser = {
             username: username.trim(),
             group_name: group.trim(),
             password_hash: passwordHash,
             role: 'user',
-            // avatar_url: '', // УДАЛИТЬ эту строку
             stats: JSON.stringify({
                 currentLevel: 1,
                 totalXP: 0,
@@ -134,30 +137,12 @@ async register(username, group = '', password) {
         
         console.log('Отправка данных нового пользователя:', newUser);
         
-        const response = await fetch('/api/supabase-proxy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                endpoint: 'users',
-                method: 'POST',
-                body: newUser,
-                headers: { 'Prefer': 'return=representation' }
-            })
-        });
+        // ИСПРАВЛЕНО: используем supabaseRequest вместо прямого fetch
+        const responseData = await this.supabaseRequest('users', 'POST', newUser);
         
-        console.log('Ответ от сервера:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Ошибка регистрации:', errorText);
-            return { 
-                success: false, 
-                message: `Ошибка регистрации: ${response.status} ${response.statusText}` 
-            };
-        }
-        
-        const responseData = await response.json();
         console.log('Данные ответа:', responseData);
+        
+        this.cache.clear();
         
         return { 
             success: true, 
@@ -2448,6 +2433,8 @@ async function handleRegister() {
     const result = await auth.register(username, group, password);
     if (result.success) {
         alert(result.message);
+        // ОЧИЩАЕМ КЭШ ПОСЛЕ РЕГИСТРАЦИИ
+        auth.cache.clear();
         showLoginForm();
         document.getElementById('loginUsername').value = username;
         document.getElementById('loginPassword').value = password;
