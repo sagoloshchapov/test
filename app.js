@@ -1266,32 +1266,7 @@ function filterAchievements(filter, event) {
         if (firstBtn) firstBtn.classList.add('active');
     }
 }
-    
-    renderAchievementsGrid(filteredAchievements, userAchievements, stats);
-    
- 
-    document.querySelectorAll('.achievements-filter .filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
 
-    if (event && event.target) {
-        event.target.classList.add('active');
-    } else {
-
-        const firstBtn = document.querySelector('.achievements-filter .filter-btn');
-        if (firstBtn) firstBtn.classList.add('active');
-    }
-}
-    
-    renderAchievementsGrid(filteredAchievements, userAchievements, stats);
-    
-
-    document.querySelectorAll('.achievements-filter .filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    event.target.classList.add('active');
-}
 
 function renderAchievementsGrid(achievementsList, userAchievements, stats) {
     const grid = document.getElementById('achievementsGrid');
