@@ -3231,35 +3231,6 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
             `;
         }
         
-        // Оценка системы
-        if (evaluation) {
-            feedbackHTML += `
-                <div style="margin-bottom: 20px;">
-                    <div style="font-weight: 600; margin-bottom: 10px; color: #333;">
-                        <i class="fas fa-chart-line"></i> Анализ тренажера
-                    </div>
-                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
-                        <div style="margin-bottom: 10px;"><strong>Оценка:</strong> ${finalScore}/5</div>
-                        <div style="margin-bottom: 10px;"><strong>Отзыв:</strong> ${evaluation.feedback}</div>
-                        
-<div style="margin-top: 15px; font-size: 13px; color: #666;">
-    <div style="font-weight: 600; margin-bottom: 5px;">Критерии оценки:</div>
-    <div style="padding: 5px 0; border-bottom: 1px solid #eee;">
-        <span style="margin-right: 10px;">Количество сообщений оператора:</span>
-        <span style="color: ${(evaluation.criteria?.messageCount || 0) >= 3 ? '#4caf50' : '#ff9800'}">${evaluation.criteria?.messageCount || 0} ${(evaluation.criteria?.messageCount || 0) >= 3 ? '✓' : '⚠️'}</span>
-    </div>
-    <div style="padding: 5px 0; border-bottom: 1px solid #eee;">
-        <span style="margin-right: 10px;">Профессиональные фразы:</span>
-        <span style="color: ${(evaluation.criteria?.professionalPhrases || 0) >= 2 ? '#4caf50' : '#ff9800'}">${evaluation.criteria?.professionalPhrases || 0} ${(evaluation.criteria?.professionalPhrases || 0) >= 2 ? '✓' : '⚠️'}</span>
-    </div>
-    <div style="padding: 5px 0;">
-        <span style="margin-right: 10px;">Корректное завершение:</span>
-        <span style="color: ${evaluation.criteria?.properEnding ? '#4caf50' : '#ff9800'}">${evaluation.criteria?.properEnding ? '✓ Да' : '⚠️ Можно лучше'}</span>
-    </div>
-</div>
-                    </div>
-                </div>
-            `;
         }
         
         feedbackHTML += `
