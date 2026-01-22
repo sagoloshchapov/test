@@ -3176,10 +3176,16 @@ function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, 
                     <span>Сценарий:</span>
                     <span><strong>${scenario}</strong></span>
                 </div>
-                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
-                    <span>Тип клиента:</span>
-                    <span>${isRandomClient ? 'Случайный' : clientTypes[selectedClientType]?.name || ''}</span>
-                </div>
+<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+    <span>Тип клиента:</span>
+    <span>
+        ${lastChatSessionData && lastChatSessionData.clientType ? 
+            (lastChatSessionData.scenario && lastChatSessionData.scenario.includes('Случайный') ? 
+                'Случайный (' + (clientTypes[lastChatSessionData.clientType]?.name || lastChatSessionData.clientType) + ')' : 
+                (clientTypes[lastChatSessionData.clientType]?.name || lastChatSessionData.clientType)) 
+            : 'Не указан'}
+    </span>
+</div>
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
                     <span>Вертикаль:</span>
                     <span>${auth.currentUser?.group || ''}</span>
@@ -3281,7 +3287,13 @@ function downloadChatAsPDF() {
             <table>
                 <tr><td><strong>Сотрудник:</strong></td><td>${auth.currentUser?.username || ''}</td></tr>
                 <tr><td><strong>Вертикаль:</strong></td><td>${auth.currentUser?.group || ''}</td></tr>
-                <tr><td><strong>Тип клиента:</strong></td><td>${isRandomClient ? 'Случайный' : clientTypes[selectedClientType]?.name || ''}</td></tr>
+                <tr><td><strong>Тип клиента:</strong></td><td>${
+    lastChatSessionData && lastChatSessionData.clientType ? 
+        (lastChatSessionData.scenario && lastChatSessionData.scenario.includes('Случайный') ? 
+            'Случайный (' + (clientTypes[lastChatSessionData.clientType]?.name || lastChatSessionData.clientType) + ')' : 
+            (clientTypes[lastChatSessionData.clientType]?.name || lastChatSessionData.clientType)) 
+        : 'Не указан'
+}</td></tr>
                 <tr><td><strong>Оценка:</strong></td><td>${lastChatSessionData?.score || '0'}/5</td></tr>
                 <tr><td><strong>Дата:</strong></td><td>${formatDate(lastChatSessionData?.date || '')}</td></tr>
             </table>
