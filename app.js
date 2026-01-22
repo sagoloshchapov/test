@@ -368,7 +368,12 @@ class SupabaseAuth {
                 });
             }
             
-            const leaderboard = users.map(user => {
+            const leaderboard = users
+    .filter(user => {
+        const username = user.username.toLowerCase();
+        return !['test', 'testf', 'testm', 'testo', 'tests', 'testa'].includes(username);
+    })
+    .map(user => {
                 let stats = {};
                 try {
                     stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
@@ -2842,6 +2847,12 @@ async function updateLeaderboard(filter = 'all') {
         }
         
         players.forEach((player, index) => {
+            players.forEach((player, index) => {
+
+    const username = player.username.toLowerCase();
+    if (['test', 'testf', 'testm', 'testo', 'tests', 'testa'].includes(username)) {
+        return; 
+    }
             const row = document.createElement('tr');
             if (player.id === auth.currentUser?.id) {
                 row.className = 'player-you';
