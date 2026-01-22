@@ -1,8 +1,95 @@
-let feedbackShown = false;
+// Основные константы
 const SUPABASE_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD';
 const EDGE_FUNCTION_URL = 'https://lpoaqliycyuhvdrwuyxj.supabase.co/functions/v1/rapid-handler';
 
+// Глобальные переменные
+let feedbackShown = false;
+let dynamicVerticalPrompts = {};
+let dynamicNews = [];
+let selectedClientType = null;
+let currentPrompt = null;
+let trainingInProgress = false;
+let trainingStartTime = null;
+let chatMessages = [];
+let progressChart = null;
+let trainingTimerInterval = null;
+let lastAIFeedback = "";
+let dailyLimit = 5;
+let dailySessionsUsed = 0;
+let lastResetTime = null;
+let isRandomClient = false;
+let lastChatSessionData = null;
+
+// Конфигурация клиентов
+const clientTypes = {
+    aggressive: { 
+        name: "Агрессивный клиент", 
+        icon: "😠",
+        description: "Клиент выражает гнев, может быть грубым, использовать повышенный тон."
+    },
+    passive: { 
+        name: "Пассивный клиент", 
+        icon: "😔",
+        description: "Клиент говорит тихо, нерешительно, часто соглашается."
+    },
+    demanding: { 
+        name: "Требовательный клиент", 
+        icon: "🧐",
+        description: "Клиент требует детали, проверяет компетентность, задает много вопросов."
+    },
+    indecisive: { 
+        name: "Нерешительный клиент", 
+        icon: "🤔",
+        description: "Клиент сомневается, часто меняет мнение, просит советов."
+    },
+    chatty: { 
+        name: "Славный малый", 
+        icon: "😄",
+        description: "Позитивный клиент, любит поболтать, использует смайлики, может увести от темы."
+    }
+};
+
+// Уровни системы
+const levels = [
+    { level: 1, name: "Новичок", requiredXP: 0, badge: "🟢" },
+    { level: 2, name: "Стажёр", requiredXP: 100, badge: "🟡" },
+    { level: 3, name: "Специалист", requiredXP: 300, badge: "🔵" },
+    { level: 4, name: "Эксперт", requiredXP: 600, badge: "🟣" },
+    { level: 5, name: "Мастер", requiredXP: 1000, badge: "🟠" },
+    { level: 6, name: "Гуру", requiredXP: 1500, badge: "🔴" },
+    { level: 7, name: "Легенда", requiredXP: 2200, badge: "⭐" }
+];
+
+// Достижения
+const achievements = [
+    { id: "first_blood", name: "Первая кровь", icon: "🎯", description: "Пройдите первую тренировку", category: "базовые", condition: "sessions >= 1" },
+    { id: "quick_start", name: "Быстрый старт", icon: "⚡", description: "Пройдите 3 тренировки за неделю", category: "активность", condition: "weekly_sessions >= 3" },
+    { id: "regular_5", name: "Регулярный", icon: "📅", description: "5 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 5" },
+    { id: "regular_10", name: "Активный", icon: "🏃", description: "10 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 10" },
+    { id: "regular_20", name: "Супер-активный", icon: "🚀", description: "20 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 20" },
+    { id: "streak_3", name: "Последователь", icon: "🔥", description: "3 дня подряд", category: "активность", condition: "streak >= 3" },
+    { id: "streak_7", name: "Непрерывный", icon: "💪", description: "7 дней подряд", category: "активность", condition: "streak >= 7" },
+    { id: "streak_30", name: "Легенда стрика", icon: "👑", description: "30 дней подряд", category: "активность", condition: "streak >= 30" },
+    { id: "score_5", name: "Отличник", icon: "⭐", description: "Получите оценку 5", category: "качество", condition: "max_score >= 5" },
+    { id: "score_avg_4", name: "Стабильный", icon: "📊", description: "Средний балл 4+", category: "качество", condition: "avg_score >= 4" },
+    { id: "score_avg_4.5", name: "Профессионал", icon: "🎖️", description: "Средний балл 4.5+", category: "качество", condition: "avg_score >= 4.5" },
+    { id: "perfect_5", name: "Идеально", icon: "💎", description: "5 тренировок подряд на 5", category: "качество", condition: "perfect_streak >= 5" },
+    { id: "level_3", name: "Специалист", icon: "🏆", description: "Достигните 3 уровня", category: "прогресс", condition: "level >= 3" },
+    { id: "level_5", name: "Мастер", icon: "👑", description: "Достигните 5 уровня", category: "прогресс", condition: "level >= 5" },
+    { id: "level_7", name: "Гуру", icon: "🌟", description: "Достигните 7 уровня", category: "прогресс", condition: "level >= 7" },
+    { id: "xp_500", name: "Опытный", icon: "💼", description: "Заработайте 500 XP", category: "прогресс", condition: "total_xp >= 500" },
+    { id: "xp_1000", name: "Ветеран", icon: "🛡️", description: "Заработайте 1000 XP", category: "прогресс", condition: "total_xp >= 1000" },
+    { id: "xp_2000", name: "Легенда XP", icon: "🏛️", description: "Заработайте 2000 XP", category: "прогресс", condition: "total_xp >= 2000" },
+    { id: "all_types", name: "Универсал", icon: "🎭", description: "Поработайте со всеми типами клиентов", category: "типы клиентов", condition: "all_client_types" },
+    { id: "master_aggressive", name: "Укротитель", icon: "😠", description: "10 тренировок с агрессивными", category: "типы клиентов", condition: "aggressive_sessions >= 10" },
+    { id: "master_passive", name: "Психолог", icon: "😔", description: "10 тренировок с пассивными", category: "типы клиентов", condition: "passive_sessions >= 10" },
+    { id: "master_demanding", name: "Эксперт", icon: "🧐", description: "10 тренировок с требовательными", category: "типы клиентов", condition: "demanding_sessions >= 10" },
+    { id: "master_indecisive", name: "Наставник", icon: "🤔", description: "10 тренировок с нерешительными", category: "типы клиентов", condition: "indecisive_sessions >= 10" },
+    { id: "master_chatty", name: "Душа компании", icon: "😄", description: "10 тренировок с 'славными малыми'", category: "типы клиентов", condition: "chatty_sessions >= 10" }
+];
+
+// Класс для работы с аутентификацией и данными
 class SupabaseAuth {
     constructor() {
         this.currentUser = null;
@@ -17,6 +104,7 @@ class SupabaseAuth {
         this.newsLoaded = false;
     }
 
+    // Запрос к Supabase через прокси
     async supabaseRequest(endpoint, method = 'GET', body = null) {
         const cacheKey = `${method}:${endpoint}`;
         
@@ -53,6 +141,7 @@ class SupabaseAuth {
         }
     }
     
+    // Загрузка промтов для вертикалей
     async loadPrompts() {
         if (this.promptsLoaded && this.promptsCache) {
             return this.promptsCache;
@@ -69,6 +158,7 @@ class SupabaseAuth {
         }
     }
     
+    // Загрузка новостей
     async loadNews() {
         if (this.newsLoaded && this.newsCache) {
             return this.newsCache;
@@ -85,6 +175,7 @@ class SupabaseAuth {
         }
     }
     
+    // Хеширование пароля
     hashPassword(password) {
         if (password === '0c7540eb7e65b553ec1ba6b20de79608') return password;
         
@@ -97,10 +188,9 @@ class SupabaseAuth {
         return hash.toString(36);
     }
     
+    // Регистрация нового пользователя
     async register(username, group = '', password) {
         try {
-            console.log('Начало регистрации:', username);
-            
             const existing = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
             
             if (existing && existing.length > 0) {
@@ -147,11 +237,7 @@ class SupabaseAuth {
                 })
             };
             
-            console.log('Отправка данных нового пользователя:', newUser);
-            
             const responseData = await this.supabaseRequest('users', 'POST', newUser);
-            
-            console.log('Данные ответа:', responseData);
             
             this.cache.clear();
             
@@ -168,6 +254,7 @@ class SupabaseAuth {
         }
     }
 
+    // Вход в систему
     async login(username, password) {
         try {
             const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
@@ -216,6 +303,7 @@ class SupabaseAuth {
         }
     }
 
+    // Создание статистики по умолчанию
     createDefaultStats(group) {
         return {
             currentLevel: 1,
@@ -241,6 +329,7 @@ class SupabaseAuth {
         };
     }
 
+    // Сброс пароля
     async resetPassword(username, newPassword) {
         try {
             const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
@@ -270,6 +359,7 @@ class SupabaseAuth {
         }
     }
             
+    // Сохранение статистики пользователя
     async saveUserStats(stats) {
         if (!this.currentUser?.id) {
             console.error('Нет пользователя для сохранения');
@@ -305,6 +395,7 @@ class SupabaseAuth {
         }
     }
             
+    // Добавление тренировочной сессии
     async addTrainingSession(sessionData) {
         if (!this.currentUser) return false;
         
@@ -333,6 +424,7 @@ class SupabaseAuth {
         }
     }
     
+    // Получение всех пользователей
     async getAllUsers() {
         try {
             const result = await this.supabaseRequest('users?select=*');
@@ -343,6 +435,7 @@ class SupabaseAuth {
         }
     }
     
+    // Получение всех учеников
     async getStudents() {
         try {
             const users = await this.getAllUsers();
@@ -353,6 +446,7 @@ class SupabaseAuth {
         }
     }
     
+    // Получение рейтинга
     async getLeaderboard(filterVertical = 'all') {
         try {
             const users = await this.supabaseRequest('users?select=id,username,group_name,stats');
@@ -402,6 +496,7 @@ class SupabaseAuth {
         }
     }
             
+    // Получение статистики системы
     async getSystemStats() {
         try {
             const users = await this.supabaseRequest('users?select=id,stats');
@@ -452,6 +547,7 @@ class SupabaseAuth {
         }
     }
             
+    // Получение истории тренировок пользователя
     async getUserTrainingHistory(userId) {
         try {
             const sessions = await this.supabaseRequest(`training_sessions?user_id=eq.${userId}&order=date.desc`);
@@ -462,6 +558,7 @@ class SupabaseAuth {
         }
     }
     
+    // Добавление комментария тренера
     async addTrainerComment(sessionId, comment) {
         try {
             const session = await this.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
@@ -488,6 +585,7 @@ class SupabaseAuth {
         }
     }
     
+    // Получение всех тренировочных сессий
     async getAllTrainingSessions(filters = {}) {
         try {
             let endpoint = 'training_sessions?select=*&order=date.desc';
@@ -504,6 +602,7 @@ class SupabaseAuth {
         }
     }
     
+    // Обновление аватара
     async updateAvatar(userId, avatarUrl) {
         try {
             const existingAvatar = await this.supabaseRequest(`user_avatars?user_id=eq.${userId}`);
@@ -543,6 +642,7 @@ class SupabaseAuth {
         }
     }  
 
+    // Получение аватара пользователя
     async getUserAvatar(userId) {
         try {
             const avatars = await this.supabaseRequest(`user_avatars?user_id=eq.${userId}`);
@@ -556,6 +656,7 @@ class SupabaseAuth {
         }
     }
     
+    // Загрузка аватара
     async uploadAvatar(userId, file) {
         try {
             if (!file || !file.type.startsWith('image/')) {
@@ -598,6 +699,7 @@ class SupabaseAuth {
         }
     }
     
+    // Выход из системы
     logout() {
         this.currentUser = null;
         this.isAuthenticated = false;
@@ -611,6 +713,7 @@ class SupabaseAuth {
         this.showAuthModal();
     }
     
+    // Показать окно авторизации
     showAuthModal() {
         const authModal = document.getElementById('authModal');
         const mainContainer = document.getElementById('mainContainer');
@@ -621,6 +724,7 @@ class SupabaseAuth {
         this.showLoginForm();
     }
     
+    // Показать основное приложение
     showMainApp() {
         const authModal = document.getElementById('authModal');
         const mainContainer = document.getElementById('mainContainer');
@@ -631,6 +735,7 @@ class SupabaseAuth {
         this.updateInterfaceBasedOnRole();
     }
     
+    // Показать форму входа
     showLoginForm() {
         document.getElementById('loginForm').style.display = 'block';
         document.getElementById('registerForm').style.display = 'none';
@@ -639,6 +744,7 @@ class SupabaseAuth {
         clearErrors();
     }
 
+    // Обновление интерфейса в зависимости от роли
     updateInterfaceBasedOnRole() {
         if (!this.currentUser) return;
         
@@ -696,96 +802,44 @@ class SupabaseAuth {
         loadInterfaceForRole();
     }
     
+    // Проверка роли тренера
     isTrainer() {
         return this.userRole === 'trainer';
     }
 }
 
+// Создание экземпляра аутентификации
 const auth = new SupabaseAuth();
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', async function() {
+    const savedUser = localStorage.getItem('dialogue_currentUser');
     
-const clientTypes = {
-    aggressive: { 
-        name: "Агрессивный клиент", 
-        icon: "😠",
-        description: "Клиент выражает гнев, может быть грубым, использовать повышенный тон."
-    },
-    passive: { 
-        name: "Пассивный клиент", 
-        icon: "😔",
-        description: "Клиент говорит тихо, нерешительно, часто соглашается."
-    },
-    demanding: { 
-        name: "Требовательный клиент", 
-        icon: "🧐",
-        description: "Клиент требует детали, проверяет компетентность, задает много вопросов."
-    },
-    indecisive: { 
-        name: "Нерешительный клиент", 
-        icon: "🤔",
-        description: "Клиент сомневается, часто меняет мнение, просит советов."
-    },
-    chatty: { 
-        name: "Славный малый", 
-        icon: "😄",
-        description: "Позитивный клиент, любит поболтать, использует смайлики, может увести от темы."
+    await Promise.all([loadDynamicPrompts(), loadDynamicNews()]);
+    
+    if (savedUser) {
+        try {
+            const user = JSON.parse(savedUser);
+            
+            const avatarUrl = await auth.getUserAvatar(user.id);
+            user.avatar_url = avatarUrl || user.avatar_url || '';
+            
+            auth.currentUser = user;
+            auth.isAuthenticated = true;
+            auth.userRole = user.role || 'user';
+            
+            checkAndResetDailyLimit();
+            auth.showMainApp();
+        } catch (e) {
+            console.error('Ошибка загрузки пользователя:', e);
+            auth.showAuthModal();
+        }
+    } else {
+        auth.showAuthModal();
     }
-};
+});
 
-const levels = [
-    { level: 1, name: "Новичок", requiredXP: 0, badge: "🟢" },
-    { level: 2, name: "Стажёр", requiredXP: 100, badge: "🟡" },
-    { level: 3, name: "Специалист", requiredXP: 300, badge: "🔵" },
-    { level: 4, name: "Эксперт", requiredXP: 600, badge: "🟣" },
-    { level: 5, name: "Мастер", requiredXP: 1000, badge: "🟠" },
-    { level: 6, name: "Гуру", requiredXP: 1500, badge: "🔴" },
-    { level: 7, name: "Легенда", requiredXP: 2200, badge: "⭐" }
-];
-
-const achievements = [
-    { id: "first_blood", name: "Первая кровь", icon: "🎯", description: "Пройдите первую тренировку", category: "базовые", condition: "sessions >= 1" },
-    { id: "quick_start", name: "Быстрый старт", icon: "⚡", description: "Пройдите 3 тренировки за неделю", category: "активность", condition: "weekly_sessions >= 3" },
-    { id: "regular_5", name: "Регулярный", icon: "📅", description: "5 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 5" },
-    { id: "regular_10", name: "Активный", icon: "🏃", description: "10 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 10" },
-    { id: "regular_20", name: "Супер-активный", icon: "🚀", description: "20 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 20" },
-    { id: "streak_3", name: "Последователь", icon: "🔥", description: "3 дня подряд", category: "активность", condition: "streak >= 3" },
-    { id: "streak_7", name: "Непрерывный", icon: "💪", description: "7 дней подряд", category: "активность", condition: "streak >= 7" },
-    { id: "streak_30", name: "Легенда стрика", icon: "👑", description: "30 дней подряд", category: "активность", condition: "streak >= 30" },
-    { id: "score_5", name: "Отличник", icon: "⭐", description: "Получите оценку 5", category: "качество", condition: "max_score >= 5" },
-    { id: "score_avg_4", name: "Стабильный", icon: "📊", description: "Средний балл 4+", category: "качество", condition: "avg_score >= 4" },
-    { id: "score_avg_4.5", name: "Профессионал", icon: "🎖️", description: "Средний балл 4.5+", category: "качество", condition: "avg_score >= 4.5" },
-    { id: "perfect_5", name: "Идеально", icon: "💎", description: "5 тренировок подряд на 5", category: "качество", condition: "perfect_streak >= 5" },
-    { id: "level_3", name: "Специалист", icon: "🏆", description: "Достигните 3 уровня", category: "прогресс", condition: "level >= 3" },
-    { id: "level_5", name: "Мастер", icon: "👑", description: "Достигните 5 уровня", category: "прогресс", condition: "level >= 5" },
-    { id: "level_7", name: "Гуру", icon: "🌟", description: "Достигните 7 уровня", category: "прогресс", condition: "level >= 7" },
-    { id: "xp_500", name: "Опытный", icon: "💼", description: "Заработайте 500 XP", category: "прогресс", condition: "total_xp >= 500" },
-    { id: "xp_1000", name: "Ветеран", icon: "🛡️", description: "Заработайте 1000 XP", category: "прогресс", condition: "total_xp >= 1000" },
-    { id: "xp_2000", name: "Легенда XP", icon: "🏛️", description: "Заработайте 2000 XP", category: "прогресс", condition: "total_xp >= 2000" },
-    { id: "all_types", name: "Универсал", icon: "🎭", description: "Поработайте со всеми типами клиентов", category: "типы клиентов", condition: "all_client_types" },
-    { id: "master_aggressive", name: "Укротитель", icon: "😠", description: "10 тренировок с агрессивными", category: "типы клиентов", condition: "aggressive_sessions >= 10" },
-    { id: "master_passive", name: "Психолог", icon: "😔", description: "10 тренировок с пассивными", category: "типы клиентов", condition: "passive_sessions >= 10" },
-    { id: "master_demanding", name: "Эксперт", icon: "🧐", description: "10 тренировок с требовательными", category: "типы клиентов", condition: "demanding_sessions >= 10" },
-    { id: "master_indecisive", name: "Наставник", icon: "🤔", description: "10 тренировок с нерешительными", category: "типы клиентов", condition: "indecisive_sessions >= 10" },
-    { id: "master_chatty", name: "Душа компании", icon: "😄", description: "10 тренировок с 'славными малыми'", category: "типы клиентов", condition: "chatty_sessions >= 10" }
-];
-
-let dynamicVerticalPrompts = {};
-let dynamicNews = [];
-let selectedClientType = null;
-let currentPrompt = null;
-let trainingInProgress = false;
-let trainingStartTime = null;
-let chatMessages = [];
-let progressChart = null;
-let trainingTimerInterval = null;
-let selectedStudentForComment = null;
-let selectedSessionForComment = null;
-let lastAIFeedback = "";
-let dailyLimit = 5;
-let dailySessionsUsed = 0;
-let lastResetTime = null;
-let isRandomClient = false;
-let lastChatSessionData = null;
-
+// Загрузка динамических промтов
 async function loadDynamicPrompts() {
     try {
         const prompts = await auth.loadPrompts();
@@ -801,6 +855,7 @@ async function loadDynamicPrompts() {
     }
 }
 
+// Загрузка динамических новостей
 async function loadDynamicNews() {
     try {
         const news = await auth.loadNews();
@@ -811,10 +866,12 @@ async function loadDynamicNews() {
     }
 }
 
+// Получение промта для вертикали
 function getPromptForVertical(vertical) {
     return dynamicVerticalPrompts[vertical] || "";
 }
 
+// Отправка промта AI
 async function sendPromptToAI() {
     try {
         const clientType = clientTypes[selectedClientType];
@@ -945,33 +1002,7 @@ ${clientTypeInstruction}
     }
 }
 
-document.addEventListener('DOMContentLoaded', async function() {
-    const savedUser = localStorage.getItem('dialogue_currentUser');
-    
-    await Promise.all([loadDynamicPrompts(), loadDynamicNews()]);
-    
-    if (savedUser) {
-        try {
-            const user = JSON.parse(savedUser);
-            
-            const avatarUrl = await auth.getUserAvatar(user.id);
-            user.avatar_url = avatarUrl || user.avatar_url || '';
-            
-            auth.currentUser = user;
-            auth.isAuthenticated = true;
-            auth.userRole = user.role || 'user';
-            
-            checkAndResetDailyLimit();
-            auth.showMainApp();
-        } catch (e) {
-            console.error('Ошибка загрузки пользователя:', e);
-            auth.showAuthModal();
-        }
-    } else {
-        auth.showAuthModal();
-    }
-});
-
+// Проверка и сброс дневного лимита
 function checkAndResetDailyLimit() {
     if (!auth.currentUser) return;
     
@@ -997,6 +1028,7 @@ function checkAndResetDailyLimit() {
     }
 }
 
+// Обновление уведомления о дневном лимите
 function updateDailyLimitNotification() {
     if (!auth.currentUser || auth.isTrainer()) return;
     
@@ -1019,6 +1051,7 @@ function updateDailyLimitNotification() {
     }
 }
 
+// Загрузка интерфейса в зависимости от роли
 function loadInterfaceForRole() {
     const sidebar = document.getElementById('sidebar');
     const contentWrapper = document.getElementById('contentWrapper');
@@ -1035,6 +1068,7 @@ function loadInterfaceForRole() {
     }
 }
 
+// Загрузка интерфейса ученика
 function loadStudentInterface() {
     const sidebar = document.getElementById('sidebar');
     const contentWrapper = document.getElementById('contentWrapper');
@@ -1078,52 +1112,8 @@ function loadStudentInterface() {
                         </h3>
                         <p class="about-description">
                             Этот тренажер выполняет функции клиента, открывая возможность отрабатывать возражения и сложные ситуации. 
-                            Искусственный интеллект играет роль клиента с различными типами поведения, как и клиент он не знает внутренних логик и процессы нашей компании.
+                            Искусственный интеллект играет роль клиента с различными типами поведения.
                         </p>
-                        <p class="about-description">
-                            <strong>Ваша задача:</strong> помочь виртуальному клиенту, отработать его возражения, объяснить что ему нужно делать, 
-                            и найти оптимальное решение в рамках своей компетенции.
-                        </p>
-                        <div class="about-features">
-                            <div class="about-feature">
-                                <h5><i class="fas fa-graduation-cap"></i> Обучение на практике</h5>
-                                <p>Тренируйтесь в безопасной среде без риска для реальных клиентов</p>
-                            </div>
-                            <div class="about-feature">
-                                <h5><i class="fas fa-users"></i> Разные типы клиентов</h5>
-                                <p>Отрабатывайте навыки с агрессивными, пассивными, требовательными и другими типами клиентов</p>
-                            </div>
-                            <div class="about-feature">
-                                <h5><i class="fas fa-chart-line"></i> Отслеживание прогресса</h5>
-                                <p>Получайте обратную связь и следите за своим профессиональным ростом</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="confidentiality-warning">
-                    <h4><i class="fas fa-exclamation-triangle"></i> ВАЖНО: Конфиденциальность данных</h4>
-                    <div class="confidentiality-list">
-                        <div class="prohibited">
-                            <strong>ЗАПРЕЩЕНО указывать:</strong>
-                            <ul>
-                                <li>Конфиденциальную информацию компании</li>
-                                <li>Персональные данные клиентов</li>
-                                <li>Банковские/паспортные данные</li>
-                                <li>Внутренние логики и процессы</li>
-                                <li>Коммерческие тайны</li>
-                            </ul>
-                        </div>
-                        <div class="recommended">
-                            <strong>РЕКОМЕНДАЦИИ:</strong>
-                            <ul>
-                                <li>Используйте вымышленные данные</li>
-                                <li>Не указывайте реальные имена</li>
-                                <li>Сохраняйте конфиденциальность</li>
-                                <li>Используйте общие формулировки</li>
-                                <li>Обращайтесь к руководителю при сомнениях</li>
-                            </ul>
-                        </div>
                     </div>
                 </div>
                 
@@ -1135,10 +1125,6 @@ function loadStudentInterface() {
                     <div class="news-container">
                         <div class="news-scroll-container" id="newsScrollContainer">
                             <div class="news-grid" id="newsGrid"></div>
-                        </div>
-                        <div class="scroll-indicator">
-                            <i class="fas fa-chevron-left scroll-arrow left" onclick="scrollNews(-1)"></i>
-                            <i class="fas fa-chevron-right scroll-arrow right" onclick="scrollNews(1)"></i>
                         </div>
                     </div>
                 </div>
@@ -1165,17 +1151,6 @@ function loadStudentInterface() {
                         <div class="value" id="activeToday">0</div>
                         <div class="label">Активных сегодня</div>
                     </div>
-                </div>
-                
-                <div class="section-title" style="margin-top: 20px;">
-                    <i class="fas fa-bolt"></i>
-                    <span>Быстрый старт</span>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="switchTab('training')">
-                        <i class="fas fa-play-circle"></i> Начать тренировку
-                    </button>
                 </div>
             </div>
         </div>
@@ -1220,7 +1195,7 @@ function loadStudentInterface() {
                             <span id="scenarioTitle">Выберите тип клиента</span>
                         </div>
                         <div class="scenario-details" id="scenarioDescription">
-                            ${isRandomClient ? 'Выбран случайный тип клиента. Диалог начнется с сообщения от клиента.' : 'Выберите тип клиента из списка выше, чтобы начать тренировку. Тренировка длится до 15 минут.'}
+                            ${isRandomClient ? 'Выбран случайный тип клиента. Диалог начнется с сообщения от клиента.' : 'Выберите тип клиента из списка выше, чтобы начать тренировку.'}
                         </div>
                         
                         <div class="action-buttons" id="actionButtons">
@@ -1265,7 +1240,6 @@ function loadStudentInterface() {
                             <button class="btn btn-danger btn-sm" onclick="finishChat()">
                                 <i class="fas fa-flag-checkered"></i> Завершить диалог
                             </button>
-                            <span style="margin-left: 10px; font-size: 12px; color: #666;">или отправьте [[ДИАЛОГ ЗАВЕРШЕН]]</span>
                         </div>
                     </div>
                 </div>
@@ -1442,9 +1416,6 @@ function loadStudentInterface() {
             <div class="badges-section">
                 <div class="section-title">
                     <span>📜 История тренировок</span>
-                    <div class="storage-info" style="margin-left: 10px; display: inline-block;">
-                        <i class="fas fa-info-circle"></i> История хранится 30 дней
-                    </div>
                 </div>
                 
                 <div style="margin-top: 15px;" id="historyList"></div>
@@ -1464,27 +1435,7 @@ function loadStudentInterface() {
     renderDynamicNews();
 }
 
-function calculateXPProgress() {
-    if (!auth.currentUser) return 0;
-    const userStats = auth.currentUser.stats;
-    const currentLevel = levels.find(l => l.level === userStats.currentLevel) || levels[0];
-    const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
-    
-    const currentLevelXP = currentLevel.requiredXP;
-    const nextLevelXP = nextLevel ? nextLevel.requiredXP : currentLevelXP + 100;
-    const xpProgress = userStats.totalXP - currentLevelXP;
-    const xpNeeded = nextLevelXP - currentLevelXP;
-    
-    return Math.min(100, (xpProgress / xpNeeded) * 100);
-}
-
-function getNextLevelXP() {
-    if (!auth.currentUser) return 100;
-    const userStats = auth.currentUser.stats;
-    const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
-    return nextLevel ? nextLevel.requiredXP : (levels.find(l => l.level === userStats.currentLevel)?.requiredXP || 0) + 100;
-}
-
+// Выбор типа клиента
 function selectClientType(type, isRandom = false) {
     const options = document.querySelectorAll('.client-type-option');
     options.forEach(opt => opt.classList.remove('selected'));
@@ -1519,12 +1470,14 @@ function selectClientType(type, isRandom = false) {
     }
 }
 
+// Выбор случайного типа клиента
 function selectRandomClientType() {
     const types = Object.keys(clientTypes);
     const randomType = types[Math.floor(Math.random() * types.length)];
     selectClientType(randomType, true);
 }
 
+// Начало тренировки
 async function startTraining() {
     if (!auth.currentUser) {
         alert('Сначала войдите в систему!');
@@ -1588,6 +1541,7 @@ async function startTraining() {
     }
 }
 
+// Процесс начала тренировки
 async function startTrainingProcess() {
     trainingInProgress = true;
     trainingStartTime = new Date();
@@ -1625,6 +1579,7 @@ async function startTrainingProcess() {
     }, 100);
 }
 
+// Запуск таймера тренировки
 function startTrainingTimer() {
     clearInterval(trainingTimerInterval);
     trainingTimerInterval = setInterval(() => {
@@ -1641,6 +1596,7 @@ function startTrainingTimer() {
     }, 1000);
 }
 
+// Завершение чата
 function finishChat() {
     if (!trainingInProgress) return;
     
@@ -1662,6 +1618,7 @@ function finishChat() {
     }, 1000);
 }
 
+// Окончание тренировки
 function endTraining() {
     if (!trainingInProgress) return;
     
@@ -1729,6 +1686,7 @@ function endTraining() {
     resetTrainingState();
 }
 
+// Сброс состояния тренировки
 function resetTrainingState() {
     trainingInProgress = false;
     trainingStartTime = null;
@@ -1791,6 +1749,7 @@ function resetTrainingState() {
     }
 }
 
+// Обработка ввода в чат
 function handleChatInput(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -1798,6 +1757,7 @@ function handleChatInput(event) {
     }
 }
 
+// Отправка сообщения
 function sendMessage() {
     const input = document.getElementById('chatInput');
     const message = input ? input.value.trim() : '';
@@ -1822,6 +1782,7 @@ function sendMessage() {
     });
 }
 
+// Добавление сообщения в чат
 function addMessage(sender, text) {
     const chatMessagesDiv = document.getElementById('chatMessages');
     if (!chatMessagesDiv) return;
@@ -1840,6 +1801,7 @@ function addMessage(sender, text) {
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
 }
 
+// Извлечение обратной связи от AI
 function extractAIFeedback(aiMessage) {
     if (!aiMessage) return "";
     
@@ -1869,6 +1831,7 @@ function extractAIFeedback(aiMessage) {
     return aiMessage.substring(Math.max(0, aiMessage.length - 3000)).trim();
 }
 
+// Оценка диалога
 function evaluateDialogue(messages, clientType) {
     const userMessages = messages.filter(msg => msg.sender === 'user');
     
@@ -1928,6 +1891,7 @@ function evaluateDialogue(messages, clientType) {
     };
 }
 
+// Начисление XP
 async function awardXP(score, scenario, clientType, evaluation, duration, aiFeedback = "") {
     if (!auth.currentUser) {
         console.error('Нет пользователя!');
@@ -2053,6 +2017,7 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     };
 }
         
+// Проверка оценки в ответе AI
 function checkForEvaluationInResponse(response) {
     const lowerResponse = response.toLowerCase();
     
@@ -2121,6 +2086,7 @@ function checkForEvaluationInResponse(response) {
     }
 }
 
+// Проверка повышения уровня
 function checkLevelUp() {
     if (!auth.currentUser) return;
     
@@ -2134,6 +2100,7 @@ function checkLevelUp() {
     }
 }
 
+// Проверка достижений
 function checkAchievements(score, clientType, duration) {
     if (!auth.currentUser) return;
     
@@ -2273,6 +2240,7 @@ function checkAchievements(score, clientType, duration) {
     }
 }
 
+// Рендер динамических новостей
 async function renderDynamicNews() {
     const newsGrid = document.getElementById('newsGrid');
     if (!newsGrid) return;
@@ -2313,310 +2281,551 @@ async function renderDynamicNews() {
     }
 }
 
-function scrollNews(direction) {
-    const container = document.getElementById('newsScrollContainer');
-    if (!container) return;
+// Показать окно с результатами
+function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, aiFeedback = "") {
+    const resultTitle = document.getElementById('resultTitle');
+    const resultIcon = document.getElementById('resultIcon');
+    const resultXP = document.getElementById('resultXP');
+    const resultDetails = document.getElementById('resultDetails');
+    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
+    const aiFeedbackContent = document.getElementById('aiFeedbackContent');
+    const resultModal = document.getElementById('resultModal');
     
-    const scrollAmount = 300;
-    container.scrollLeft += direction * scrollAmount;
-}
-
-function showFeedbackModal() {
-    if (!feedbackShown && auth.currentUser && auth.userRole === 'user') {
-        setTimeout(() => {
-            const feedbackModal = document.getElementById('feedbackModal');
-            if (feedbackModal) feedbackModal.style.display = 'flex';
-            feedbackShown = true;
-        }, 1000);
-    }
-}
-
-function openFeedbackForm() {
-    window.open('https://forms.yandex.ru/u/696634f8d046880022dab232', '_blank');
-    closeFeedbackModal();
-}
-
-function closeFeedbackModal() {
-    const feedbackModal = document.getElementById('feedbackModal');
-    if (feedbackModal) feedbackModal.style.display = 'none';
-}
-
-function showRegisterForm() {
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('registerForm').style.display = 'block';
-    document.getElementById('resetPasswordForm').style.display = 'none';
-    document.getElementById('trainerLoginForm').style.display = 'none';
-    clearErrors();
-}
-
-function showLoginForm() {
-    document.getElementById('registerForm').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
-    document.getElementById('resetPasswordForm').style.display = 'none';
-    document.getElementById('trainerLoginForm').style.display = 'none';
-    clearErrors();
-}
-
-function showResetPasswordForm() {
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('registerForm').style.display = 'none';
-    document.getElementById('resetPasswordForm').style.display = 'block';
-    document.getElementById('trainerLoginForm').style.display = 'none';
-    clearErrors();
-}
-
-function showTrainerLogin() {
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('registerForm').style.display = 'none';
-    document.getElementById('resetPasswordForm').style.display = 'none';
-    document.getElementById('trainerLoginForm').style.display = 'block';
-    clearErrors();
-}
-
-function clearErrors() {
-    const loginError = document.getElementById('loginError');
-    if (loginError) {
-        loginError.style.display = 'none';
-        loginError.textContent = '';
-        loginError.style.color = '#dc3545';
-    }
+    if (resultTitle) resultTitle.textContent = title;
+    if (resultIcon) resultIcon.textContent = icon;
+    if (resultXP) resultXP.textContent = `+${xpEarned} XP`;
     
-    document.getElementById('passwordMatchError').style.display = 'none';
-    document.getElementById('resetPasswordError').style.display = 'none';
-    const trainerError = document.getElementById('trainerLoginError');
-    if (trainerError) trainerError.style.display = 'none';
-}
-
-function togglePassword(fieldId, toggleElement) {
-    const field = document.getElementById(fieldId);
-    if (field.type === 'password') {
-        field.type = 'text';
-        toggleElement.textContent = '👁️‍🗨️';
-    } else {
-        field.type = 'password';
-        toggleElement.textContent = '👁️';
-    }
-}
-
-async function handleRegister() {
-    const username = document.getElementById('registerUsername').value.trim();
-    const group = document.getElementById('registerGroup').value;
-    const password = document.getElementById('registerPassword').value;
-    const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
-    const errorElement = document.getElementById('passwordMatchError');
+    let details = `<div style="margin-bottom: 10px;"><strong>Сценарий:</strong> ${scenario}</div>`;
     
-    clearErrors();
-    
-    if (!username) {
-        errorElement.textContent = 'Введите никнейм';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    if (username.length < 3) {
-        errorElement.textContent = 'Никнейм должен быть не менее 3 символов';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    if (!group) {
-        errorElement.textContent = 'Выберите вертикаль';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    if (password.length < 6) {
-        errorElement.textContent = 'Пароль должен быть не менее 6 символов';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    if (password !== passwordConfirm) {
-        errorElement.textContent = 'Пароли не совпадают';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    const result = await auth.register(username, group, password);
-    if (result.success) {
-        alert(result.message);
-        auth.cache.clear();
-        showLoginForm();
-        document.getElementById('loginUsername').value = username;
-        document.getElementById('loginPassword').value = password;
-        document.getElementById('loginError').textContent = 'Регистрация успешна! Войдите в систему.';
-        document.getElementById('loginError').style.color = '#28a745';
-        document.getElementById('loginError').style.display = 'block';
-    } else {
-        errorElement.textContent = result.message;
-        errorElement.style.display = 'block';
-    }
-}
-
-async function handleLogin() {
-    const username = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    const errorElement = document.getElementById('loginError');
-    
-    clearErrors();
-    
-    if (!username) {
-        errorElement.textContent = 'Введите никнейм';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    if (!password) {
-        errorElement.textContent = 'Введите пароль';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    const result = await auth.login(username, password);
-    if (result.success) {
-        auth.currentUser = result.user;
-        auth.isAuthenticated = true;
-        auth.userRole = result.user.role;
+    if (evaluation) {
+        details += `<div style="margin-bottom: 5px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>`;
+        details += `<div style="margin-bottom: 5px;"><strong>Время:</strong> ${formatDuration(duration)}</div>`;
+        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</strong> ${evaluation.feedback}</div>`;
         
-        checkAndResetDailyLimit();
-        auth.showMainApp();
-        
-        showFeedbackModal();
-    } else {
-        errorElement.textContent = result.message;
-        errorElement.style.color = '#dc3545';
-        errorElement.style.display = 'block';
+        if (evaluation.criteria) {
+            details += `<div style="margin-top: 10px; font-size: 12px; color: #666;">`;
+            details += `<div>✓ Сообщений: ${evaluation.criteria.messageCount}</div>`;
+            details += `<div>✓ Профессиональных фраз: ${evaluation.criteria.professionalPhrases}</div>`;
+            details += `<div>✓ Корректное завершение: ${evaluation.criteria.properEnding ? 'Да' : 'Можно лучше'}</div>`;
+            details += `</div>`;
+        }
+    }
+    
+    if (resultDetails) resultDetails.innerHTML = details;
+    
+    if (aiFeedback && aiFeedback.trim().length > 0) {
+        if (aiFeedbackContent) aiFeedbackContent.textContent = aiFeedback;
+        if (aiFeedbackContainer) {
+            aiFeedbackContainer.style.display = 'block';
+            if (aiFeedbackContent) {
+                aiFeedbackContent.style.maxHeight = '400px';
+                aiFeedbackContent.style.overflowY = 'auto';
+            }
+        }
+    } else if (aiFeedbackContainer) {
+        aiFeedbackContainer.style.display = 'none';
+    }
+    
+    if (resultModal) resultModal.style.display = 'flex';
+    
+    const modalActions = document.querySelector('.modal-actions');
+    if (modalActions) {
+        modalActions.innerHTML = `
+            <button class="btn btn-secondary" onclick="closeResultModal()">
+                Закрыть
+            </button>
+            <button class="btn btn-primary" onclick="viewLastChatSession()">
+                <i class="fas fa-comments"></i> Просмотреть чат
+            </button>
+            <button class="btn btn-info" onclick="downloadChatAsPDF()">
+                <i class="fas fa-download"></i> Скачать PDF
+            </button>
+        `;
     }
 }
 
-async function handleTrainerLogin() {
-    const username = document.getElementById('trainerUsername').value.trim();
-    const password = document.getElementById('trainerPassword').value;
-    const errorElement = document.getElementById('trainerLoginError');
+// Просмотр последнего чата
+function viewLastChatSession() {
+    if (lastChatSessionData) {
+        viewChatHistory(lastChatSessionData);
+        closeResultModal();
+    } else {
+        alert('Нет данных о последнем чате');
+    }
+}
+
+// Просмотр истории чата
+function viewChatHistory(session) {
+    if (!session) return;
     
-    clearErrors();
+    const clientType = clientTypes[session.clientType];
     
-    if (!username) {
-        errorElement.textContent = 'Введите логин тренера';
-        errorElement.style.display = 'block';
+    const chatModalTitle = document.getElementById('chatModalTitle');
+    const chatModalClientType = document.getElementById('chatModalClientType');
+    const chatModalDate = document.getElementById('chatModalDate');
+    const chatModalScore = document.getElementById('chatModalScore');
+    const messagesContainer = document.getElementById('chatModalMessages');
+    const chatModal = document.getElementById('chatModal');
+    
+    if (chatModalTitle) chatModalTitle.textContent = clientType ? clientType.name : 'Диалог с клиентом';
+    if (chatModalClientType) chatModalClientType.textContent = clientType ? clientType.name : '-';
+    if (chatModalDate) chatModalDate.textContent = formatDate(session.date);
+    if (chatModalScore) chatModalScore.textContent = session.score || 0;
+    if (messagesContainer) messagesContainer.innerHTML = '';
+    
+    let messages = [];
+    
+    if (session.messages && Array.isArray(session.messages)) {
+        messages = session.messages;
+    } else if (typeof session.messages === 'string') {
+        try {
+            messages = JSON.parse(session.messages);
+        } catch (e) {
+            console.error('Ошибка парсинга сообщений:', e);
+            messages = [];
+        }
+    }
+    
+    if (messages.length === 0 && messagesContainer) {
+        messages = [
+            { sender: 'ai', text: 'Добрый день! Чем могу помочь?', timestamp: session.date },
+            { sender: 'user', text: 'У меня проблема с...', timestamp: new Date(new Date(session.date).getTime() + 60000).toISOString() },
+            { sender: 'ai', text: 'Понимаю вашу ситуацию. Давайте решим этот вопрос.', timestamp: new Date(new Date(session.date).getTime() + 120000).toISOString() },
+            { sender: 'user', text: 'Спасибо за помощь!', timestamp: new Date(new Date(session.date).getTime() + 180000).toISOString() }
+        ];
+    }
+    
+    if (messagesContainer) {
+        messages.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${msg.sender}`;
+            messageDiv.textContent = msg.text;
+            messagesContainer.appendChild(messageDiv);
+        });
+        
+        if (session.ai_feedback?.trim()) {
+            const aiFeedbackContainer = document.createElement('div');
+            aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
+            aiFeedbackContainer.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
+                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${session.ai_feedback}</div>
+            `;
+            messagesContainer.appendChild(aiFeedbackContainer);
+        }
+        
+        if (session.trainer_comments?.length) {
+            const commentsContainer = document.createElement('div');
+            commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
+            commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
+            
+            session.trainer_comments.forEach(comment => {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'trainer-comment';
+                commentDiv.innerHTML = `
+                    <div class="comment-header">
+                        <span>${comment.trainer}</span>
+                        <span>${formatDate(comment.date)}</span>
+                    </div>
+                    <div class="comment-text">${comment.comment}</div>
+                `;
+                commentsContainer.appendChild(commentDiv);
+            });
+            
+            messagesContainer.appendChild(commentsContainer);
+        }
+    }
+    
+    setTimeout(() => {
+        if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 100);
+    
+    if (chatModal) chatModal.style.display = 'flex';
+}
+
+// Закрыть модальное окно с результатами
+function closeResultModal() {
+    const resultModal = document.getElementById('resultModal');
+    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
+    
+    if (resultModal) resultModal.style.display = 'none';
+    if (aiFeedbackContainer) aiFeedbackContainer.style.display = 'none';
+    
+    loadDemoChat();
+}
+
+// Форматирование даты
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Форматирование длительности
+function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Показать уведомление о достижении
+function showAchievementNotification(achievement) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        z-index: 1001;
+        animation: slideIn 0.3s ease;
+        border-left: 4px solid #10a37f;
+        min-width: 250px;
+    `;
+    
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <span style="font-size: 24px;">${achievement.icon}</span>
+            <div>
+                <div style="font-weight: 600; color: #333;">🎉 Новое достижение!</div>
+                <div style="font-size: 12px; color: #666;">${achievement.name}</div>
+            </div>
+        </div>
+        <div style="font-size: 13px; color: #555;">${achievement.description}</div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Скачать чат как PDF
+function downloadChatAsPDF() {
+    if (!lastChatSessionData) {
+        alert('Нет данных для скачивания');
         return;
     }
     
-    if (!password) {
-        errorElement.textContent = 'Введите пароль';
-        errorElement.style.display = 'block';
-        return;
-    }
-    
-    const result = await auth.login(username, password);
-    if (result.success) {
-        if (result.user.role === 'trainer') {
-            auth.showMainApp();
+    try {
+        const clientType = clientTypes[lastChatSessionData.clientType];
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Заголовок
+        doc.setFontSize(18);
+        doc.text('Отчет о тренировке', 20, 20);
+        
+        doc.setFontSize(12);
+        doc.text(`Сотрудник: ${auth.currentUser.username}`, 20, 30);
+        doc.text(`Вертикаль: ${auth.currentUser.group}`, 20, 35);
+        doc.text(`Тип клиента: ${clientType ? clientType.name : lastChatSessionData.clientType}`, 20, 40);
+        doc.text(`Дата: ${formatDate(lastChatSessionData.date)}`, 20, 45);
+        doc.text(`Оценка: ${lastChatSessionData.score}/5`, 20, 50);
+        doc.text(`XP: ${lastChatSessionData.xp}`, 20, 55);
+        doc.text(`Длительность: ${formatDuration(lastChatSessionData.duration)}`, 20, 60);
+        
+        // Диалог
+        let yPosition = 70;
+        doc.setFontSize(14);
+        doc.text('Диалог:', 20, yPosition);
+        yPosition += 10;
+        
+        doc.setFontSize(10);
+        if (lastChatSessionData.messages && lastChatSessionData.messages.length > 0) {
+            lastChatSessionData.messages.forEach((msg, index) => {
+                const sender = msg.sender === 'user' ? 'Сотрудник' : 'Клиент';
+                const text = `${sender}: ${msg.text}`;
+                
+                const lines = doc.splitTextToSize(text, 170);
+                if (yPosition + (lines.length * 6) > 280) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                
+                doc.text(lines, 20, yPosition);
+                yPosition += lines.length * 6 + 2;
+            });
         } else {
-            errorElement.textContent = 'У вас нет прав тренера.';
-            errorElement.style.display = 'block';
-            auth.logout();
+            doc.text('Нет данных о диалоге', 20, yPosition);
+            yPosition += 10;
         }
-    } else {
-        errorElement.textContent = result.message || 'Неверный логин или пароль';
-        errorElement.style.display = 'block';
+        
+        // Обратная связь AI
+        if (lastChatSessionData.ai_feedback) {
+            if (yPosition + 30 > 280) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            doc.setFontSize(14);
+            doc.text('Обратная связь от AI:', 20, yPosition);
+            yPosition += 10;
+            
+            doc.setFontSize(10);
+            const feedbackLines = doc.splitTextToSize(lastChatSessionData.ai_feedback, 170);
+            doc.text(feedbackLines, 20, yPosition);
+        }
+        
+        // Сохранение файла
+        doc.save(`тренировка_${formatDate(lastChatSessionData.date).replace(/[:\s]/g, '_')}.pdf`);
+        
+    } catch (error) {
+        console.error('Ошибка создания PDF:', error);
+        alert('Ошибка при создании PDF файла');
     }
 }
 
-async function handleResetPassword() {
-    const username = document.getElementById('resetUsername').value.trim();
-    const newPassword = document.getElementById('resetNewPassword').value;
-    const passwordConfirm = document.getElementById('resetPasswordConfirm').value;
-    const errorElement = document.getElementById('resetPasswordError');
+// Функции для работы с интерфейсом
+function loadDemoChat() {
+    const chatMessagesDiv = document.getElementById('chatMessages');
+    if (!chatMessagesDiv) return;
     
-    clearErrors();
+    chatMessagesDiv.innerHTML = `
+        <div class="message ai">
+            Привет! Я готов к тренировке. Выберите тип клиента, чтобы начать тренировку.
+        </div>
+    `;
+}
+
+function resetChat() {
+    chatMessages = [];
+    const chatMessagesDiv = document.getElementById('chatMessages');
+    if (chatMessagesDiv) {
+        chatMessagesDiv.innerHTML = '';
+    }
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.value = '';
+        chatInput.disabled = true;
+    }
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) sendBtn.disabled = true;
+    const chatStatus = document.getElementById('chatStatus');
+    if (chatStatus) {
+        chatStatus.textContent = 'Ожидание начала';
+        chatStatus.className = 'chat-status';
+    }
+    const chatControls = document.getElementById('chatControls');
+    if (chatControls) chatControls.style.display = 'none';
+}
+
+function renderRecentAchievements() {
+    const recentAchievements = document.getElementById('recentAchievements');
+    if (!recentAchievements) return;
     
-    if (!username) {
-        errorElement.textContent = 'Введите никнейм';
-        errorElement.style.display = 'block';
+    if (!auth.currentUser) {
+        recentAchievements.innerHTML = '<div class="no-achievements">Нет данных</div>';
         return;
     }
     
-    if (newPassword.length < 6) {
-        errorElement.textContent = 'Пароль должен быть не менее 6 символов';
-        errorElement.style.display = 'block';
+    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
+    
+    if (userAchievements.length === 0) {
+        recentAchievements.innerHTML = `
+            <div class="no-achievements">
+                <div class="no-achievements-icon">🏆</div>
+                <div class="no-achievements-text">У вас пока нет достижений</div>
+                <div class="no-achievements-subtext">Начните тренировки, чтобы заработать достижения!</div>
+            </div>
+        `;
         return;
     }
     
-    if (newPassword !== passwordConfirm) {
-        errorElement.textContent = 'Пароли не совпадают';
-        errorElement.style.display = 'block';
-        return;
-    }
+    let recentAchievementIds = [...userAchievements].reverse().slice(0, 3);
     
-    const result = await auth.resetPassword(username, newPassword);
-    if (result.success) {
-        alert(result.message);
-        showLoginForm();
-        document.getElementById('loginUsername').value = username;
-    } else {
-        errorElement.textContent = result.message;
-        errorElement.style.display = 'block';
+    recentAchievements.innerHTML = '<div class="recent-achievements-grid"></div>';
+    const grid = recentAchievements.querySelector('.recent-achievements-grid');
+    
+    recentAchievementIds.forEach(achievementId => {
+        const achievement = achievements.find(a => a.id === achievementId);
+        if (achievement) {
+            const badge = document.createElement('div');
+            badge.className = 'recent-badge';
+            badge.innerHTML = `
+                <div class="recent-badge-icon">${achievement.icon}</div>
+                <div class="recent-badge-info">
+                    <div class="recent-badge-name">${achievement.name}</div>
+                    <div class="recent-badge-desc">${achievement.description}</div>
+                </div>
+            `;
+            badge.title = achievement.description;
+            grid.appendChild(badge);
+        }
+    });
+}
+
+async function renderHistory() {
+    if (!auth.currentUser) return;
+    
+    const historyList = document.getElementById('historyList');
+    if (!historyList) return;
+    
+    historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Загрузка истории...</div>';
+    
+    try {
+        const dbHistory = await auth.getUserTrainingHistory(auth.currentUser.id);
+        const localHistory = auth.currentUser.stats.trainingHistory || [];
+        
+        const historyMap = new Map();
+        
+        dbHistory.forEach(session => {
+            const sessionDate = new Date(session.date);
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            
+            if (sessionDate >= oneMonthAgo) {
+                historyMap.set(session.date, {
+                    id: session.id,
+                    date: session.date,
+                    scenario: session.scenario || "Тренировка",
+                    score: session.score || 0,
+                    xp: session.xp_earned || 0,
+                    clientType: session.client_type,
+                    evaluation: session.evaluation,
+                    duration: session.duration,
+                    vertical: session.vertical,
+                    messages: session.messages || [],
+                    trainer_comments: session.trainer_comments || [],
+                    prompt_used: session.prompt_used || "",
+                    ai_feedback: session.ai_feedback || "",
+                    icon: clientTypes[session.client_type]?.icon || "🎯"
+                });
+            }
+        });
+        
+        localHistory.forEach(session => {
+            if (!historyMap.has(session.date)) {
+                const sessionDate = new Date(session.date);
+                const oneMonthAgo = new Date();
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                
+                if (sessionDate >= oneMonthAgo) {
+                    historyMap.set(session.date, session);
+                }
+            }
+        });
+        
+        let history = Array.from(historyMap.values());
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        historyList.innerHTML = '';
+        
+        if (history.length === 0) {
+            historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках за последний месяц</div>';
+            return;
+        }
+        
+        history.forEach(item => {
+            const clientType = clientTypes[item.clientType];
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.onclick = () => viewChatHistory(item);
+            
+            const hasTrainerComments = item.trainer_comments && item.trainer_comments.length > 0;
+            const hasAIFeedback = item.ai_feedback && item.ai_feedback.trim().length > 0;
+            
+            historyItem.innerHTML = `
+                <div class="history-item-header">
+                    <div class="history-item-title">${clientType ? clientType.name : 'Тренировка'}</div>
+                    <div class="history-item-score">${item.score}/5</div>
+                </div>
+                <div class="history-item-details">${item.scenario || ''}</div>
+                <div class="history-item-footer">
+                    <div>
+                        <span>${formatDate(item.date)}</span>
+                        <span style="margin-left: 10px;">${item.duration ? formatDuration(item.duration) : '15:00'}</span>
+                        <span style="margin-left: 10px; color: #10a37f;">+${item.xp} XP</span>
+                        ${hasTrainerComments ? '<span style="margin-left: 10px; color: #ffc107;"><i class="fas fa-comment"></i> Есть комментарий тренера</span>' : ''}
+                        ${hasAIFeedback ? '<span style="margin-left: 10px; color: #667eea;"><i class="fas fa-robot"></i> Есть обратная связь от AI</span>' : ''}
+                    </div>
+                    <button class="view-chat-btn" onclick="event.stopPropagation(); viewChatHistory(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-comments"></i> Просмотреть чат
+                    </button>
+                </div>
+                ${item.evaluation ? `<div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #555;">${item.evaluation}</div>` : ''}
+            `;
+            historyList.appendChild(historyItem);
+        });
+    } catch (error) {
+        console.error('Ошибка рендеринга истории:', error);
+        historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Ошибка загрузки истории</div>';
     }
 }
 
-function logout() {
-    if (confirm('Вы уверены, что хотите выйти?')) {
-        auth.logout();
-        feedbackShown = false;
+async function renderProfileHistory() {
+    if (!auth.currentUser) return;
+    
+    const profileHistoryList = document.getElementById('profileHistoryList');
+    if (!profileHistoryList) return;
+    
+    try {
+        const localHistory = auth.currentUser.stats.trainingHistory || [];
+        
+        let history = [...localHistory];
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        history = history.slice(0, 5);
+        
+        profileHistoryList.innerHTML = '';
+        
+        if (history.length === 0) {
+            profileHistoryList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
+            return;
+        }
+        
+        history.forEach(item => {
+            const clientType = clientTypes[item.clientType];
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.onclick = () => viewChatHistory(item);
+            
+            historyItem.innerHTML = `
+                <div class="history-item-header">
+                    <div class="history-item-title">${clientType ? clientType.name : 'Тренировка'}</div>
+                    <div class="history-item-score">${item.score}/5</div>
+                </div>
+                <div class="history-item-details">${item.scenario || ''}</div>
+                <div class="history-item-footer">
+                    <div>
+                        <span>${formatDate(item.date)}</span>
+                        <span style="margin-left: 10px; color: #10a37f;">+${item.xp} XP</span>
+                    </div>
+                </div>
+            `;
+            profileHistoryList.appendChild(historyItem);
+        });
+    } catch (error) {
+        console.error('Ошибка рендеринга истории профиля:', error);
+        profileHistoryList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Ошибка загрузки истории</div>';
     }
 }
 
-function switchTab(tabName) {
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+function calculateXPProgress() {
+    if (!auth.currentUser) return 0;
+    const userStats = auth.currentUser.stats;
+    const currentLevel = levels.find(l => l.level === userStats.currentLevel) || levels[0];
+    const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
     
-    const navItem = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
-    const tabContent = document.getElementById(`${tabName}-tab`);
+    const currentLevelXP = currentLevel.requiredXP;
+    const nextLevelXP = nextLevel ? nextLevel.requiredXP : currentLevelXP + 100;
+    const xpProgress = userStats.totalXP - currentLevelXP;
+    const xpNeeded = nextLevelXP - currentLevelXP;
     
-    if (navItem) navItem.classList.add('active');
-    if (tabContent) tabContent.classList.add('active');
-    
-    if (auth.isTrainer()) {
-        switch(tabName) {
-            case 'trainer_dashboard':
-                loadTrainerDashboard();
-                break;
-            case 'trainer_students':
-                loadAllStudents();
-                break;
-            case 'trainer_sessions':
-                loadAllSessions();
-                break;
-            case 'trainer_statistics':
-                loadTrainerStatistics();
-                break;
-        }
-    } else {
-        switch(tabName) {
-            case 'home':
-                renderDynamicNews();
-                break;
-            case 'training':
-                updateDailyLimitNotification();
-                resetChat();
-                loadDemoChat();
-                break;
-            case 'progress':
-                renderProgressChart();
-                break;
-            case 'leaderboard':
-                updateLeaderboard('all');
-                break;
-            case 'profile':
-                renderRecentAchievements();
-                renderProfileHistory();
-                break;
-            case 'history':
-                renderHistory();
-                break;
-        }
-    }
+    return Math.min(100, (xpProgress / xpNeeded) * 100);
+}
+
+function getNextLevelXP() {
+    if (!auth.currentUser) return 100;
+    const userStats = auth.currentUser.stats;
+    const nextLevel = levels.find(l => l.level === userStats.currentLevel + 1);
+    return nextLevel ? nextLevel.requiredXP : (levels.find(l => l.level === userStats.currentLevel)?.requiredXP || 0) + 100;
 }
 
 async function loadStats() {
@@ -2679,7 +2888,6 @@ async function updateProgressUI() {
 }
 
 async function updateRankPosition() {
-
     if (!auth.currentUser || !auth.currentUser.id) {
         const rankPosition = document.getElementById('rankPosition');
         if (rankPosition) rankPosition.textContent = '-';
@@ -2906,755 +3114,6 @@ async function updateLeaderboard(filter = 'all') {
     }
 }
 
-async function renderHistory() {
-    if (!auth.currentUser) return;
-    
-    const historyList = document.getElementById('historyList');
-    if (!historyList) return;
-    
-    historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Загрузка истории...</div>';
-    
-    try {
-        const dbHistory = await auth.getUserTrainingHistory(auth.currentUser.id);
-        const localHistory = auth.currentUser.stats.trainingHistory || [];
-        
-        const historyMap = new Map();
-        
-        dbHistory.forEach(session => {
-            const sessionDate = new Date(session.date);
-            const oneMonthAgo = new Date();
-            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-            
-            if (sessionDate >= oneMonthAgo) {
-                historyMap.set(session.date, {
-                    id: session.id,
-                    date: session.date,
-                    scenario: session.scenario || "Тренировка",
-                    score: session.score || 0,
-                    xp: session.xp_earned || 0,
-                    clientType: session.client_type,
-                    evaluation: session.evaluation,
-                    duration: session.duration,
-                    vertical: session.vertical,
-                    messages: session.messages || [],
-                    trainer_comments: session.trainer_comments || [],
-                    prompt_used: session.prompt_used || "",
-                    ai_feedback: session.ai_feedback || "",
-                    icon: clientTypes[session.client_type]?.icon || "🎯"
-                });
-            }
-        });
-        
-        localHistory.forEach(session => {
-            if (!historyMap.has(session.date)) {
-                const sessionDate = new Date(session.date);
-                const oneMonthAgo = new Date();
-                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-                
-                if (sessionDate >= oneMonthAgo) {
-                    historyMap.set(session.date, session);
-                }
-            }
-        });
-        
-        let history = Array.from(historyMap.values());
-        history.sort((a, b) => new Date(b.date) - new Date(a.date));
-        
-        historyList.innerHTML = '';
-        
-        if (history.length === 0) {
-            historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках за последний месяц</div>';
-            return;
-        }
-        
-        const storageInfo = document.createElement('div');
-        storageInfo.style.cssText = 'text-align: center; font-size: 12px; color: #666; margin-bottom: 15px; padding: 8px; background: #f8f9fa; border-radius: 8px;';
-        storageInfo.innerHTML = '<i class="fas fa-info-circle"></i> История чатов хранится 30 дней. Старые диалоги автоматически удаляются.';
-        historyList.appendChild(storageInfo);
-        
-        history.forEach(item => {
-            const clientType = clientTypes[item.clientType];
-            const historyItem = document.createElement('div');
-            historyItem.className = 'history-item';
-            historyItem.onclick = () => viewChatHistory(item);
-            
-            const hasTrainerComments = item.trainer_comments && item.trainer_comments.length > 0;
-            const hasAIFeedback = item.ai_feedback && item.ai_feedback.trim().length > 0;
-            
-            historyItem.innerHTML = `
-                <div class="history-item-header">
-                    <div class="history-item-title">${clientType ? clientType.name : 'Тренировка'}</div>
-                    <div class="history-item-score">${item.score}/5</div>
-                </div>
-                <div class="history-item-details">${item.scenario || ''}</div>
-                <div class="history-item-footer">
-                    <div>
-                        <span>${formatDate(item.date)}</span>
-                        <span style="margin-left: 10px;">${item.duration ? formatDuration(item.duration) : '15:00'}</span>
-                        <span style="margin-left: 10px; color: #10a37f;">+${item.xp} XP</span>
-                        ${hasTrainerComments ? '<span style="margin-left: 10px; color: #ffc107;"><i class="fas fa-comment"></i> Есть комментарий тренера</span>' : ''}
-                        ${hasAIFeedback ? '<span style="margin-left: 10px; color: #667eea;"><i class="fas fa-robot"></i> Есть обратная связь от AI</span>' : ''}
-                    </div>
-                    <button class="view-chat-btn" onclick="event.stopPropagation(); viewChatHistory(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                        <i class="fas fa-comments"></i> Просмотреть чат
-                    </button>
-                </div>
-                ${item.evaluation ? `<div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #555;">${item.evaluation}</div>` : ''}
-            `;
-            historyList.appendChild(historyItem);
-        });
-    } catch (error) {
-        console.error('Ошибка рендеринга истории:', error);
-        historyList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Ошибка загрузки истории</div>';
-    }
-}
-
-async function renderProfileHistory() {
-    if (!auth.currentUser) return;
-    
-    const profileHistoryList = document.getElementById('profileHistoryList');
-    if (!profileHistoryList) return;
-    
-    try {
-        const localHistory = auth.currentUser.stats.trainingHistory || [];
-        
-        let history = [...localHistory];
-        history.sort((a, b) => new Date(b.date) - new Date(a.date));
-        history = history.slice(0, 5);
-        
-        profileHistoryList.innerHTML = '';
-        
-        if (history.length === 0) {
-            profileHistoryList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
-            return;
-        }
-        
-        history.forEach(item => {
-            const clientType = clientTypes[item.clientType];
-            const historyItem = document.createElement('div');
-            historyItem.className = 'history-item';
-            historyItem.onclick = () => viewChatHistory(item);
-            
-            historyItem.innerHTML = `
-                <div class="history-item-header">
-                    <div class="history-item-title">${clientType ? clientType.name : 'Тренировка'}</div>
-                    <div class="history-item-score">${item.score}/5</div>
-                </div>
-                <div class="history-item-details">${item.scenario || ''}</div>
-                <div class="history-item-footer">
-                    <div>
-                        <span>${formatDate(item.date)}</span>
-                        <span style="margin-left: 10px; color: #10a37f;">+${item.xp} XP</span>
-                    </div>
-                </div>
-            `;
-            profileHistoryList.appendChild(historyItem);
-        });
-    } catch (error) {
-        console.error('Ошибка рендеринга истории профиля:', error);
-        profileHistoryList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Ошибка загрузки истории</div>';
-    }
-}
-
-function loadDemoChat() {
-    const chatMessagesDiv = document.getElementById('chatMessages');
-    if (!chatMessagesDiv) return;
-    
-    chatMessagesDiv.innerHTML = `
-        <div class="message ai">
-            Привет! Я готов к тренировке. Выберите тип клиента, чтобы начать тренировку.
-        </div>
-    `;
-}
-
-function resetChat() {
-    chatMessages = [];
-    const chatMessagesDiv = document.getElementById('chatMessages');
-    if (chatMessagesDiv) {
-        chatMessagesDiv.innerHTML = '';
-    }
-    const chatInput = document.getElementById('chatInput');
-    if (chatInput) {
-        chatInput.value = '';
-        chatInput.disabled = true;
-    }
-    const sendBtn = document.getElementById('sendBtn');
-    if (sendBtn) sendBtn.disabled = true;
-    const chatStatus = document.getElementById('chatStatus');
-    if (chatStatus) {
-        chatStatus.textContent = 'Ожидание начала';
-        chatStatus.className = 'chat-status';
-    }
-    const chatControls = document.getElementById('chatControls');
-    if (chatControls) chatControls.style.display = 'none';
-}
-
-function renderRecentAchievements() {
-    const recentAchievements = document.getElementById('recentAchievements');
-    if (!recentAchievements) return;
-    
-    if (!auth.currentUser) {
-        recentAchievements.innerHTML = '<div class="no-achievements">Нет данных</div>';
-        return;
-    }
-    
-    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
-    
-    if (userAchievements.length === 0) {
-        recentAchievements.innerHTML = `
-            <div class="no-achievements">
-                <div class="no-achievements-icon">🏆</div>
-                <div class="no-achievements-text">У вас пока нет достижений</div>
-                <div class="no-achievements-subtext">Начните тренировки, чтобы заработать достижения!</div>
-            </div>
-        `;
-        return;
-    }
-    
-    let recentAchievementIds = [...userAchievements].reverse().slice(0, 3);
-    
-    recentAchievements.innerHTML = '<div class="recent-achievements-grid"></div>';
-    const grid = recentAchievements.querySelector('.recent-achievements-grid');
-    
-    recentAchievementIds.forEach(achievementId => {
-        const achievement = achievements.find(a => a.id === achievementId);
-        if (achievement) {
-            const badge = document.createElement('div');
-            badge.className = 'recent-badge';
-            badge.innerHTML = `
-                <div class="recent-badge-icon">${achievement.icon}</div>
-                <div class="recent-badge-info">
-                    <div class="recent-badge-name">${achievement.name}</div>
-                    <div class="recent-badge-desc">${achievement.description}</div>
-                </div>
-            `;
-            badge.title = achievement.description;
-            grid.appendChild(badge);
-        }
-    });
-}
-
-function showResultModal(title, scenario, icon, xpEarned, evaluation, duration, aiFeedback = "") {
-    const resultTitle = document.getElementById('resultTitle');
-    const resultIcon = document.getElementById('resultIcon');
-    const resultXP = document.getElementById('resultXP');
-    const resultDetails = document.getElementById('resultDetails');
-    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
-    const aiFeedbackContent = document.getElementById('aiFeedbackContent');
-    const resultModal = document.getElementById('resultModal');
-    
-    if (resultTitle) resultTitle.textContent = title;
-    if (resultIcon) resultIcon.textContent = icon;
-    if (resultXP) resultXP.textContent = `+${xpEarned} XP`;
-    
-    let details = `<div style="margin-bottom: 10px;"><strong>Сценарий:</strong> ${scenario}</div>`;
-    
-    if (evaluation) {
-        details += `<div style="margin-bottom: 5px;"><strong>Оценка:</strong> ${evaluation.score}/5</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Время:</strong> ${formatDuration(duration)}</div>`;
-        details += `<div style="margin-bottom: 5px;"><strong>Обратная связь:</strong> ${evaluation.feedback}</div>`;
-        
-        if (evaluation.criteria) {
-            details += `<div style="margin-top: 10px; font-size: 12px; color: #666;">`;
-            details += `<div>✓ Сообщений: ${evaluation.criteria.messageCount}</div>`;
-            details += `<div>✓ Профессиональных фраз: ${evaluation.criteria.professionalPhrases}</div>`;
-            details += `<div>✓ Корректное завершение: ${evaluation.criteria.properEnding ? 'Да' : 'Можно лучше'}</div>`;
-            details += `</div>`;
-        }
-    }
-    
-    if (resultDetails) resultDetails.innerHTML = details;
-    
-    if (aiFeedback && aiFeedback.trim().length > 0) {
-        if (aiFeedbackContent) aiFeedbackContent.textContent = aiFeedback;
-        if (aiFeedbackContainer) {
-            aiFeedbackContainer.style.display = 'block';
-            if (aiFeedbackContent) {
-                aiFeedbackContent.style.maxHeight = '400px';
-                aiFeedbackContent.style.overflowY = 'auto';
-            }
-        }
-    } else if (aiFeedbackContainer) {
-        aiFeedbackContainer.style.display = 'none';
-    }
-    
-    if (resultModal) resultModal.style.display = 'flex';
-    
-    const modalActions = document.querySelector('.modal-actions');
-    if (modalActions) {
-        modalActions.innerHTML = `
-            <button class="btn btn-secondary" onclick="closeResultModal()">
-                Закрыть
-            </button>
-            <button class="btn btn-primary" onclick="viewLastChatSession()">
-                <i class="fas fa-comments"></i> Просмотреть чат
-            </button>
-        `;
-    }
-}
-
-function viewLastChatSession() {
-    if (lastChatSessionData) {
-        viewChatHistory(lastChatSessionData);
-        closeResultModal();
-    } else {
-        alert('Нет данных о последнем чате');
-    }
-}
-
-function viewChatHistory(session) {
-    if (!session) return;
-    
-    const clientType = clientTypes[session.clientType];
-    
-    const chatModalTitle = document.getElementById('chatModalTitle');
-    const chatModalClientType = document.getElementById('chatModalClientType');
-    const chatModalDate = document.getElementById('chatModalDate');
-    const chatModalScore = document.getElementById('chatModalScore');
-    const messagesContainer = document.getElementById('chatModalMessages');
-    const chatModal = document.getElementById('chatModal');
-    
-    if (chatModalTitle) chatModalTitle.textContent = clientType ? clientType.name : 'Диалог с клиентом';
-    if (chatModalClientType) chatModalClientType.textContent = clientType ? clientType.name : '-';
-    if (chatModalDate) chatModalDate.textContent = formatDate(session.date);
-    if (chatModalScore) chatModalScore.textContent = session.score || 0;
-    if (messagesContainer) messagesContainer.innerHTML = '';
-    
-    let messages = [];
-    
-    if (session.messages && Array.isArray(session.messages)) {
-        messages = session.messages;
-    } else if (typeof session.messages === 'string') {
-        try {
-            messages = JSON.parse(session.messages);
-        } catch (e) {
-            console.error('Ошибка парсинга сообщений:', e);
-            messages = [];
-        }
-    }
-    
-    if (messages.length === 0 && messagesContainer) {
-        messages = [
-            { sender: 'ai', text: 'Добрый день! Чем могу помочь?', timestamp: session.date },
-            { sender: 'user', text: 'У меня проблема с...', timestamp: new Date(new Date(session.date).getTime() + 60000).toISOString() },
-            { sender: 'ai', text: 'Понимаю вашу ситуацию. Давайте решим этот вопрос.', timestamp: new Date(new Date(session.date).getTime() + 120000).toISOString() },
-            { sender: 'user', text: 'Спасибо за помощь!', timestamp: new Date(new Date(session.date).getTime() + 180000).toISOString() }
-        ];
-    }
-    
-    if (messagesContainer) {
-        messages.forEach(msg => {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${msg.sender}`;
-            messageDiv.textContent = msg.text;
-            messagesContainer.appendChild(messageDiv);
-        });
-        
-        if (session.ai_feedback?.trim()) {
-            const aiFeedbackContainer = document.createElement('div');
-            aiFeedbackContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-            aiFeedbackContainer.innerHTML = `
-                <div style="font-weight: 600; margin-bottom: 10px; color: #333;">Обратная связь от DeepSeek:</div>
-                <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 400px; overflow-y: auto;">${session.ai_feedback}</div>
-            `;
-            messagesContainer.appendChild(aiFeedbackContainer);
-        }
-        
-        if (session.trainer_comments?.length) {
-            const commentsContainer = document.createElement('div');
-            commentsContainer.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;';
-            commentsContainer.innerHTML = '<div style="font-weight: 600; margin-bottom: 10px; color: #333;">Комментарии тренера:</div>';
-            
-            session.trainer_comments.forEach(comment => {
-                const commentDiv = document.createElement('div');
-                commentDiv.className = 'trainer-comment';
-                commentDiv.innerHTML = `
-                    <div class="comment-header">
-                        <span>${comment.trainer}</span>
-                        <span>${formatDate(comment.date)}</span>
-                    </div>
-                    <div class="comment-text">${comment.comment}</div>
-                `;
-                commentsContainer.appendChild(commentDiv);
-            });
-            
-            messagesContainer.appendChild(commentsContainer);
-        }
-    }
-    
-    setTimeout(() => {
-        if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }, 100);
-    
-    if (chatModal) chatModal.style.display = 'flex';
-}
-
-function closeResultModal() {
-    const resultModal = document.getElementById('resultModal');
-    const aiFeedbackContainer = document.getElementById('aiFeedbackContainer');
-    
-    if (resultModal) resultModal.style.display = 'none';
-    if (aiFeedbackContainer) aiFeedbackContainer.style.display = 'none';
-    
-    loadDemoChat();
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-function formatDuration(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-function showAchievementNotification(achievement) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        z-index: 1001;
-        animation: slideIn 0.3s ease;
-        border-left: 4px solid #10a37f;
-        min-width: 250px;
-    `;
-    
-    notification.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="font-size: 24px;">${achievement.icon}</span>
-            <div>
-                <div style="font-weight: 600; color: #333;">🎉 Новое достижение!</div>
-                <div style="font-size: 12px; color: #666;">${achievement.name}</div>
-            </div>
-        </div>
-        <div style="font-size: 13px; color: #555;">${achievement.description}</div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-    
-    .toggle-icon {
-        transition: transform 0.3s;
-    }
-    
-    .toggle-icon.expanded {
-        transform: rotate(180deg);
-    }
-    
-    .vertical-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-out;
-    }
-    
-    .vertical-content.expanded {
-        max-height: 1000px;
-        transition: max-height 0.5s ease-in;
-    }
-    
-    .profile-stats {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-        flex-wrap: wrap;
-    }
-    
-    .profile-avatar-container {
-        text-align: center;
-    }
-    
-    .profile-avatar {
-        width: 100px;
-        height: 100px;
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        border-radius: var(--radius-xl);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 40px;
-        color: white;
-        box-shadow: var(--shadow-lg);
-        overflow: hidden;
-        position: relative;
-    }
-    
-    .profile-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: var(--radius-xl);
-    }
-    
-    .leaderboard-player {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    
-    .leaderboard-avatar-container {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 16px;
-        overflow: hidden;
-    }
-    
-    .leaderboard-avatar {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 50%;
-    }
-    
-    .rank {
-        position: relative;
-        font-weight: 700;
-        width: 50px;
-        text-align: center;
-    }
-    
-    .rank-1 .trophy {
-        color: #ffd700;
-        font-size: 20px;
-        display: inline-block;
-        animation: trophyGlow 2s infinite;
-    }
-    
-    .rank-2 .trophy {
-        color: #c0c0c0;
-        font-size: 18px;
-        display: inline-block;
-    }
-    
-    .rank-3 .trophy {
-        color: #cd7f32;
-        font-size: 16px;
-        display: inline-block;
-    }
-    
-    @keyframes trophyGlow {
-        0%, 100% {
-            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
-        }
-        50% {
-            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6);
-        }
-    }
-    
-    .training-container {
-        display: grid;
-        grid-template-columns: 1fr 1.5fr;
-        gap: 24px;
-        margin-top: 24px;
-        transition: all 0.5s ease;
-    }
-    
-    .chat-expanded {
-        animation: expandChat 0.5s ease;
-    }
-    
-    @keyframes expandChat {
-        from {
-            transform: scale(0.95);
-            opacity: 0.8;
-        }
-        to {
-            transform: scale(1);
-            opacity: 1;
-        }
-    }
-    
-    .avatar-preview-container {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
-    
-    .avatar-preview {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 48px;
-        color: white;
-        overflow: hidden;
-        border: 4px solid white;
-        box-shadow: var(--shadow-lg);
-    }
-    
-    .avatar-preview img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 50%;
-    }
-    
-    .help-text {
-        font-size: 12px;
-        color: #666;
-        margin-top: 5px;
-    }
-    
-    .file-upload-section {
-        margin-top: 20px;
-        padding: 15px;
-        background: var(--bg-surface);
-        border-radius: var(--radius-md);
-        border: 2px dashed var(--border-color);
-        text-align: center;
-    }
-    
-    .file-upload-btn {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 20px;
-        background: var(--primary-color);
-        color: white;
-        border: none;
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all var(--transition-fast);
-        margin: 0 auto 10px;
-    }
-    
-    .file-upload-btn:hover {
-        background: var(--primary-dark);
-        transform: translateY(-1px);
-    }
-    
-    .file-info {
-        font-size: 12px;
-        color: var(--text-secondary);
-        margin-top: 5px;
-    }
-    
-    .news-container {
-        position: relative;
-    }
-    
-    .news-scroll-container {
-        overflow-x: auto;
-        white-space: nowrap;
-        padding: 10px 0;
-        scrollbar-width: thin;
-        scrollbar-color: var(--primary-color) var(--bg-surface);
-    }
-    
-    .news-scroll-container::-webkit-scrollbar {
-        height: 8px;
-    }
-    
-    .news-scroll-container::-webkit-scrollbar-track {
-        background: var(--bg-surface);
-        border-radius: 4px;
-    }
-    
-    .news-scroll-container::-webkit-scrollbar-thumb {
-        background: var(--primary-color);
-        border-radius: 4px;
-    }
-    
-    .news-grid {
-        display: inline-flex;
-        gap: 15px;
-    }
-    
-    .news-item {
-        flex: 0 0 auto;
-        width: 300px;
-        white-space: normal;
-    }
-    
-    .scroll-indicator {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 10px;
-    }
-    
-    .scroll-arrow {
-        width: 36px;
-        height: 36px;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all var(--transition-fast);
-        color: var(--text-secondary);
-    }
-    
-    .scroll-arrow:hover {
-        background: var(--primary-color);
-        color: white;
-        border-color: var(--primary-color);
-        transform: scale(1.1);
-    }
-    
-    .scroll-arrow.left {
-        transform: rotate(90deg);
-    }
-    
-    .scroll-arrow.right {
-        transform: rotate(-90deg);
-    }
-    
-    .scroll-arrow.left:hover {
-        transform: rotate(90deg) scale(1.1);
-    }
-    
-    .scroll-arrow.right:hover {
-        transform: rotate(-90deg) scale(1.1);
-    }
-    
-    .chat-controls {
-        text-align: center;
-        margin-top: 10px;
-    }
-`;
-document.head.appendChild(style);
-
 function setupLeaderboardTabs() {
     const tabs = document.querySelectorAll('.leaderboard-tab');
     tabs.forEach(tab => {
@@ -3667,18 +3126,7 @@ function setupLeaderboardTabs() {
     });
 }
 
-setInterval(() => {
-    if (auth.currentUser && !auth.isTrainer()) {
-        const now = new Date();
-        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
-        
-        if (now >= tomorrow) {
-            checkAndResetDailyLimit();
-            updateDailyLimitNotification();
-        }
-    }
-}, 60000);
-
+// Функции для работы с модальными окнами
 function openAvatarModal() {
     const modal = document.getElementById('avatarModal');
     const avatarPreview = document.getElementById('avatarPreview');
@@ -3774,245 +3222,289 @@ function closeChatModal() {
     if (chatModal) chatModal.style.display = 'none';
 }
 
-// Тренерские функции (упрощённые для краткости)
-function loadTrainerInterface() {
-    const sidebar = document.getElementById('sidebar');
-    const contentWrapper = document.getElementById('contentWrapper');
-    
-    if (!sidebar || !contentWrapper) return;
-    
-    sidebar.innerHTML = `
-        <a href="javascript:void(0);" onclick="switchTab('trainer_dashboard')" class="nav-item active" data-tab="trainer_dashboard">
-            <i class="fas fa-chalkboard-teacher"></i> Дашборд
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('trainer_students')" class="nav-item" data-tab="trainer_students">
-            <i class="fas fa-users"></i> Все ученики
-        </a>
-        <a href="javascript:void(0);" onclick="switchTab('trainer_sessions')" class="nav-item" data-tab="trainer_sessions">
-            <i class="fas fa-history"></i> Все тренировки
-        </a>
-    `;
-    
-    contentWrapper.innerHTML = `
-        <div class="tab-content active" id="trainer_dashboard-tab">
-            <div class="welcome-section">
-                <div class="section-title">
-                    <i class="fas fa-chalkboard-teacher"></i>
-                    <span>Панель тренера</span>
-                </div>
-                <div id="trainerDashboardContent">
-                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
-                        Загрузка данных об участниках...
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="tab-content" id="trainer_students-tab">
-            <div class="welcome-section">
-                <div class="section-title">
-                    <i class="fas fa-users"></i>
-                    <span>Все ученики</span>
-                </div>
-                
-                <div id="trainerStudentsContent">
-                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
-                        Загрузка списка учеников...
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="tab-content" id="trainer_sessions-tab">
-            <div class="welcome-section">
-                <div class="section-title">
-                    <i class="fas fa-history"></i>
-                    <span>Все тренировки</span>
-                </div>
-                
-                <div id="trainerSessionsContent">
-                    <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
-                        Загрузка всех тренировок...
-                    </p>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    loadTrainerDashboard();
+// Функции для работы с аутентификацией
+function showRegisterForm() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+    document.getElementById('resetPasswordForm').style.display = 'none';
+    document.getElementById('trainerLoginForm').style.display = 'none';
+    clearErrors();
 }
 
-async function loadTrainerDashboard() {
-    const dashboardContent = document.getElementById('trainerDashboardContent');
-    if (!dashboardContent) return;
+function showLoginForm() {
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('resetPasswordForm').style.display = 'none';
+    document.getElementById('trainerLoginForm').style.display = 'none';
+    clearErrors();
+}
+
+function showResetPasswordForm() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('resetPasswordForm').style.display = 'block';
+    document.getElementById('trainerLoginForm').style.display = 'none';
+    clearErrors();
+}
+
+function showTrainerLogin() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('resetPasswordForm').style.display = 'none';
+    document.getElementById('trainerLoginForm').style.display = 'block';
+    clearErrors();
+}
+
+function clearErrors() {
+    const loginError = document.getElementById('loginError');
+    if (loginError) {
+        loginError.style.display = 'none';
+        loginError.textContent = '';
+        loginError.style.color = '#dc3545';
+    }
     
-    dashboardContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка данных...</p>';
-    
-    try {
-        const students = await auth.getStudents();
-        const allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
-        
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${students.length}</div>
-                    <div class="label">Всего учеников</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${allSessions?.length || 0}</div>
-                    <div class="label">Всего тренировок</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-history"></i>
-                <span>Последние тренировки</span>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 400px; overflow-y: auto; margin-top: 10px;">
-        `;
-        
-        if (allSessions?.length) {
-            allSessions.slice(0, 10).forEach(session => {
-                const student = students.find(s => s.id === session.user_id);
-                const clientType = clientTypes[session.client_type];
-                
-                html += `
-                    <div class="student-item">
-                        <div class="student-info">
-                            <div class="student-name">${student ? student.username : 'Неизвестный ученик'}</div>
-                            <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
-                            <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
-                        </div>
-                        <div class="student-stats">
-                            <div class="stat-badge">${session.score}/5</div>
-                            <div class="stat-badge">${formatDate(session.date)}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
-        }
-        
-        html += `</div>`;
-        
-        dashboardContent.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Ошибка загрузки дашборда:', error);
-        dashboardContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
+    document.getElementById('passwordMatchError').style.display = 'none';
+    document.getElementById('resetPasswordError').style.display = 'none';
+    const trainerError = document.getElementById('trainerLoginError');
+    if (trainerError) trainerError.style.display = 'none';
+}
+
+function togglePassword(fieldId, toggleElement) {
+    const field = document.getElementById(fieldId);
+    if (field.type === 'password') {
+        field.type = 'text';
+        toggleElement.textContent = '👁️‍🗨️';
+    } else {
+        field.type = 'password';
+        toggleElement.textContent = '👁️';
     }
 }
 
-async function loadAllStudents() {
-    const studentsContent = document.getElementById('trainerStudentsContent');
-    if (!studentsContent) return;
+async function handleRegister() {
+    const username = document.getElementById('registerUsername').value.trim();
+    const group = document.getElementById('registerGroup').value;
+    const password = document.getElementById('registerPassword').value;
+    const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+    const errorElement = document.getElementById('passwordMatchError');
     
-    studentsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка списка учеников...</p>';
+    clearErrors();
     
-    try {
-        const students = await auth.getStudents();
-        
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${students.length}</div>
-                    <div class="label">Всего учеников</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-users"></i>
-                <span>Все ученики</span>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
-        `;
-        
-        if (students.length > 0) {
-            students.forEach(student => {
-                html += `
-                    <div class="student-item">
-                        <div class="student-info">
-                            <div class="student-name">${student.username}</div>
-                            <div class="student-group">${student.group_name || 'Без вертикали'}</div>
-                        </div>
-                        <div class="student-stats">
-                            <div class="stat-badge">Уровень: ${student.stats?.currentLevel || 1}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
-        }
-        
-        html += `</div>`;
-        
-        studentsContent.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Ошибка загрузки учеников:', error);
-        studentsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
+    if (!username) {
+        errorElement.textContent = 'Введите никнейм';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (username.length < 3) {
+        errorElement.textContent = 'Никнейм должен быть не менее 3 символов';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (!group) {
+        errorElement.textContent = 'Выберите вертикаль';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (password.length < 6) {
+        errorElement.textContent = 'Пароль должен быть не менее 6 символов';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (password !== passwordConfirm) {
+        errorElement.textContent = 'Пароли не совпадают';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    const result = await auth.register(username, group, password);
+    if (result.success) {
+        alert(result.message);
+        auth.cache.clear();
+        showLoginForm();
+        document.getElementById('loginUsername').value = username;
+        document.getElementById('loginPassword').value = password;
+        document.getElementById('loginError').textContent = 'Регистрация успешна! Войдите в систему.';
+        document.getElementById('loginError').style.color = '#28a745';
+        document.getElementById('loginError').style.display = 'block';
+    } else {
+        errorElement.textContent = result.message;
+        errorElement.style.display = 'block';
     }
 }
 
-async function loadAllSessions() {
-    const sessionsContent = document.getElementById('trainerSessionsContent');
-    if (!sessionsContent) return;
+async function handleLogin() {
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errorElement = document.getElementById('loginError');
     
-    sessionsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка всех тренировок...</p>';
+    clearErrors();
     
-    try {
-        const students = await auth.getStudents();
-        let allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+    if (!username) {
+        errorElement.textContent = 'Введите никнейм';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (!password) {
+        errorElement.textContent = 'Введите пароль';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    const result = await auth.login(username, password);
+    if (result.success) {
+        auth.currentUser = result.user;
+        auth.isAuthenticated = true;
+        auth.userRole = result.user.role;
         
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${allSessions?.length || 0}</div>
-                    <div class="label">Всего тренировок</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-history"></i>
-                <span>Последние тренировки</span>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 600px; overflow-y: auto;">
-        `;
-        
-        if (allSessions?.length) {
-            allSessions.slice(0, 20).forEach(session => {
-                const student = students.find(s => s.id === session.user_id);
-                const clientType = clientTypes[session.client_type];
-                
-                html += `
-                    <div class="student-item">
-                        <div class="student-info">
-                            <div class="student-name">${student ? student.username : 'Неизвестный ученик'}</div>
-                            <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
-                            <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
-                        </div>
-                        <div class="student-stats">
-                            <div class="stat-badge">${session.score}/5</div>
-                            <div class="stat-badge">${formatDate(session.date)}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
-        }
-        
-        html += `</div>`;
-        
-        sessionsContent.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Ошибка загрузки тренировок:', error);
-        sessionsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
+        checkAndResetDailyLimit();
+        auth.showMainApp();
+    } else {
+        errorElement.textContent = result.message;
+        errorElement.style.color = '#dc3545';
+        errorElement.style.display = 'block';
     }
 }
+
+async function handleTrainerLogin() {
+    const username = document.getElementById('trainerUsername').value.trim();
+    const password = document.getElementById('trainerPassword').value;
+    const errorElement = document.getElementById('trainerLoginError');
+    
+    clearErrors();
+    
+    if (!username) {
+        errorElement.textContent = 'Введите логин тренера';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (!password) {
+        errorElement.textContent = 'Введите пароль';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    const result = await auth.login(username, password);
+    if (result.success) {
+        if (result.user.role === 'trainer') {
+            auth.showMainApp();
+        } else {
+            errorElement.textContent = 'У вас нет прав тренера.';
+            errorElement.style.display = 'block';
+            auth.logout();
+        }
+    } else {
+        errorElement.textContent = result.message || 'Неверный логин или пароль';
+        errorElement.style.display = 'block';
+    }
+}
+
+async function handleResetPassword() {
+    const username = document.getElementById('resetUsername').value.trim();
+    const newPassword = document.getElementById('resetNewPassword').value;
+    const passwordConfirm = document.getElementById('resetPasswordConfirm').value;
+    const errorElement = document.getElementById('resetPasswordError');
+    
+    clearErrors();
+    
+    if (!username) {
+        errorElement.textContent = 'Введите никнейм';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        errorElement.textContent = 'Пароль должен быть не менее 6 символов';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    if (newPassword !== passwordConfirm) {
+        errorElement.textContent = 'Пароли не совпадают';
+        errorElement.style.display = 'block';
+        return;
+    }
+    
+    const result = await auth.resetPassword(username, newPassword);
+    if (result.success) {
+        alert(result.message);
+        showLoginForm();
+        document.getElementById('loginUsername').value = username;
+    } else {
+        errorElement.textContent = result.message;
+        errorElement.style.display = 'block';
+    }
+}
+
+function logout() {
+    if (confirm('Вы уверены, что хотите выйти?')) {
+        auth.logout();
+        feedbackShown = false;
+    }
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    const navItem = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
+    const tabContent = document.getElementById(`${tabName}-tab`);
+    
+    if (navItem) navItem.classList.add('active');
+    if (tabContent) tabContent.classList.add('active');
+    
+    if (auth.isTrainer()) {
+        switch(tabName) {
+            case 'trainer_dashboard':
+                loadTrainerDashboard();
+                break;
+            case 'trainer_students':
+                loadAllStudents();
+                break;
+            case 'trainer_sessions':
+                loadAllSessions();
+                break;
+        }
+    } else {
+        switch(tabName) {
+            case 'home':
+                renderDynamicNews();
+                break;
+            case 'training':
+                updateDailyLimitNotification();
+                resetChat();
+                loadDemoChat();
+                break;
+            case 'progress':
+                renderProgressChart();
+                break;
+            case 'leaderboard':
+                updateLeaderboard('all');
+                break;
+            case 'profile':
+                renderRecentAchievements();
+                renderProfileHistory();
+                break;
+            case 'history':
+                renderHistory();
+                break;
+        }
+    }
+}
+
+// Интервальная проверка сброса дневного лимита
+setInterval(() => {
+    if (auth.currentUser && !auth.isTrainer()) {
+        const now = new Date();
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+        
+        if (now >= tomorrow) {
+            checkAndResetDailyLimit();
+            updateDailyLimitNotification();
+        }
+    }
+}, 60000);
