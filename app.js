@@ -369,29 +369,29 @@ class SupabaseAuth {
             }
             
             const leaderboard = users
-    .filter(user => {
-        const username = user.username.toLowerCase();
-        return !['test', 'testf', 'testm', 'testo', 'tests', 'testa'].includes(username);
-    })
-    .map(user => {
-                let stats = {};
-                try {
-                    stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
-                } catch { }
-                
-                const avatarUrl = avatarMap.get(user.id) || null;
-                
-                return {
-                    id: user.id,
-                    username: user.username || 'Без имени',
-                    group: user.group_name || 'Без вертикали',
-                    level: stats.currentLevel || 1,
-                    sessions: stats.completedSessions || 0,
-                    avgScore: stats.averageScore || 0,
-                    xp: stats.totalXP || 0,
-                    avatar_url: avatarUrl || ''
-                };
-            });
+                .filter(user => {
+                    const username = user.username.toLowerCase();
+                    return !['test', 'testf', 'testm', 'testo', 'tests', 'testa'].includes(username);
+                })
+                .map(user => {
+                    let stats = {};
+                    try {
+                        stats = typeof user.stats === 'string' ? JSON.parse(user.stats) : user.stats;
+                    } catch { }
+                    
+                    const avatarUrl = avatarMap.get(user.id) || null;
+                    
+                    return {
+                        id: user.id,
+                        username: user.username || 'Без имени',
+                        group: user.group_name || 'Без вертикали',
+                        level: stats.currentLevel || 1,
+                        sessions: stats.completedSessions || 0,
+                        avgScore: stats.averageScore || 0,
+                        xp: stats.totalXP || 0,
+                        avatar_url: avatarUrl || ''
+                    };
+                });
             
             const filtered = leaderboard.filter(user => 
                 filterVertical === 'all' || user.group === filterVertical
@@ -746,31 +746,57 @@ const levels = [
     { level: 7, name: "Легенда", requiredXP: 2200, badge: "⭐" }
 ];
 
+// РАСШИРЕННЫЙ СПИСОК ДОСТИЖЕНИЙ
 const achievements = [
+    // Базовые достижения
     { id: "first_blood", name: "Первая кровь", icon: "🎯", description: "Пройдите первую тренировку", category: "базовые", condition: "sessions >= 1" },
     { id: "quick_start", name: "Быстрый старт", icon: "⚡", description: "Пройдите 3 тренировки за неделю", category: "активность", condition: "weekly_sessions >= 3" },
     { id: "regular_5", name: "Регулярный", icon: "📅", description: "5 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 5" },
     { id: "regular_10", name: "Активный", icon: "🏃", description: "10 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 10" },
     { id: "regular_20", name: "Супер-активный", icon: "🚀", description: "20 тренировок в месяц", category: "активность", condition: "monthly_sessions >= 20" },
+    
+    // Серии
     { id: "streak_3", name: "Последователь", icon: "🔥", description: "3 дня подряд", category: "активность", condition: "streak >= 3" },
     { id: "streak_7", name: "Непрерывный", icon: "💪", description: "7 дней подряд", category: "активность", condition: "streak >= 7" },
     { id: "streak_30", name: "Легенда стрика", icon: "👑", description: "30 дней подряд", category: "активность", condition: "streak >= 30" },
+    
+    // Качество работы
     { id: "score_5", name: "Отличник", icon: "⭐", description: "Получите оценку 5", category: "качество", condition: "max_score >= 5" },
     { id: "score_avg_4", name: "Стабильный", icon: "📊", description: "Средний балл 4+", category: "качество", condition: "avg_score >= 4" },
     { id: "score_avg_4.5", name: "Профессионал", icon: "🎖️", description: "Средний балл 4.5+", category: "качество", condition: "avg_score >= 4.5" },
     { id: "perfect_5", name: "Идеально", icon: "💎", description: "5 тренировок подряд на 5", category: "качество", condition: "perfect_streak >= 5" },
+    
+    // Прогресс
     { id: "level_3", name: "Специалист", icon: "🏆", description: "Достигните 3 уровня", category: "прогресс", condition: "level >= 3" },
     { id: "level_5", name: "Мастер", icon: "👑", description: "Достигните 5 уровня", category: "прогресс", condition: "level >= 5" },
     { id: "level_7", name: "Гуру", icon: "🌟", description: "Достигните 7 уровня", category: "прогресс", condition: "level >= 7" },
     { id: "xp_500", name: "Опытный", icon: "💼", description: "Заработайте 500 XP", category: "прогресс", condition: "total_xp >= 500" },
     { id: "xp_1000", name: "Ветеран", icon: "🛡️", description: "Заработайте 1000 XP", category: "прогресс", condition: "total_xp >= 1000" },
     { id: "xp_2000", name: "Легенда XP", icon: "🏛️", description: "Заработайте 2000 XP", category: "прогресс", condition: "total_xp >= 2000" },
+    
+    // Типы клиентов
     { id: "all_types", name: "Универсал", icon: "🎭", description: "Поработайте со всеми типами клиентов", category: "типы клиентов", condition: "all_client_types" },
     { id: "master_aggressive", name: "Укротитель", icon: "😠", description: "10 тренировок с агрессивными", category: "типы клиентов", condition: "aggressive_sessions >= 10" },
     { id: "master_passive", name: "Психолог", icon: "😔", description: "10 тренировок с пассивными", category: "типы клиентов", condition: "passive_sessions >= 10" },
     { id: "master_demanding", name: "Эксперт", icon: "🧐", description: "10 тренировок с требовательными", category: "типы клиентов", condition: "demanding_sessions >= 10" },
     { id: "master_indecisive", name: "Наставник", icon: "🤔", description: "10 тренировок с нерешительными", category: "типы клиентов", condition: "indecisive_sessions >= 10" },
-    { id: "master_chatty", name: "Душа компании", icon: "😄", description: "10 тренировок с 'славными малыми'", category: "типы клиентов", condition: "chatty_sessions >= 10" }
+    { id: "master_chatty", name: "Душа компании", icon: "😄", description: "10 тренировок с 'славными малыми'", category: "типы клиентов", condition: "chatty_sessions >= 10" },
+    
+    // Новые достижения
+    { id: "early_bird", name: "Жаворонок", icon: "🌅", description: "Пройдите тренировку до 9 утра", category: "особые", condition: "early_session" },
+    { id: "night_owl", name: "Сова", icon: "🌙", description: "Пройдите тренировку после 22:00", category: "особые", condition: "late_session" },
+    { id: "weekend_warrior", name: "Выходной боец", icon: "🎪", description: "Пройдите тренировку в выходной", category: "особые", condition: "weekend_session" },
+    { id: "quick_thinker", name: "Быстрый ум", icon: "⚡", description: "Завершите тренировку менее чем за 3 минуты с оценкой 4+", category: "особые", condition: "quick_session" },
+    { id: "perfect_10", name: "Совершенство", icon: "💯", description: "10 тренировок подряд с оценкой 5", category: "качество", condition: "perfect_streak >= 10" },
+    { id: "conversation_master", name: "Мастер диалога", icon: "💬", description: "Отправьте более 100 сообщений в чатах", category: "активность", condition: "total_messages >= 100" },
+    { id: "conflict_resolver", name: "Миротворец", icon: "🕊️", description: "Решите 50 конфликтных ситуаций", category: "особые", condition: "conflicts_resolved >= 50" },
+    { id: "versatile_expert", name: "Разносторонний эксперт", icon: "🎯", description: "Пройдите по 5 тренировок каждого типа клиентов", category: "типы клиентов", condition: "all_types_5" },
+    { id: "first_month", name: "Первый месяц", icon: "📆", description: "Активно тренируйтесь в течение первого месяца", category: "активность", condition: "first_month_active" },
+    { id: "one_year", name: "Год совершенства", icon: "🎂", description: "Тренируйтесь в течение года", category: "активность", condition: "one_year_active" },
+    { id: "vertical_champion", name: "Чемпион вертикали", icon: "🥇", description: "Займите 1 место в рейтинге своей вертикали", category: "соревнование", condition: "vertical_rank == 1" },
+    { id: "top_3_vertical", name: "Топ-3 вертикали", icon: "🥉", description: "Войдите в топ-3 своей вертикали", category: "соревнование", condition: "vertical_rank <= 3" },
+    { id: "global_top_10", name: "Мировой топ-10", icon: "🌍", description: "Войдите в топ-10 общего рейтинга", category: "соревнование", condition: "global_rank <= 10" },
+    { id: "daily_challenge", name: "Дневной вызов", icon: "☀️", description: "Выполните все 5 тренировок за один день", category: "особые", condition: "daily_sessions >= 5" }
 ];
 
 let dynamicVerticalPrompts = {};
@@ -781,6 +807,7 @@ let trainingInProgress = false;
 let trainingStartTime = null;
 let chatMessages = [];
 let progressChart = null;
+let achievementsChart = null;
 let trainingTimerInterval = null;
 let selectedStudentForComment = null;
 let selectedSessionForComment = null;
@@ -1040,12 +1067,453 @@ function loadInterfaceForRole() {
     }
 }
 
+// ФУНКЦИИ ДЛЯ ВКЛАДКИ ДОСТИЖЕНИЙ
+function loadAchievementsTab() {
+    if (!auth.currentUser) return;
+    
+    const userStats = auth.currentUser.stats;
+    const userAchievements = userStats.achievementsUnlocked || [];
+    
+    // Статистика для проверки достижений
+    const stats = calculateAchievementStats();
+    
+    return `
+        <div class="achievements-section">
+            <div class="section-title">
+                <span>🏆 Достижения</span>
+            </div>
+            
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <div class="value">${userAchievements.length}/${achievements.length}</div>
+                    <div class="label">Открыто достижений</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${calculateCompletionPercentage()}%</div>
+                    <div class="label">Прогресс</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${getNextAchievement()}</div>
+                    <div class="label">Ближайшее достижение</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${getRarestAchievement()}</div>
+                    <div class="label">Самое редкое</div>
+                </div>
+            </div>
+            
+            <div class="achievements-filter">
+                <button class="filter-btn active" onclick="filterAchievements('all')">Все</button>
+                <button class="filter-btn" onclick="filterAchievements('базовые')">Базовые</button>
+                <button class="filter-btn" onclick="filterAchievements('активность')">Активность</button>
+                <button class="filter-btn" onclick="filterAchievements('качество')">Качество</button>
+                <button class="filter-btn" onclick="filterAchievements('прогресс')">Прогресс</button>
+                <button class="filter-btn" onclick="filterAchievements('типы клиентов')">Типы клиентов</button>
+                <button class="filter-btn" onclick="filterAchievements('особые')">Особые</button>
+                <button class="filter-btn" onclick="filterAchievements('соревнование')">Соревнование</button>
+                <button class="filter-btn" onclick="filterAchievements('unlocked')">Полученные</button>
+                <button class="filter-btn" onclick="filterAchievements('locked')">Не полученные</button>
+            </div>
+            
+            <div class="achievements-grid" id="achievementsGrid"></div>
+        </div>
+        
+        <div class="progress-panel">
+            <div class="section-title">
+                <span>📈 Прогресс по категориям</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="achievementsChart"></canvas>
+            </div>
+        </div>
+    `;
+}
+
+function calculateAchievementStats() {
+    if (!auth.currentUser) return {};
+    
+    const userStats = auth.currentUser.stats;
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date();
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    
+    const weeklySessions = userStats.trainingHistory?.filter(session => 
+        new Date(session.date) >= weekAgo
+    ).length || 0;
+    
+    const monthlySessions = userStats.trainingHistory?.filter(session => 
+        new Date(session.date) >= monthAgo
+    ).length || 0;
+    
+    let perfectStreak = 0;
+    const recentSessions = userStats.trainingHistory?.slice(0, 10) || [];
+    for (const session of recentSessions) {
+        if (session.score === 5) {
+            perfectStreak++;
+        } else {
+            break;
+        }
+    }
+    
+    let allClientTypes = false;
+    const clientTypesCount = {};
+    Object.keys(clientTypes).forEach(type => {
+        clientTypesCount[type] = userStats.clientTypesCompleted?.[type]?.sessions || 0;
+    });
+    
+    const uniqueTypes = Object.values(clientTypesCount).filter(count => count > 0).length;
+    allClientTypes = uniqueTypes >= Object.keys(clientTypes).length;
+    
+    const hour = today.getHours();
+    const trainingBefore9am = hour < 9;
+    const trainingAfter10pm = hour >= 22;
+    const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+    
+    let totalMessages = 0;
+    userStats.trainingHistory?.forEach(session => {
+        if (session.messages && Array.isArray(session.messages)) {
+            totalMessages += session.messages.length;
+        }
+    });
+    
+    return {
+        sessions: userStats.completedSessions,
+        max_score: Math.max(...(userStats.trainingHistory?.map(h => h.score) || [0])),
+        avg_score: userStats.averageScore,
+        level: userStats.currentLevel,
+        total_xp: userStats.totalXP,
+        streak: userStats.currentStreak,
+        aggressive_sessions: userStats.clientTypesCompleted?.aggressive?.sessions || 0,
+        passive_sessions: userStats.clientTypesCompleted?.passive?.sessions || 0,
+        demanding_sessions: userStats.clientTypesCompleted?.demanding?.sessions || 0,
+        indecisive_sessions: userStats.clientTypesCompleted?.indecisive?.sessions || 0,
+        chatty_sessions: userStats.clientTypesCompleted?.chatty?.sessions || 0,
+        weekly_sessions: weeklySessions,
+        monthly_sessions: monthlySessions,
+        perfect_streak: perfectStreak,
+        perfect_sessions: userStats.trainingHistory?.filter(s => s.score === 5).length || 0,
+        all_client_types: allClientTypes,
+        early_session: trainingBefore9am,
+        late_session: trainingAfter10pm,
+        weekend_session: isWeekend,
+        total_messages: totalMessages,
+        daily_sessions: dailySessionsUsed,
+        conflicts_resolved: Math.floor(userStats.completedSessions / 2),
+        first_month_active: userStats.completedSessions >= 10,
+        one_year_active: false
+    };
+}
+
+function calculateCompletionPercentage() {
+    if (!auth.currentUser) return 0;
+    
+    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
+    return Math.round((userAchievements.length / achievements.length) * 100);
+}
+
+function getNextAchievement() {
+    if (!auth.currentUser) return "Нет данных";
+    
+    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
+    const stats = calculateAchievementStats();
+    
+    for (const achievement of achievements) {
+        if (!userAchievements.includes(achievement.id)) {
+            return achievement.name;
+        }
+    }
+    
+    return "Все получены!";
+}
+
+function getRarestAchievement() {
+    // Здесь можно добавить логику для определения самого редкого достижения
+    return "Легенда стрика";
+}
+
+function filterAchievements(filter) {
+    const grid = document.getElementById('achievementsGrid');
+    if (!grid) return;
+    
+    const userStats = auth.currentUser.stats;
+    const userAchievements = userStats.achievementsUnlocked || [];
+    const stats = calculateAchievementStats();
+    
+    let filteredAchievements = achievements;
+    
+    if (filter !== 'all') {
+        if (filter === 'unlocked') {
+            filteredAchievements = achievements.filter(a => userAchievements.includes(a.id));
+        } else if (filter === 'locked') {
+            filteredAchievements = achievements.filter(a => !userAchievements.includes(a.id));
+        } else {
+            filteredAchievements = achievements.filter(a => a.category === filter);
+        }
+    }
+    
+    renderAchievementsGrid(filteredAchievements, userAchievements, stats);
+    
+    // Обновляем активную кнопку фильтра
+    document.querySelectorAll('.achievements-filter .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+}
+
+function renderAchievementsGrid(achievementsList, userAchievements, stats) {
+    const grid = document.getElementById('achievementsGrid');
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    
+    if (achievementsList.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-secondary);">
+                <div style="font-size: 48px; margin-bottom: 20px;">🏆</div>
+                <div style="font-size: 16px; font-weight: 500; margin-bottom: 10px;">Достижений не найдено</div>
+                <div style="font-size: 14px;">Попробуйте другой фильтр</div>
+            </div>
+        `;
+        return;
+    }
+    
+    achievementsList.forEach(achievement => {
+        const isUnlocked = userAchievements.includes(achievement.id);
+        const progress = calculateAchievementProgress(achievement, stats);
+        
+        const card = document.createElement('div');
+        card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+        
+        card.innerHTML = `
+            <div class="achievement-header">
+                <div class="achievement-icon">${achievement.icon}</div>
+                <div class="achievement-title">
+                    <div class="achievement-name">${achievement.name}</div>
+                    <div class="achievement-category">${achievement.category}</div>
+                </div>
+            </div>
+            <div class="achievement-description">${achievement.description}</div>
+            ${progress.showProgress ? `
+                <div class="achievement-progress">
+                    <div class="progress-text">
+                        <span>Прогресс</span>
+                        <span>${progress.current}/${progress.total}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progress.percentage}%"></div>
+                    </div>
+                </div>
+            ` : ''}
+            <div class="achievement-status ${isUnlocked ? 'status-unlocked' : 'status-locked'}">
+                ${isUnlocked ? '✅ Получено' : '🔒 Не получено'}
+            </div>
+        `;
+        
+        grid.appendChild(card);
+    });
+}
+
+function calculateAchievementProgress(achievement, stats) {
+    let current = 0;
+    let total = 0;
+    let showProgress = false;
+    
+    switch(achievement.condition) {
+        case "sessions >= 1":
+            current = stats.sessions;
+            total = 1;
+            showProgress = true;
+            break;
+        case "weekly_sessions >= 3":
+            current = stats.weekly_sessions;
+            total = 3;
+            showProgress = true;
+            break;
+        case "monthly_sessions >= 5":
+            current = stats.monthly_sessions;
+            total = 5;
+            showProgress = true;
+            break;
+        case "monthly_sessions >= 10":
+            current = stats.monthly_sessions;
+            total = 10;
+            showProgress = true;
+            break;
+        case "monthly_sessions >= 20":
+            current = stats.monthly_sessions;
+            total = 20;
+            showProgress = true;
+            break;
+        case "streak >= 3":
+            current = stats.streak;
+            total = 3;
+            showProgress = true;
+            break;
+        case "streak >= 7":
+            current = stats.streak;
+            total = 7;
+            showProgress = true;
+            break;
+        case "streak >= 30":
+            current = stats.streak;
+            total = 30;
+            showProgress = true;
+            break;
+        case "aggressive_sessions >= 10":
+            current = stats.aggressive_sessions;
+            total = 10;
+            showProgress = true;
+            break;
+        case "passive_sessions >= 10":
+            current = stats.passive_sessions;
+            total = 10;
+            showProgress = true;
+            break;
+        case "demanding_sessions >= 10":
+            current = stats.demanding_sessions;
+            total = 10;
+            showProgress = true;
+            break;
+        case "indecisive_sessions >= 10":
+            current = stats.indecisive_sessions;
+            total = 10;
+            showProgress = true;
+            break;
+        case "chatty_sessions >= 10":
+            current = stats.chatty_sessions;
+            total = 10;
+            showProgress = true;
+            break;
+        case "perfect_streak >= 5":
+            current = stats.perfect_streak;
+            total = 5;
+            showProgress = true;
+            break;
+        case "perfect_streak >= 10":
+            current = stats.perfect_streak;
+            total = 10;
+            showProgress = true;
+            break;
+        case "total_messages >= 100":
+            current = stats.total_messages;
+            total = 100;
+            showProgress = true;
+            break;
+        case "conflicts_resolved >= 50":
+            current = stats.conflicts_resolved;
+            total = 50;
+            showProgress = true;
+            break;
+        case "daily_sessions >= 5":
+            current = stats.daily_sessions;
+            total = 5;
+            showProgress = true;
+            break;
+        default:
+            showProgress = false;
+    }
+    
+    const percentage = showProgress ? Math.min(100, (current / total) * 100) : 0;
+    
+    return {
+        current,
+        total,
+        percentage,
+        showProgress
+    };
+}
+
+function renderAchievementsChart() {
+    if (!auth.currentUser) return;
+    
+    const ctx = document.getElementById('achievementsChart');
+    if (!ctx) return;
+    
+    const userAchievements = auth.currentUser.stats.achievementsUnlocked || [];
+    
+    // Группируем достижения по категориям
+    const categories = {};
+    achievements.forEach(achievement => {
+        if (!categories[achievement.category]) {
+            categories[achievement.category] = {
+                total: 0,
+                unlocked: 0
+            };
+        }
+        categories[achievement.category].total++;
+        
+        if (userAchievements.includes(achievement.id)) {
+            categories[achievement.category].unlocked++;
+        }
+    });
+    
+    const categoryNames = Object.keys(categories);
+    const unlockedData = categoryNames.map(cat => categories[cat].unlocked);
+    const totalData = categoryNames.map(cat => categories[cat].total);
+    
+    if (achievementsChart) {
+        achievementsChart.destroy();
+    }
+    
+    achievementsChart = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: categoryNames,
+            datasets: [
+                {
+                    label: 'Получено',
+                    data: unlockedData,
+                    backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                    borderColor: 'rgba(39, 174, 96, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Всего',
+                    data: totalData,
+                    backgroundColor: 'rgba(21, 93, 39, 0.3)',
+                    borderColor: 'rgba(21, 93, 39, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Количество достижений'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Категории'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Прогресс по категориям достижений'
+                }
+            }
+        }
+    });
+}
+
 function loadStudentInterface() {
     const sidebar = document.getElementById('sidebar');
     const contentWrapper = document.getElementById('contentWrapper');
     
     if (!sidebar || !contentWrapper) return;
     
+    // ДОБАВЛЯЕМ ВКЛАДКУ ДОСТИЖЕНИЙ В САЙДБАР
     sidebar.innerHTML = `
         <a href="javascript:void(0);" onclick="switchTab('home')" class="nav-item active" data-tab="home">
             <i class="fas fa-home"></i> Главная
@@ -1059,6 +1527,9 @@ function loadStudentInterface() {
         <a href="javascript:void(0);" onclick="switchTab('leaderboard')" class="nav-item" data-tab="leaderboard">
             <i class="fas fa-trophy"></i> Рейтинг
         </a>
+        <a href="javascript:void(0);" onclick="switchTab('achievements')" class="nav-item" data-tab="achievements">
+            <i class="fas fa-medal"></i> Достижения
+        </a>
         <a href="javascript:void(0);" onclick="switchTab('profile')" class="nav-item" data-tab="profile">
             <i class="fas fa-user-circle"></i> Профиль
         </a>
@@ -1067,6 +1538,14 @@ function loadStudentInterface() {
         </a>
     `;
     
+    // Создаем HTML для вкладки достижений
+    const achievementsTabHTML = `
+        <div class="tab-content" id="achievements-tab">
+            ${loadAchievementsTab()}
+        </div>
+    `;
+    
+    // Остальной HTML (как было)
     contentWrapper.innerHTML = `
         <div class="tab-content active" id="home-tab">
             <div class="welcome-section">
@@ -1323,6 +1802,8 @@ function loadStudentInterface() {
             </div>
         </div>
 
+        ${achievementsTabHTML}
+
         <div class="tab-content" id="leaderboard-tab">
             <div class="leaderboard">
                 <div class="leaderboard-title">
@@ -1467,6 +1948,17 @@ function loadStudentInterface() {
     renderHistory();
     renderProfileHistory();
     renderDynamicNews();
+    
+    // Инициализируем вкладку достижений
+    renderAchievementsTabContent();
+}
+
+function renderAchievementsTabContent() {
+    const tab = document.getElementById('achievements-tab');
+    if (tab) {
+        filterAchievements('all');
+        renderAchievementsChart();
+    }
 }
 
 function calculateXPProgress() {
@@ -2052,6 +2544,11 @@ async function awardXP(score, scenario, clientType, evaluation, duration, aiFeed
     loadSystemStats();
     renderRecentAchievements();
     
+    // Обновляем вкладку достижений, если она активна
+    if (document.getElementById('achievements-tab')?.classList.contains('active')) {
+        renderAchievementsTabContent();
+    }
+    
     return {
         xp: xpEarned,
         session: sessionData
@@ -2139,94 +2636,23 @@ function checkLevelUp() {
     }
 }
 
+// ОБНОВЛЕННАЯ ФУНКЦИЯ ПРОВЕРКИ ДОСТИЖЕНИЙ
 function checkAchievements(score, clientType, duration) {
     if (!auth.currentUser) return;
     
     const newAchievements = [];
     const userStats = auth.currentUser.stats;
     
-    const today = new Date();
-    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const monthAgo = new Date();
-    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    // Обновляем статистику для проверки достижений
+    const stats = calculateAchievementStats();
     
-    const weeklySessions = userStats.trainingHistory?.filter(session => 
-        new Date(session.date) >= weekAgo
-    ).length || 0;
-    
-    const monthlySessions = userStats.trainingHistory?.filter(session => 
-        new Date(session.date) >= monthAgo
-    ).length || 0;
-    
-    let verticalRank = 999;
-    let globalRank = 999;
-    
-    const hour = today.getHours();
-    const trainingBefore9am = hour < 9;
-    const trainingAfter10pm = hour >= 22;
-    const isWeekend = today.getDay() === 0 || today.getDay() === 6;
-    const quickTraining = duration < 180 && score >= 4;
-    
-    let perfectStreak = 0;
-    const recentSessions = userStats.trainingHistory?.slice(0, 5) || [];
-    for (const session of recentSessions) {
-        if (session.score === 5) {
-            perfectStreak++;
-        } else {
-            break;
-        }
-    }
-    
-    const perfectSessions = userStats.trainingHistory?.filter(s => s.score === 5).length || 0;
-    
-    let totalMessages = 0;
-    userStats.trainingHistory?.forEach(session => {
-        if (session.messages && Array.isArray(session.messages)) {
-            totalMessages += session.messages.length;
-        }
-    });
-    
-    const clientTypesSet = new Set();
-    userStats.trainingHistory?.forEach(session => {
-        if (session.clientType) clientTypesSet.add(session.clientType);
-    });
-    const allClientTypes = clientTypesSet.size >= 5;
-    
-    const stats = {
-        sessions: userStats.completedSessions,
-        max_score: Math.max(score, ...(userStats.trainingHistory?.map(h => h.score) || [0])),
-        avg_score: userStats.averageScore,
-        level: userStats.currentLevel,
-        total_xp: userStats.totalXP,
-        streak: userStats.currentStreak,
-        aggressive_sessions: userStats.clientTypesCompleted?.aggressive?.sessions || 0,
-        passive_sessions: userStats.clientTypesCompleted?.passive?.sessions || 0,
-        demanding_sessions: userStats.clientTypesCompleted?.demanding?.sessions || 0,
-        indecisive_sessions: userStats.clientTypesCompleted?.indecisive?.sessions || 0,
-        chatty_sessions: userStats.clientTypesCompleted?.chatty?.sessions || 0,
-        weekly_sessions: weeklySessions,
-        monthly_sessions: monthlySessions,
-        vertical_rank: verticalRank,
-        global_rank: globalRank,
-        early_session: trainingBefore9am,
-        late_session: trainingAfter10pm,
-        quick_session: quickTraining,
-        weekend_session: isWeekend,
-        perfect_streak: perfectStreak,
-        perfect_sessions: perfectSessions,
-        total_messages: totalMessages,
-        all_client_types: allClientTypes,
-        daily_sessions: dailySessionsUsed,
-        conflicts_resolved: Math.floor(userStats.completedSessions / 2),
-        first_month_active: true,
-        one_year_active: false
-    };
-    
+    // Проверяем каждое достижение
     achievements.forEach(achievement => {
         if (userStats.achievementsUnlocked.includes(achievement.id)) return;
         
         let conditionMet = false;
         
+        // Проверяем условие достижения
         switch(achievement.condition) {
             case "sessions >= 1": conditionMet = stats.sessions >= 1; break;
             case "weekly_sessions >= 3": conditionMet = stats.weekly_sessions >= 3; break;
@@ -2240,6 +2666,7 @@ function checkAchievements(score, clientType, duration) {
             case "avg_score >= 4": conditionMet = stats.avg_score >= 4; break;
             case "avg_score >= 4.5": conditionMet = stats.avg_score >= 4.5; break;
             case "perfect_streak >= 5": conditionMet = stats.perfect_streak >= 5; break;
+            case "perfect_streak >= 10": conditionMet = stats.perfect_streak >= 10; break;
             case "level >= 3": conditionMet = stats.level >= 3; break;
             case "level >= 5": conditionMet = stats.level >= 5; break;
             case "level >= 7": conditionMet = stats.level >= 7; break;
@@ -2252,9 +2679,43 @@ function checkAchievements(score, clientType, duration) {
             case "demanding_sessions >= 10": conditionMet = stats.demanding_sessions >= 10; break;
             case "indecisive_sessions >= 10": conditionMet = stats.indecisive_sessions >= 10; break;
             case "chatty_sessions >= 10": conditionMet = stats.chatty_sessions >= 10; break;
-            case "vertical_rank <= 3": conditionMet = stats.vertical_rank <= 3; break;
-            case "vertical_rank == 1": conditionMet = stats.vertical_rank == 1; break;
-            case "global_rank <= 10": conditionMet = stats.global_rank <= 10; break;
+            case "early_session": conditionMet = stats.early_session; break;
+            case "late_session": conditionMet = stats.late_session; break;
+            case "weekend_session": conditionMet = stats.weekend_session; break;
+            case "quick_session": conditionMet = duration < 180 && score >= 4; break;
+            case "total_messages >= 100": conditionMet = stats.total_messages >= 100; break;
+            case "conflicts_resolved >= 50": conditionMet = stats.conflicts_resolved >= 50; break;
+            case "all_types_5": 
+                const allTypes5 = Object.keys(clientTypes).every(type => 
+                    userStats.clientTypesCompleted?.[type]?.sessions >= 5
+                );
+                conditionMet = allTypes5;
+                break;
+            case "first_month_active": 
+                const registrationDate = new Date(userStats.registrationDate || new Date());
+                const monthAgo = new Date();
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                conditionMet = registrationDate >= monthAgo && stats.sessions >= 10;
+                break;
+            case "one_year_active": 
+                const yearAgo = new Date();
+                yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+                const regDate = new Date(userStats.registrationDate || new Date());
+                conditionMet = regDate <= yearAgo;
+                break;
+            case "vertical_rank == 1": 
+                // Здесь нужно добавить логику для проверки позиции в рейтинге
+                conditionMet = false;
+                break;
+            case "vertical_rank <= 3":
+                // Здесь нужно добавить логику для проверки позиции в рейтинге
+                conditionMet = false;
+                break;
+            case "global_rank <= 10":
+                // Здесь нужно добавить логику для проверки позиции в рейтинге
+                conditionMet = false;
+                break;
+            case "daily_sessions >= 5": conditionMet = stats.daily_sessions >= 5; break;
         }
         
         if (conditionMet) {
@@ -2262,6 +2723,7 @@ function checkAchievements(score, clientType, duration) {
         }
     });
     
+    // Добавляем новые достижения
     newAchievements.forEach(ach => {
         if (!userStats.achievementsUnlocked.includes(ach)) {
             userStats.achievementsUnlocked.push(ach);
@@ -2272,10 +2734,72 @@ function checkAchievements(score, clientType, duration) {
         }
     });
     
+    // Сохраняем обновлённую статистику
     if (newAchievements.length > 0) {
         auth.saveUserStats(userStats);
-        renderRecentAchievements();
+        
+        // Обновляем интерфейс достижений, если открыта соответствующая вкладка
+        if (document.getElementById('achievements-tab')?.classList.contains('active')) {
+            renderAchievementsTabContent();
+        }
     }
+}
+
+// ФУНКЦИЯ УВЕДОМЛЕНИЯ О ДОСТИЖЕНИИ
+function showAchievementNotification(achievement) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        z-index: 1001;
+        animation: slideIn 0.3s ease;
+        border-left: 4px solid var(--secondary-color);
+        min-width: 250px;
+        max-width: 300px;
+    `;
+    
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <span style="font-size: 32px;">${achievement.icon}</span>
+            <div style="flex: 1;">
+                <div style="font-weight: 600; color: var(--primary-color); font-size: 16px;">🎉 Новое достижение!</div>
+                <div style="font-size: 14px; font-weight: 500; color: var(--text-primary);">${achievement.name}</div>
+            </div>
+        </div>
+        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4;">${achievement.description}</div>
+        <div style="margin-top: 8px; font-size: 12px; color: var(--accent-color); font-weight: 500;">
+            <i class="fas fa-trophy"></i> Категория: ${achievement.category}
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Добавляем анимацию
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            notification.remove();
+            style.remove();
+        }, 300);
+    }, 5000);
 }
 
 async function renderDynamicNews() {
@@ -2609,6 +3133,9 @@ function switchTab(tabName) {
                 break;
             case 'progress':
                 renderProgressChart();
+                break;
+            case 'achievements':
+                renderAchievementsTabContent();
                 break;
             case 'leaderboard':
                 updateLeaderboard('all');
@@ -3459,346 +3986,6 @@ function formatDuration(seconds) {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-
-function showAchievementNotification(achievement) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        z-index: 1001;
-        animation: slideIn 0.3s ease;
-        border-left: 4px solid #10a37f;
-        min-width: 250px;
-    `;
-    
-    notification.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="font-size: 24px;">${achievement.icon}</span>
-            <div>
-                <div style="font-weight: 600; color: #333;">🎉 Новое достижение!</div>
-                <div style="font-size: 12px; color: #666;">${achievement.name}</div>
-            </div>
-        </div>
-        <div style="font-size: 13px; color: #555;">${achievement.description}</div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-    
-    .toggle-icon {
-        transition: transform 0.3s;
-    }
-    
-    .toggle-icon.expanded {
-        transform: rotate(180deg);
-    }
-    
-    .vertical-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-out;
-    }
-    
-    .vertical-content.expanded {
-        max-height: 1000px;
-        transition: max-height 0.5s ease-in;
-    }
-    
-    .profile-stats {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-        flex-wrap: wrap;
-    }
-    
-    .profile-avatar-container {
-        text-align: center;
-    }
-    
-    .profile-avatar {
-        width: 100px;
-        height: 100px;
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        border-radius: var(--radius-xl);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 40px;
-        color: white;
-        box-shadow: var(--shadow-lg);
-        overflow: hidden;
-        position: relative;
-    }
-    
-    .profile-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: var(--radius-xl);
-    }
-    
-    .leaderboard-player {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    
-    .leaderboard-avatar-container {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 16px;
-        overflow: hidden;
-    }
-    
-    .leaderboard-avatar {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 50%;
-    }
-    
-    .rank {
-        position: relative;
-        font-weight: 700;
-        width: 50px;
-        text-align: center;
-    }
-    
-    .rank-1 .trophy {
-        color: #ffd700;
-        font-size: 20px;
-        display: inline-block;
-        animation: trophyGlow 2s infinite;
-    }
-    
-    .rank-2 .trophy {
-        color: #c0c0c0;
-        font-size: 18px;
-        display: inline-block;
-    }
-    
-    .rank-3 .trophy {
-        color: #cd7f32;
-        font-size: 16px;
-        display: inline-block;
-    }
-    
-    @keyframes trophyGlow {
-        0%, 100% {
-            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
-        }
-        50% {
-            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6);
-        }
-    }
-    
-    .training-container {
-        display: grid;
-        grid-template-columns: 1fr 1.5fr;
-        gap: 24px;
-        margin-top: 24px;
-        transition: all 0.5s ease;
-    }
-    
-    .chat-expanded {
-        animation: expandChat 0.5s ease;
-    }
-    
-    @keyframes expandChat {
-        from {
-            transform: scale(0.95);
-            opacity: 0.8;
-        }
-        to {
-            transform: scale(1);
-            opacity: 1;
-        }
-    }
-    
-    .avatar-preview-container {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
-    
-    .avatar-preview {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 48px;
-        color: white;
-        overflow: hidden;
-        border: 4px solid white;
-        box-shadow: var(--shadow-lg);
-    }
-    
-    .avatar-preview img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 50%;
-    }
-    
-    .help-text {
-        font-size: 12px;
-        color: #666;
-        margin-top: 5px;
-    }
-    
-    .file-upload-section {
-        margin-top: 20px;
-        padding: 15px;
-        background: var(--bg-surface);
-        border-radius: var(--radius-md);
-        border: 2px dashed var(--border-color);
-        text-align: center;
-    }
-    
-    .file-upload-btn {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 20px;
-        background: var(--primary-color);
-        color: white;
-        border: none;
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all var(--transition-fast);
-        margin: 0 auto 10px;
-    }
-    
-    .file-upload-btn:hover {
-        background: var(--primary-dark);
-        transform: translateY(-1px);
-    }
-    
-    .file-info {
-        font-size: 12px;
-        color: var(--text-secondary);
-        margin-top: 5px;
-    }
-    
-    .news-container {
-        position: relative;
-    }
-    
-    .news-scroll-container {
-        overflow-x: auto;
-        white-space: nowrap;
-        padding: 10px 0;
-        scrollbar-width: thin;
-        scrollbar-color: var(--primary-color) var(--bg-surface);
-    }
-    
-    .news-scroll-container::-webkit-scrollbar {
-        height: 8px;
-    }
-    
-    .news-scroll-container::-webkit-scrollbar-track {
-        background: var(--bg-surface);
-        border-radius: 4px;
-    }
-    
-    .news-scroll-container::-webkit-scrollbar-thumb {
-        background: var(--primary-color);
-        border-radius: 4px;
-    }
-    
-    .news-grid {
-        display: inline-flex;
-        gap: 15px;
-    }
-    
-    .news-item {
-        flex: 0 0 auto;
-        width: 300px;
-        white-space: normal;
-    }
-    
-    .scroll-indicator {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 10px;
-    }
-    
-    .scroll-arrow {
-        width: 36px;
-        height: 36px;
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all var(--transition-fast);
-        color: var(--text-secondary);
-    }
-    
-    .scroll-arrow:hover {
-        background: var(--primary-color);
-        color: white;
-        border-color: var(--primary-color);
-        transform: scale(1.1);
-    }
-    
-    .scroll-arrow.left {
-        transform: rotate(90deg);
-    }
-    
-    .scroll-arrow.right {
-        transform: rotate(-90deg);
-    }
-    
-    .scroll-arrow.left:hover {
-        transform: rotate(90deg) scale(1.1);
-    }
-    
-    .scroll-arrow.right:hover {
-        transform: rotate(-90deg) scale(1.1);
-    }
-    
-    .chat-controls {
-        text-align: center;
-        margin-top: 10px;
-    }
-`;
-document.head.appendChild(style);
 
 function setupLeaderboardTabs() {
     const tabs = document.querySelectorAll('.leaderboard-tab');
