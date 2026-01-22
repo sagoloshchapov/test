@@ -1067,9 +1067,8 @@ function loadInterfaceForRole() {
     }
 }
 
-// ФУНКЦИИ ДЛЯ ВКЛАДКИ ДОСТИЖЕНИЙ
 function loadAchievementsTab() {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser) return '';
     
     const userStats = auth.currentUser.stats;
     const userAchievements = userStats.achievementsUnlocked || [];
@@ -1077,7 +1076,7 @@ function loadAchievementsTab() {
     // Статистика для проверки достижений
     const stats = calculateAchievementStats();
     
-    return `
+    let html = `
         <div class="achievements-section">
             <div class="section-title">
                 <span>🏆 Достижения</span>
@@ -1103,16 +1102,16 @@ function loadAchievementsTab() {
             </div>
             
             <div class="achievements-filter">
-                <button class="filter-btn active" onclick="filterAchievements('all')">Все</button>
-                <button class="filter-btn" onclick="filterAchievements('базовые')">Базовые</button>
-                <button class="filter-btn" onclick="filterAchievements('активность')">Активность</button>
-                <button class="filter-btn" onclick="filterAchievements('качество')">Качество</button>
-                <button class="filter-btn" onclick="filterAchievements('прогресс')">Прогресс</button>
-                <button class="filter-btn" onclick="filterAchievements('типы клиентов')">Типы клиентов</button>
-                <button class="filter-btn" onclick="filterAchievements('особые')">Особые</button>
-                <button class="filter-btn" onclick="filterAchievements('соревнование')">Соревнование</button>
-                <button class="filter-btn" onclick="filterAchievements('unlocked')">Полученные</button>
-                <button class="filter-btn" onclick="filterAchievements('locked')">Не полученные</button>
+                <button class="filter-btn active" onclick="filterAchievements('all', event)">Все</button>
+                <button class="filter-btn" onclick="filterAchievements('базовые', event)">Базовые</button>
+                <button class="filter-btn" onclick="filterAchievements('активность', event)">Активность</button>
+                <button class="filter-btn" onclick="filterAchievements('качество', event)">Качество</button>
+                <button class="filter-btn" onclick="filterAchievements('прогресс', event)">Прогресс</button>
+                <button class="filter-btn" onclick="filterAchievements('типы клиентов', event)">Типы клиентов</button>
+                <button class="filter-btn" onclick="filterAchievements('особые', event)">Особые</button>
+                <button class="filter-btn" onclick="filterAchievements('соревнование', event)">Соревнование</button>
+                <button class="filter-btn" onclick="filterAchievements('unlocked', event)">Полученные</button>
+                <button class="filter-btn" onclick="filterAchievements('locked', event)">Не полученные</button>
             </div>
             
             <div class="achievements-grid" id="achievementsGrid"></div>
@@ -1127,6 +1126,8 @@ function loadAchievementsTab() {
             </div>
         </div>
     `;
+    
+    return html;
 }
 
 function calculateAchievementStats() {
@@ -1232,7 +1233,7 @@ function getRarestAchievement() {
     return "Легенда стрика";
 }
 
-function filterAchievements(filter) {
+function filterAchievements(filter, event) {
     const grid = document.getElementById('achievementsGrid');
     if (!grid) return;
     
@@ -1254,7 +1255,24 @@ function filterAchievements(filter) {
     
     renderAchievementsGrid(filteredAchievements, userAchievements, stats);
     
-    // Обновляем активную кнопку фильтра
+ 
+    document.querySelectorAll('.achievements-filter .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+
+    if (event && event.target) {
+        event.target.classList.add('active');
+    } else {
+
+        const firstBtn = document.querySelector('.achievements-filter .filter-btn');
+        if (firstBtn) firstBtn.classList.add('active');
+    }
+}
+    
+    renderAchievementsGrid(filteredAchievements, userAchievements, stats);
+    
+
     document.querySelectorAll('.achievements-filter .filter-btn').forEach(btn => {
         btn.classList.remove('active');
     });
@@ -1452,6 +1470,7 @@ function renderAchievementsChart() {
     const unlockedData = categoryNames.map(cat => categories[cat].unlocked);
     const totalData = categoryNames.map(cat => categories[cat].total);
     
+    // Удаляем предыдущий chart если он существует
     if (achievementsChart) {
         achievementsChart.destroy();
     }
@@ -1959,10 +1978,18 @@ function loadStudentInterface() {
 
 function renderAchievementsTabContent() {
     const tab = document.getElementById('achievements-tab');
-    if (tab) {
-        filterAchievements('all');
-        renderAchievementsChart();
-    }
+    if (!tab) return;
+    
+
+    setTimeout(() => {
+        try {
+
+            filterAchievements('all');
+            renderAchievementsChart();
+        } catch (error) {
+            console.error('Ошибка инициализации вкладки достижений:', error);
+        }
+    }, 100);
 }
 
 function calculateXPProgress() {
