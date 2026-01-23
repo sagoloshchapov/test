@@ -191,6 +191,8 @@ async function viewStudentSession(sessionIdOrData) {
             }
         }, 100);
     } 
+}
+
 catch (error) {
         console.error('Ошибка:', error);
         alert('Ошибка загрузки тренировки');
