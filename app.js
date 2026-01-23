@@ -4364,4 +4364,174 @@ async function loadAllSessions() {
         console.error('Ошибка загрузки тренировок:', error);
         sessionsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
     }
+    // ========== ДОБАВЛЯЕМ ПРОПУЩЕННЫЕ ФУНКЦИИ ==========
+
+// 1. Просмотр тренировки ученика (для тренера)
+async function viewSessionAsTrainer(session, studentName) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+        align-items: center; justify-content: center; padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 20px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3><i class="fas fa-eye"></i> Тренировка ученика: ${studentName}</h3>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                        style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">
+                    ×
+                </button>
+            </div>
+            <div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div><strong>Оценка:</strong> <span style="color: ${session.score >= 4 ? '#155d27' : '#dc3545'}; font-weight: bold;">${session.score}/5</span></div>
+                        <div><strong>Дата:</strong> ${formatDate(session.date)}</div>
+                    </div>
+                    <div style="margin-bottom: 10px;"><strong>Тип клиента:</strong> ${clientTypes[session.client_type]?.name || session.client_type}</div>
+                    <div><strong>Сценарий:</strong> ${session.scenario || 'Нет описания'}</div>
+                </div>
+                
+                <h4>Диалог:</h4>
+                <div id="sessionChatView" style="max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    ${renderChatMessages(session.messages || [])}
+                </div>
+                
+                ${session.ai_feedback ? `
+                <div style="margin-bottom: 20px;">
+                    <h4>Обратная связь от AI:</h4>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; font-size: 14px; white-space: pre-wrap;">
+                        ${session.ai_feedback}
+                    </div>
+                </div>
+                ` : ''}
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button onclick="downloadChatAsPDFForTrainer(${JSON.stringify(session).replace(/"/g, '&quot;')}, '${studentName}')" 
+                            style="background: #155d27; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-download"></i> Скачать PDF
+                    </button>
+                    <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                            style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// 2. Скачать тренировку как PDF (для тренера)
+function downloadSessionPDF(session, studentName) {
+    const messages = typeof session.messages === 'string' ? JSON.parse(session.messages) : (session.messages || []);
+    
+    const printWindow = window.open('', '_blank');
+    const html = `
+        <html>
+        <head>
+            <title>Тренировка ученика: ${studentName}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #155d27; padding-bottom: 20px; }
+                .title { color: #155d27; font-size: 24px; margin-bottom: 5px; }
+                .subtitle { color: #666; font-size: 14px; }
+                .info-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                .info-table td { padding: 10px 15px; border: 1px solid #ddd; }
+                .chat-title { background: #155d27; color: white; padding: 10px; margin-bottom: 15px; border-radius: 5px; }
+                .message { margin-bottom: 15px; }
+                .ai-message { background: #e8f5e9; padding: 10px; border-left: 4px solid #4caf50; margin-right: 20px; }
+                .user-message { background: #e3f2fd; padding: 10px; border-right: 4px solid #2196f3; margin-left: 20px; text-align: right; }
+                .sender { font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #555; }
+                .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="title">Отчет по тренировке ученика</div>
+                <div class="subtitle">Диалоговый тренажер AI | Тренерский отчет</div>
+            </div>
+            
+            <table class="info-table">
+                <tr><td><strong>Ученик:</strong></td><td>${studentName}</td></tr>
+                <tr><td><strong>Оценка:</strong></td><td>${session.score}/5</td></tr>
+                <tr><td><strong>Дата тренировки:</strong></td><td>${formatDate(session.date)}</td></tr>
+                <tr><td><strong>Тип клиента:</strong></td><td>${clientTypes[session.client_type]?.name || session.client_type}</td></tr>
+                <tr><td><strong>Вертикаль:</strong></td><td>${session.vertical || 'Не указана'}</td></tr>
+                <tr><td><strong>Сценарий:</strong></td><td>${session.scenario || 'Нет описания'}</td></tr>
+            </table>
+            
+            <div class="chat-title">Полный диалог</div>
+            ${messages.map(msg => `
+                <div class="message ${msg.sender === 'ai' ? 'ai-message' : 'user-message'}">
+                    <div class="sender">${msg.sender === 'ai' ? 'Клиент (AI)' : 'Ученик'}</div>
+                    <div>${msg.text}</div>
+                </div>
+            `).join('')}
+            
+            ${session.ai_feedback ? `
+            <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+                <h3 style="color: #155d27; margin-top: 0;">Обратная связь от AI:</h3>
+                <div style="white-space: pre-wrap; font-size: 14px;">${session.ai_feedback}</div>
+            </div>
+            ` : ''}
+            
+            <div class="footer">
+                © ${new Date().getFullYear()} Dialog.AI Trainer | Отчет сгенерирован: ${new Date().toLocaleDateString('ru-RU')}
+            </div>
+        </body>
+        </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 500);
+}
+
+// 3. Вспомогательная функция для рендеринга сообщений
+function renderChatMessages(messages) {
+    if (!messages || messages.length === 0) return '<p style="color: #666; text-align: center;">Нет сообщений</p>';
+    
+    let html = '';
+    if (typeof messages === 'string') {
+        try {
+            messages = JSON.parse(messages);
+        } catch (e) {
+            return '<p style="color: #666;">Ошибка загрузки сообщений</p>';
+        }
+    }
+    
+    messages.forEach(msg => {
+        const isAI = msg.sender === 'ai';
+        html += `
+            <div style="margin-bottom: 15px; ${isAI ? '' : 'text-align: right;'}">
+                <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px; color: ${isAI ? '#155d27' : '#1e88e5'};">
+                    ${isAI ? 'Клиент (AI)' : 'Ученик'}
+                </div>
+                <div style="display: inline-block; max-width: 80%; padding: 10px; border-radius: 10px; 
+                     background: ${isAI ? '#e8f5e9' : '#e3f2fd'}; 
+                     border-left: ${isAI ? '4px solid #4caf50' : 'none'}; 
+                     border-right: ${isAI ? 'none' : '4px solid #2196f3'};">
+                    ${msg.text}
+                </div>
+            </div>
+        `;
+    });
+    
+    return html;
+}
+
+// 4. Скачать PDF для тренера (с именем ученика)
+function downloadChatAsPDFForTrainer(session, studentName) {
+    downloadSessionPDF(session, studentName);
+}
+
+// 5. Показать тренировки ученика
+async function viewStudentSessions(studentId, studentName) {
+    alert('Просмотр тренировок ученика: ' + studentName + '\nID: ' + studentId);
+    // Тут можно реализовать модальное окно с тренировками
+}
 }
