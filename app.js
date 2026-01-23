@@ -4123,7 +4123,7 @@ function closeChatModal() {
     if (chatModal) chatModal.style.display = 'none';
 }
 
-// Тренерские функции (упрощённые для краткости)
+
 function loadTrainerInterface() {
     const sidebar = document.getElementById('sidebar');
     const contentWrapper = document.getElementById('contentWrapper');
@@ -4164,6 +4164,41 @@ function loadTrainerInterface() {
                     <span>Все ученики</span>
                 </div>
                 
+                <!-- ПРОСТОЙ ПОИСК УЧЕНИКОВ -->
+                <div class="trainer-search-box">
+                    <div class="search-row">
+                        <div class="search-input-box">
+                            <label><i class="fas fa-search"></i> Поиск по имени:</label>
+                            <input type="text" id="studentSearchInput" placeholder="Введите имя ученика...">
+                        </div>
+                        
+                        <div class="search-input-box">
+                            <label><i class="fas fa-filter"></i> Вертикаль:</label>
+                            <select id="studentVerticalSelect">
+                                <option value="all">Все вертикали</option>
+                                <option value="Программа лояльности">Программа лояльности</option>
+                                <option value="ОПК">ОПК</option>
+                                <option value="Фудтех">Фудтех</option>
+                                <option value="Маркет">Маркет</option>
+                                <option value="Аптека">Аптека</option>
+                                <option value="Сборка">Сборка</option>
+                            </select>
+                        </div>
+                        
+                        <button class="search-btn-blue" onclick="searchStudents()">
+                            <i class="fas fa-search"></i> Найти
+                        </button>
+                    </div>
+                    
+                    <!-- БЫСТРЫЕ ФИЛЬТРЫ -->
+                    <div class="filter-tabs-row">
+                        <div class="filter-tab-btn active" onclick="setStudentFilter('all')">Все ученики</div>
+                        <div class="filter-tab-btn" onclick="setStudentFilter('active')">Активные</div>
+                        <div class="filter-tab-btn" onclick="setStudentFilter('new')">Новые</div>
+                        <div class="filter-tab-btn" onclick="setStudentFilter('top')">Топовые</div>
+                    </div>
+                </div>
+                
                 <div id="trainerStudentsContent">
                     <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
                         Загрузка списка учеников...
@@ -4179,6 +4214,50 @@ function loadTrainerInterface() {
                     <span>Все тренировки</span>
                 </div>
                 
+                <!-- ПРОСТОЙ ПОИСК ТРЕНИРОВОК -->
+                <div class="trainer-search-box">
+                    <div class="search-row">
+                        <div class="search-input-box">
+                            <label><i class="fas fa-user"></i> Ученик:</label>
+                            <input type="text" id="sessionStudentInput" placeholder="Имя ученика...">
+                        </div>
+                        
+                        <div class="search-input-box">
+                            <label><i class="fas fa-user-tag"></i> Тип клиента:</label>
+                            <select id="sessionTypeSelect">
+                                <option value="all">Все типы</option>
+                                <option value="aggressive">Агрессивный</option>
+                                <option value="passive">Пассивный</option>
+                                <option value="demanding">Требовательный</option>
+                                <option value="indecisive">Нерешительный</option>
+                                <option value="chatty">Славный малый</option>
+                            </select>
+                        </div>
+                        
+                        <div class="search-input-box">
+                            <label><i class="fas fa-star"></i> Оценка от:</label>
+                            <select id="sessionScoreSelect">
+                                <option value="0">Любая</option>
+                                <option value="3">3+</option>
+                                <option value="4">4+</option>
+                                <option value="5">Только 5</option>
+                            </select>
+                        </div>
+                        
+                        <button class="search-btn-blue" onclick="searchSessions()">
+                            <i class="fas fa-search"></i> Найти
+                        </button>
+                    </div>
+                    
+                    <!-- БЫСТРЫЕ ФИЛЬТРЫ -->
+                    <div class="filter-tabs-row">
+                        <div class="filter-tab-btn active" onclick="setSessionFilter('recent')">Последние</div>
+                        <div class="filter-tab-btn" onclick="setSessionFilter('best')">Лучшие</div>
+                        <div class="filter-tab-btn" onclick="setSessionFilter('commented')">С комментариями</div>
+                        <div class="filter-tab-btn" onclick="setSessionFilter('today')">Сегодня</div>
+                    </div>
+                </div>
+                
                 <div id="trainerSessionsContent">
                     <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
                         Загрузка всех тренировок...
@@ -4188,7 +4267,9 @@ function loadTrainerInterface() {
         </div>
     `;
     
-    loadTrainerDashboard();
+
+    loadAllStudents();
+    loadAllSessions();
 }
 
 async function loadTrainerDashboard() {
@@ -4363,5 +4444,225 @@ async function loadAllSessions() {
     } catch (error) {
         console.error('Ошибка загрузки тренировок:', error);
         sessionsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
+    }
+    // ПРОСТЫЕ ФУНКЦИИ ПОИСКА ДЛЯ ТРЕНЕРА
+
+// Поиск учеников
+async function searchStudents() {
+    const searchText = document.getElementById('studentSearchInput').value.toLowerCase();
+    const vertical = document.getElementById('studentVerticalSelect').value;
+    
+    const content = document.getElementById('trainerStudentsContent');
+    content.innerHTML = '<p style="color: #666; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Ищу учеников...</p>';
+    
+    try {
+        const students = await auth.getStudents();
+        
+        let filtered = students.filter(student => {
+            // Поиск по имени
+            if (searchText && !student.username.toLowerCase().includes(searchText)) {
+                return false;
+            }
+            
+            // Фильтр по вертикали
+            if (vertical !== 'all' && student.group_name !== vertical) {
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // Рендерим результат
+        renderStudentsList(filtered);
+        
+    } catch (error) {
+        content.innerHTML = '<p style="color: red;">Ошибка поиска</p>';
+    }
+}
+
+// Фильтр учеников
+function setStudentFilter(filterType) {
+    // Делаем кнопки активными
+    document.querySelectorAll('#trainer_students-tab .filter-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Применяем фильтр
+    searchStudents();
+}
+
+// Рендеринг списка учеников
+function renderStudentsList(students) {
+    const content = document.getElementById('trainerStudentsContent');
+    
+    if (students.length === 0) {
+        content.innerHTML = `
+            <div class="no-results-box">
+                <i class="fas fa-users-slash"></i>
+                <h3>Ученики не найдены</h3>
+                <p>Попробуйте изменить условия поиска</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div style="margin-top: 20px;">
+            <div style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                Найдено учеников: <strong>${students.length}</strong>
+            </div>
+            <div class="scrollable-container" style="max-height: 500px;">
+    `;
+    
+    students.forEach(student => {
+        const stats = student.stats || {};
+        
+        html += `
+            <div class="student-item">
+                <div class="student-info">
+                    <div class="student-name">${student.username}</div>
+                    <div class="student-group">${student.group_name || 'Без вертикали'}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Уровень: ${stats.currentLevel || 1} | Тренировок: ${stats.completedSessions || 0} | XP: ${stats.totalXP || 0}
+                    </div>
+                </div>
+                <div class="student-stats">
+                    <div class="stat-badge">${formatDate(student.created_at || new Date())}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div></div>`;
+    content.innerHTML = html;
+}
+
+// Поиск тренировок
+async function searchSessions() {
+    const studentName = document.getElementById('sessionStudentInput').value.toLowerCase();
+    const clientType = document.getElementById('sessionTypeSelect').value;
+    const minScore = parseInt(document.getElementById('sessionScoreSelect').value);
+    
+    const content = document.getElementById('trainerSessionsContent');
+    content.innerHTML = '<p style="color: #666; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Ищу тренировки...</p>';
+    
+    try {
+        const students = await auth.getStudents();
+        let allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        
+        // Фильтруем
+        let filtered = allSessions.filter(session => {
+            // Поиск по ученику
+            if (studentName) {
+                const student = students.find(s => s.id === session.user_id);
+                if (!student || !student.username.toLowerCase().includes(studentName)) {
+                    return false;
+                }
+            }
+            
+            // Фильтр по типу клиента
+            if (clientType !== 'all' && session.client_type !== clientType) {
+                return false;
+            }
+            
+            // Фильтр по оценке
+            if (minScore > 0 && (session.score || 0) < minScore) {
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // Рендерим результат
+        renderSessionsList(filtered, students);
+        
+    } catch (error) {
+        content.innerHTML = '<p style="color: red;">Ошибка поиска</p>';
+    }
+}
+
+// Фильтр тренировок
+function setSessionFilter(filterType) {
+    // Делаем кнопки активными
+    document.querySelectorAll('#trainer_sessions-tab .filter-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Применяем фильтр
+    searchSessions();
+}
+
+// Рендеринг списка тренировок
+function renderSessionsList(sessions, students) {
+    const content = document.getElementById('trainerSessionsContent');
+    
+    if (sessions.length === 0) {
+        content.innerHTML = `
+            <div class="no-results-box">
+                <i class="fas fa-clipboard-list"></i>
+                <h3>Тренировки не найдены</h3>
+                <p>Попробуйте изменить условия поиска</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div style="margin-top: 20px;">
+            <div style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                Найдено тренировок: <strong>${sessions.length}</strong>
+            </div>
+            <div class="scrollable-container" style="max-height: 600px;">
+    `;
+    
+    // Сортируем по дате (новые сверху)
+    sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    sessions.slice(0, 50).forEach(session => {
+        const student = students.find(s => s.id === session.user_id);
+        const clientType = clientTypes[session.client_type];
+        
+        html += `
+            <div class="student-item">
+                <div class="student-info">
+                    <div class="student-name">${student ? student.username : 'Неизвестный'}</div>
+                    <div class="student-group">${session.vertical || '-'} • ${clientType ? clientType.name : session.client_type}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                        ${session.scenario || 'Тренировка'}
+                    </div>
+                </div>
+                <div class="student-stats">
+                    <div class="stat-badge" style="background: ${session.score >= 4 ? '#d1fae5' : '#fee2e2'}; color: ${session.score >= 4 ? '#065f46' : '#991b1b'};">${session.score || 0}/5</div>
+                    <div class="stat-badge">${formatDate(session.date)}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div></div>`;
+    content.innerHTML = html;
+}
+
+// Обновляем старые функции чтобы они тоже работали
+async function loadAllStudents() {
+    const content = document.getElementById('trainerStudentsContent');
+    try {
+        const students = await auth.getStudents();
+        renderStudentsList(students);
+    } catch (error) {
+        content.innerHTML = '<p style="color: red;">Ошибка загрузки</p>';
+    }
+}
+
+async function loadAllSessions() {
+    const content = document.getElementById('trainerSessionsContent');
+    try {
+        const students = await auth.getStudents();
+        const sessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        renderSessionsList(sessions, students);
+    } catch (error) {
+        content.innerHTML = '<p style="color: red;">Ошибка загрузки</p>';
     }
 }
