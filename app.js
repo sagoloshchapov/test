@@ -371,7 +371,7 @@ class SupabaseAuth {
         }
         
         try {
-            const response = await fetch(`https://lpoaqliycyuhvdrwuyxj.supabase.co/rest/v1/${endpoint}`, {
+            const response = await fetch(`${this.supabaseUrl}/rest/v1/${endpoint}`, {
     method,
     headers: {
         'apikey': 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD',
@@ -1764,7 +1764,7 @@ ${clientTypeInstruction}
         
         const messages = chatMessages.length === 0 ? [systemMessage] : [systemMessage, ...messageHistory];
         
-        const response = await fetch(EDGE_FUNCTION_URL, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/rapid-handler`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
