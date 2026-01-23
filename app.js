@@ -4123,7 +4123,6 @@ function closeChatModal() {
     if (chatModal) chatModal.style.display = 'none';
 }
 
-// Тренерские функции (упрощённые для краткости)
 function loadTrainerInterface() {
     const sidebar = document.getElementById('sidebar');
     const contentWrapper = document.getElementById('contentWrapper');
@@ -4164,6 +4163,19 @@ function loadTrainerInterface() {
                     <span>Все ученики</span>
                 </div>
                 
+                <div class="trainer-search-section">
+                    <input type="text" class="trainer-search-input" id="studentSearchInput" placeholder="Поиск по имени ученика..." oninput="searchStudents()">
+                    <select class="trainer-search-input" id="studentVerticalFilter" onchange="searchStudents()">
+                        <option value="">Все вертикали</option>
+                        <option value="Программа лояльности">Лояльность</option>
+                        <option value="ОПК">ОПК</option>
+                        <option value="Фудтех">Фудтех</option>
+                        <option value="Маркет">Маркет</option>
+                        <option value="Аптека">Аптека</option>
+                        <option value="Сборка">Сборка</option>
+                    </select>
+                </div>
+                
                 <div id="trainerStudentsContent">
                     <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
                         Загрузка списка учеников...
@@ -4177,6 +4189,26 @@ function loadTrainerInterface() {
                 <div class="section-title">
                     <i class="fas fa-history"></i>
                     <span>Все тренировки</span>
+                </div>
+                
+                <div class="trainer-search-section">
+                    <input type="text" class="trainer-search-input" id="sessionSearchInput" placeholder="Поиск по ученику или сценарию..." oninput="searchSessions()">
+                    <select class="trainer-search-input" id="sessionVerticalFilter" onchange="searchSessions()">
+                        <option value="">Все вертикали</option>
+                        <option value="Программа лояльности">Лояльность</option>
+                        <option value="ОПК">ОПК</option>
+                        <option value="Фудтех">Фудтех</option>
+                        <option value="Маркет">Маркет</option>
+                        <option value="Аптека">Аптека</option>
+                        <option value="Сборка">Сборка</option>
+                    </select>
+                    <input type="date" class="trainer-date-input" id="sessionDateFilter" onchange="searchSessions()">
+                    <select class="trainer-search-input" id="sessionScoreFilter" onchange="searchSessions()">
+                        <option value="">Все оценки</option>
+                        <option value="5">5 звёзд</option>
+                        <option value="4">4+ звёзд</option>
+                        <option value="3">3+ звёзд</option>
+                    </select>
                 </div>
                 
                 <div id="trainerSessionsContent">
@@ -4254,6 +4286,7 @@ async function loadTrainerDashboard() {
     }
 }
 
+
 async function loadAllStudents() {
     const studentsContent = document.getElementById('trainerStudentsContent');
     if (!studentsContent) return;
@@ -4261,50 +4294,95 @@ async function loadAllStudents() {
     studentsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Загрузка списка учеников...</p>';
     
     try {
-        const students = await auth.getStudents();
-        
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${students.length}</div>
-                    <div class="label">Всего учеников</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-users"></i>
-                <span>Все ученики</span>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
-        `;
-        
-        if (students.length > 0) {
-            students.forEach(student => {
-                html += `
-                    <div class="student-item">
-                        <div class="student-info">
-                            <div class="student-name">${student.username}</div>
-                            <div class="student-group">${student.group_name || 'Без вертикали'}</div>
-                        </div>
-                        <div class="student-stats">
-                            <div class="stat-badge">Уровень: ${student.stats?.currentLevel || 1}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">Нет учеников в системе</div>';
-        }
-        
-        html += `</div>`;
-        
-        studentsContent.innerHTML = html;
-        
+        allStudents = await auth.getStudents();
+        renderStudents(allStudents);
     } catch (error) {
         console.error('Ошибка загрузки учеников:', error);
         studentsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
     }
+}
+
+function renderStudents(students) {
+    const studentsContent = document.getElementById('trainerStudentsContent');
+    if (!studentsContent) return;
+    
+    if (students.length === 0) {
+        studentsContent.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Ученики не найдены</div>';
+        return;
+    }
+    
+    let html = `
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div class="value">${students.length}</div>
+                <div class="label">Найдено учеников</div>
+            </div>
+        </div>
+        
+        <div class="section-title" style="margin-top: 25px;">
+            <i class="fas fa-users"></i>
+            <span>Список учеников</span>
+        </div>
+        
+        <div class="scrollable-container" style="max-height: 500px; overflow-y: auto;">
+    `;
+    
+    students.forEach(student => {
+        let stats = {};
+        try {
+            stats = typeof student.stats === 'string' ? JSON.parse(student.stats) : student.stats;
+        } catch { }
+        
+        html += `
+            <div class="student-item">
+                <div class="student-info">
+                    <div class="student-name">${student.username}</div>
+                    <div class="student-group">${student.group_name || 'Без вертикали'}</div>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                        Зарегистрирован: ${student.created_at ? formatDate(student.created_at) : formatDate(new Date().toISOString())}
+                    </div>
+                </div>
+                <div class="student-stats">
+                    <div class="stat-badge">Уровень: ${stats.currentLevel || 1}</div>
+                    <div class="stat-badge">Тренировок: ${stats.completedSessions || 0}</div>
+                    <div class="stat-badge">Рейтинг: ${stats.averageScore ? stats.averageScore.toFixed(1) : 0}/5</div>
+                </div>
+                <div class="trainer-actions">
+                    <button class="view-chat-btn-trainer" onclick="viewStudentSessions('${student.id}', '${student.username}')">
+                        <i class="fas fa-history"></i> Тренировки
+                    </button>
+                    <button class="comment-btn" onclick="viewStudentProfile('${student.id}')">
+                        <i class="fas fa-eye"></i> Профиль
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`;
+    
+    studentsContent.innerHTML = html;
+}
+
+function searchStudents() {
+    const searchTerm = document.getElementById('studentSearchInput').value.toLowerCase();
+    const verticalFilter = document.getElementById('studentVerticalFilter').value;
+    
+    let filtered = allStudents;
+    
+    if (searchTerm) {
+        filtered = filtered.filter(student => 
+            student.username.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    if (verticalFilter) {
+        filtered = filtered.filter(student => 
+            student.group_name === verticalFilter
+        );
+    }
+    
+    renderStudents(filtered);
 }
 
 async function loadAllSessions() {
@@ -4315,53 +4393,608 @@ async function loadAllSessions() {
     
     try {
         const students = await auth.getStudents();
-        let allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
-        
-        let html = `
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="value">${allSessions?.length || 0}</div>
-                    <div class="label">Всего тренировок</div>
-                </div>
-            </div>
-            
-            <div class="section-title" style="margin-top: 25px;">
-                <i class="fas fa-history"></i>
-                <span>Последние тренировки</span>
-            </div>
-            
-            <div class="scrollable-container" style="max-height: 600px; overflow-y: auto;">
-        `;
-        
-        if (allSessions?.length) {
-            allSessions.slice(0, 20).forEach(session => {
-                const student = students.find(s => s.id === session.user_id);
-                const clientType = clientTypes[session.client_type];
-                
-                html += `
-                    <div class="student-item">
-                        <div class="student-info">
-                            <div class="student-name">${student ? student.username : 'Неизвестный ученик'}</div>
-                            <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type}</div>
-                            <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
-                        </div>
-                        <div class="student-stats">
-                            <div class="stat-badge">${session.score}/5</div>
-                            <div class="stat-badge">${formatDate(session.date)}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<div style="text-align: center; padding: 20px; color: #666;">Нет данных о тренировках</div>';
-        }
-        
-        html += `</div>`;
-        
-        sessionsContent.innerHTML = html;
-        
+        allSessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+        renderSessions(allSessions, students);
     } catch (error) {
         console.error('Ошибка загрузки тренировок:', error);
         sessionsContent.innerHTML = '<p style="color: #dc3545;">Ошибка загрузки данных</p>';
     }
+}
+
+function renderSessions(sessions, students) {
+    const sessionsContent = document.getElementById('trainerSessionsContent');
+    if (!sessionsContent) return;
+    
+    if (sessions.length === 0) {
+        sessionsContent.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Тренировки не найдены</div>';
+        return;
+    }
+    
+    let html = `
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div class="value">${sessions.length}</div>
+                <div class="label">Найдено тренировок</div>
+            </div>
+        </div>
+        
+        <div class="section-title" style="margin-top: 25px;">
+            <i class="fas fa-history"></i>
+            <span>Последние тренировки</span>
+        </div>
+        
+        <div class="scrollable-container" style="max-height: 600px; overflow-y: auto;">
+    `;
+    
+    sessions.slice(0, 50).forEach(session => {
+        const student = students.find(s => s.id === session.user_id);
+        const clientType = clientTypes[session.client_type];
+        
+        html += `
+            <div class="student-item">
+                <div class="student-info">
+                    <div class="student-name">${student ? student.username : 'Неизвестный ученик'}</div>
+                    <div class="student-group">${session.vertical || 'Без вертикали'} • ${clientType ? clientType.name : session.client_type || 'Тип не указан'}</div>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
+                    <div style="margin-top: 3px; font-size: 11px; color: #888;">${formatDate(session.date)}</div>
+                </div>
+                <div class="student-stats">
+                    <div class="stat-badge" style="background: ${session.score >= 4 ? '#d1fae5' : '#fef3c7'}; color: ${session.score >= 4 ? '#065f46' : '#92400e'};">${session.score || 0}/5</div>
+                    <div class="stat-badge">${session.duration ? formatDuration(session.duration) : '??:??'}</div>
+                </div>
+                <div class="trainer-actions">
+                    <button class="view-chat-btn-trainer" onclick="viewTrainerSession('${session.id}')">
+                        <i class="fas fa-comments"></i> Просмотр
+                    </button>
+                    <button class="comment-btn" onclick="addCommentToSession('${session.id}', '${student ? student.username : 'Ученик'}')">
+                        <i class="fas fa-comment"></i> Комментарий
+                    </button>
+                    <button class="view-chat-btn-trainer" onclick="downloadSessionPDF('${session.id}')" title="Скачать PDF">
+                        <i class="fas fa-download"></i> PDF
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`;
+    
+    sessionsContent.innerHTML = html;
+}
+
+function searchSessions() {
+    const searchTerm = document.getElementById('sessionSearchInput').value.toLowerCase();
+    const verticalFilter = document.getElementById('sessionVerticalFilter').value;
+    const dateFilter = document.getElementById('sessionDateFilter').value;
+    const scoreFilter = document.getElementById('sessionScoreFilter').value;
+    
+    const sessionsContent = document.getElementById('trainerSessionsContent');
+    if (!sessionsContent) return;
+    
+    sessionsContent.innerHTML = '<p style="color: #666; margin-bottom: 15px; font-size: 14px;">Поиск...</p>';
+    
+    setTimeout(async () => {
+        try {
+            const students = await auth.getStudents();
+            let sessions = await auth.getAllTrainingSessions({ vertical: 'all' });
+            
+            if (searchTerm) {
+                sessions = sessions.filter(session => {
+                    const student = students.find(s => s.id === session.user_id);
+                    return (
+                        (student && student.username.toLowerCase().includes(searchTerm)) ||
+                        (session.scenario && session.scenario.toLowerCase().includes(searchTerm)) ||
+                        (session.client_type && session.client_type.toLowerCase().includes(searchTerm))
+                    );
+                });
+            }
+            
+            if (verticalFilter) {
+                sessions = sessions.filter(session => 
+                    session.vertical === verticalFilter
+                );
+            }
+            
+            if (dateFilter) {
+                sessions = sessions.filter(session => {
+                    const sessionDate = new Date(session.date).toISOString().split('T')[0];
+                    return sessionDate === dateFilter;
+                });
+            }
+            
+            if (scoreFilter) {
+                const minScore = parseInt(scoreFilter);
+                sessions = sessions.filter(session => 
+                    session.score >= minScore
+                );
+            }
+            
+            renderSessions(sessions, students);
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
+        }
+    }, 300);
+    // ===== ТРЕНЕРСКИЕ ФУНКЦИИ =====
+
+async function viewStudentSessions(studentId, studentName) {
+    try {
+        const sessions = await auth.getUserTrainingHistory(studentId);
+        const students = await auth.getStudents();
+        const student = students.find(s => s.id === studentId);
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 800px; max-height: 80vh;">
+                <div class="modal-header">
+                    <div class="result-icon">📊</div>
+                    <h3 class="result-title">Тренировки ученика: ${studentName}</h3>
+                    <button class="btn btn-icon" onclick="this.closest('.modal').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <div class="student-info" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <div><strong>Вертикаль:</strong> ${student?.group_name || 'Не указана'}</div>
+                        <div><strong>Всего тренировок:</strong> ${sessions.length}</div>
+                    </div>
+                    <div class="scrollable-container" style="max-height: 400px;">
+                        ${sessions.length === 0 ? 
+                            '<div style="text-align: center; padding: 40px; color: #666;">Нет тренировок</div>' : 
+                            sessions.map(session => `
+                                <div class="student-item" style="margin-bottom: 10px;">
+                                    <div class="student-info">
+                                        <div>${formatDate(session.date)}</div>
+                                        <div style="font-size: 12px; color: #666;">${session.scenario || 'Тренировка'}</div>
+                                    </div>
+                                    <div class="student-stats">
+                                        <div class="stat-badge">${session.score || 0}/5</div>
+                                    </div>
+                                    <div class="trainer-actions">
+                                        <button class="view-chat-btn-trainer" onclick="viewTrainerSession('${session.id}')">
+                                            <i class="fas fa-comments"></i> Просмотр
+                                        </button>
+                                        <button class="comment-btn" onclick="addCommentToSession('${session.id}', '${studentName}')">
+                                            <i class="fas fa-comment"></i> Комментарий
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка загрузки тренировок ученика');
+    }
+}
+
+async function viewStudentProfile(studentId) {
+    try {
+        const students = await auth.getStudents();
+        const student = students.find(s => s.id === studentId);
+        
+        if (!student) {
+            alert('Ученик не найден');
+            return;
+        }
+        
+        let stats = {};
+        try {
+            stats = typeof student.stats === 'string' ? JSON.parse(student.stats) : student.stats;
+        } catch { }
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <div class="result-icon">👤</div>
+                    <h3 class="result-title">Профиль ученика: ${student.username}</h3>
+                    <button class="btn btn-icon" onclick="this.closest('.modal').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                        <div>
+                            <h4 style="margin-bottom: 10px;">Основная информация</h4>
+                            <div style="margin-bottom: 8px;"><strong>Никнейм:</strong> ${student.username}</div>
+                            <div style="margin-bottom: 8px;"><strong>Вертикаль:</strong> ${student.group_name || 'Не указана'}</div>
+                            <div style="margin-bottom: 8px;"><strong>Роль:</strong> ${student.role || 'user'}</div>
+                        </div>
+                        <div>
+                            <h4 style="margin-bottom: 10px;">Статистика</h4>
+                            <div style="margin-bottom: 8px;"><strong>Уровень:</strong> ${stats.currentLevel || 1}</div>
+                            <div style="margin-bottom: 8px;"><strong>Тренировок:</strong> ${stats.completedSessions || 0}</div>
+                            <div style="margin-bottom: 8px;"><strong>Средний балл:</strong> ${stats.averageScore ? stats.averageScore.toFixed(1) : 0}/5</div>
+                            <div style="margin-bottom: 8px;"><strong>Всего XP:</strong> ${stats.totalXP || 0}</div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 10px;">Достижения</h4>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        ${stats.achievementsUnlocked?.length > 0 ? 
+                            `<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                ${stats.achievementsUnlocked.map(ach => `<span style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${ach}</span>`).join('')}
+                            </div>` : 
+                            '<div style="color: #666; text-align: center;">Нет достижений</div>'
+                        }
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button class="btn btn-primary" onclick="viewStudentSessions('${studentId}', '${student.username}')">
+                            <i class="fas fa-history"></i> Тренировки ученика
+                        </button>
+                        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">
+                            Закрыть
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка загрузки профиля ученика');
+    }
+}
+
+async function viewTrainerSession(sessionId) {
+    try {
+        const sessions = await auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
+        const session = sessions && sessions.length > 0 ? sessions[0] : null;
+        
+        if (!session) {
+            alert('Тренировка не найдена');
+            return;
+        }
+        
+        const students = await auth.getStudents();
+        const student = students.find(s => s.id === session.user_id);
+        const clientType = clientTypes[session.client_type];
+        
+        // Парсим сообщения
+        let messages = [];
+        if (session.messages) {
+            try {
+                messages = typeof session.messages === 'string' ? 
+                    JSON.parse(session.messages) : session.messages;
+            } catch (e) {
+                console.error('Ошибка парсинга сообщений:', e);
+                messages = [{ sender: 'ai', text: 'Ошибка загрузки сообщений' }];
+            }
+        }
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 800px; max-height: 90vh; width: 90vw;">
+                <div class="modal-header">
+                    <div class="result-icon">💬</div>
+                    <div>
+                        <h3 class="result-title">Диалог ученика</h3>
+                        <div style="font-size: 14px; color: #666; margin-top: 5px;">
+                            ${student?.username || 'Неизвестный ученик'} • ${formatDate(session.date)} • ${session.score || 0}/5
+                        </div>
+                    </div>
+                    <button class="btn btn-icon" onclick="this.closest('.modal').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div style="display: flex; flex: 1; gap: 20px; margin-bottom: 20px; min-height: 0; overflow: hidden;">
+                    <div style="flex: 1; display: flex; flex-direction: column; background: #f8f9fa; border-radius: 8px; overflow: hidden;">
+                        <div style="padding: 16px; background: white; border-bottom: 1px solid #ddd; font-weight: 600;">
+                            <i class="fas fa-comments"></i> История диалога
+                        </div>
+                        <div style="flex: 1; overflow-y: auto; padding: 16px;" id="trainerChatMessages">
+                            ${messages.length === 0 ? 
+                                '<div style="text-align: center; padding: 40px; color: #666;">Нет данных диалога</div>' :
+                                messages.map(msg => `
+                                    <div style="margin-bottom: 15px; max-width: 80%; ${msg.sender === 'user' ? 'margin-left: auto;' : ''}">
+                                        <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px; color: ${msg.sender === 'ai' ? '#155d27' : '#1e88e5'};">
+                                            ${msg.sender === 'ai' ? 'Клиент (AI)' : 'Ученик'}
+                                        </div>
+                                        <div style="padding: 10px; border-radius: 8px; background: ${msg.sender === 'ai' ? '#e8f5e9' : '#e3f2fd'}; border-left: 3px solid ${msg.sender === 'ai' ? '#4caf50' : '#2196f3'};">
+                                            ${msg.text}
+                                        </div>
+                                    </div>
+                                `).join('')
+                            }
+                        </div>
+                    </div>
+                    
+                    <div style="flex: 1; display: flex; flex-direction: column; background: #f8f9fa; border-radius: 8px; overflow: hidden;">
+                        <div style="padding: 16px; background: white; border-bottom: 1px solid #ddd; font-weight: 600;">
+                            <i class="fas fa-chart-line"></i> Информация о тренировке
+                        </div>
+                        <div style="flex: 1; overflow-y: auto; padding: 16px;">
+                            <div style="margin-bottom: 20px;">
+                                <div style="font-weight: 600; margin-bottom: 10px;">Детали тренировки</div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                        <span>Ученик:</span>
+                                        <span><strong>${student?.username || 'Неизвестный'}</strong></span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                        <span>Тип клиента:</span>
+                                        <span>${clientType ? clientType.name : session.client_type || 'Не указан'}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                        <span>Вертикаль:</span>
+                                        <span>${session.vertical || 'Не указана'}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                        <span>Оценка:</span>
+                                        <span style="font-weight: bold; color: ${session.score >= 4 ? '#28a745' : session.score >= 3 ? '#ffc107' : '#dc3545'}">${session.score || 0}/5</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                        <span>Длительность:</span>
+                                        <span>${session.duration ? formatDuration(session.duration) : '??:??'}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                                        <span>Дата:</span>
+                                        <span>${formatDate(session.date)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${session.ai_feedback ? `
+                                <div style="margin-bottom: 20px;">
+                                    <div style="font-weight: 600; margin-bottom: 10px;">Обратная связь от AI</div>
+                                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; line-height: 1.6; white-space: pre-wrap; max-height: 200px; overflow-y: auto;">
+                                        ${session.ai_feedback}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${session.trainer_comments && session.trainer_comments.length > 0 ? `
+                                <div style="margin-bottom: 20px;">
+                                    <div style="font-weight: 600; margin-bottom: 10px;">Комментарии тренеров</div>
+                                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                                        ${session.trainer_comments.map(comment => `
+                                            <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; &:last-child { border-bottom: none; }">
+                                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; color: #666;">
+                                                    <span><strong>${comment.trainer}</strong></span>
+                                                    <span>${formatDate(comment.date)}</span>
+                                                </div>
+                                                <div style="font-size: 14px; line-height: 1.5;">${comment.comment}</div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 12px; padding: 0 20px 20px;">
+                    <button class="btn btn-primary" onclick="downloadSessionPDF('${sessionId}')">
+                        <i class="fas fa-download"></i> Скачать PDF
+                    </button>
+                    <button class="btn btn-secondary" onclick="addCommentToSession('${sessionId}', '${student?.username || 'Ученик'}')">
+                        <i class="fas fa-comment"></i> Добавить комментарий
+                    </button>
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()" style="margin-left: auto;">
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Прокручиваем вниз
+        setTimeout(() => {
+            const chatContainer = modal.querySelector('#trainerChatMessages');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }, 100);
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка загрузки тренировки');
+    }
+}
+
+async function addCommentToSession(sessionId, studentName) {
+    selectedSessionForComment = sessionId;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="result-icon">💬</div>
+                <h3 class="result-title">Комментарий к тренировке</h3>
+                <button class="btn btn-icon" onclick="this.closest('.modal').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <div><strong>Ученик:</strong> ${studentName}</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ваш комментарий:</label>
+                    <textarea class="form-textarea" id="trainerCommentText" placeholder="Введите комментарий... (будет виден ученику)" rows="4"></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="submitTrainerComment()" style="flex: 1;">
+                        <i class="fas fa-paper-plane"></i> Отправить
+                    </button>
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()" style="flex: 1;">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function submitTrainerComment() {
+    const commentText = document.getElementById('trainerCommentText')?.value.trim();
+    
+    if (!commentText) {
+        alert('Введите текст комментария');
+        return;
+    }
+    
+    if (!selectedSessionForComment) {
+        alert('Сессия не выбрана');
+        return;
+    }
+    
+    try {
+        const success = await auth.addTrainerComment(selectedSessionForComment, commentText);
+        
+        if (success) {
+            alert('Комментарий успешно добавлен!');
+            document.querySelector('.modal')?.remove();
+            
+            // Обновляем текущую вкладку если нужно
+            if (document.getElementById('trainer_sessions-tab')?.classList.contains('active')) {
+                loadAllSessions();
+            }
+        } else {
+            alert('Ошибка добавления комментария');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка добавления комментария');
+    }
+}
+
+async function downloadSessionPDF(sessionId) {
+    try {
+        const sessions = await auth.supabaseRequest(`training_sessions?id=eq.${sessionId}`);
+        const session = sessions && sessions.length > 0 ? sessions[0] : null;
+        
+        if (!session) {
+            alert('Тренировка не найдена');
+            return;
+        }
+        
+        const students = await auth.getStudents();
+        const student = students.find(s => s.id === session.user_id);
+        const clientType = clientTypes[session.client_type];
+        
+        // Парсим сообщения
+        let messages = [];
+        if (session.messages) {
+            try {
+                messages = typeof session.messages === 'string' ? 
+                    JSON.parse(session.messages) : session.messages;
+            } catch (e) {
+                console.error('Ошибка парсинга сообщений:', e);
+                messages = [{ sender: 'ai', text: 'Ошибка загрузки сообщений' }];
+            }
+        }
+        
+        const printWindow = window.open('', '_blank');
+        const html = `
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #333; }
+                    .title { color: #155d27; font-size: 24px; margin-bottom: 10px; }
+                    .subtitle { color: #666; font-size: 14px; }
+                    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                    .info-table td { padding: 8px 12px; border: 1px solid #ddd; }
+                    .chat-title { background: #155d27; color: white; padding: 10px; margin: 25px 0 15px; }
+                    .message { margin-bottom: 15px; }
+                    .ai-message { background: #f0f9f0; padding: 10px; border-left: 4px solid #4caf50; }
+                    .user-message { background: #f0f8ff; padding: 10px; border-left: 4px solid #2196f3; text-align: left; }
+                    .sender { font-weight: bold; margin-bottom: 5px; font-size: 12px; }
+                    .score { font-size: 20px; font-weight: bold; color: #155d27; text-align: center; margin: 20px 0; }
+                    .feedback-section { margin-top: 30px; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; }
+                    .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #666; padding-top: 20px; border-top: 1px solid #ddd; }
+                    @media print {
+                        body { margin: 10px; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title">Отчет по тренировочному диалогу</div>
+                    <div class="subtitle">Тренерская панель | ${new Date().toLocaleDateString('ru-RU')}</div>
+                </div>
+                
+                <table class="info-table">
+                    <tr><td><strong>Ученик:</strong></td><td>${student?.username || 'Неизвестный ученик'}</td></tr>
+                    <tr><td><strong>Вертикаль:</strong></td><td>${session.vertical || 'Не указана'}</td></tr>
+                    <tr><td><strong>Тип клиента:</strong></td><td>${clientType ? clientType.name : session.client_type || 'Не указан'}</td></tr>
+                    <tr><td><strong>Сценарий:</strong></td><td>${session.scenario || 'Тренировка'}</td></tr>
+                    <tr><td><strong>Оценка:</strong></td><td>${session.score || 0}/5</td></tr>
+                    <tr><td><strong>Длительность:</strong></td><td>${session.duration ? formatDuration(session.duration) : '??:??'}</td></tr>
+                    <tr><td><strong>Дата тренировки:</strong></td><td>${formatDate(session.date)}</td></tr>
+                    <tr><td><strong>Дата отчета:</strong></td><td>${new Date().toLocaleDateString('ru-RU')}</td></tr>
+                </table>
+                
+                <div class="score">Итоговая оценка: ${session.score || 0}/5</div>
+                
+                <div class="chat-title">Полный диалог (${messages.length} сообщений)</div>
+                ${messages.map(msg => `
+                    <div class="message ${msg.sender === 'ai' ? 'ai-message' : 'user-message'}">
+                        <div class="sender">${msg.sender === 'ai' ? 'Клиент' : 'Ученик'}</div>
+                        <div>${msg.text}</div>
+                    </div>
+                `).join('')}
+                
+                ${session.ai_feedback ? `
+                <div class="feedback-section">
+                    <strong>Обратная связь от DeepSeek AI:</strong><br><br>
+                    ${session.ai_feedback}
+                </div>
+                ` : ''}
+                
+                ${session.trainer_comments && session.trainer_comments.length > 0 ? `
+                <div class="feedback-section">
+                    <strong>Комментарии тренеров:</strong><br><br>
+                    ${session.trainer_comments.map(comment => `
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-weight: bold;">${comment.trainer}</div>
+                            <div style="font-size: 12px; color: #666;">${formatDate(comment.date)}</div>
+                            <div style="margin-top: 5px;">${comment.comment}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+                
+                <div class="footer">
+                    © ${new Date().getFullYear()} Dialog.AI Trainer | Тренерская панель | Magnit-OMNI
+                </div>
+                
+                <div class="no-print" style="margin-top: 30px; text-align: center;">
+                    <button onclick="window.print()" style="padding: 10px 20px; background: #155d27; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        🖨️ Распечатать отчет
+                    </button>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            printWindow.print();
+        }, 500);
+    } catch (error) {
+        console.error('Ошибка генерации PDF:', error);
+        alert('Ошибка при создании PDF');
+    }
+}
 }
