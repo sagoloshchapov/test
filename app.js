@@ -4666,3 +4666,4 @@ async function loadAllSessions() {
         content.innerHTML = '<p style="color: red;">Ошибка загрузки</p>';
     }
 }
+}
