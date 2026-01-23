@@ -371,11 +371,16 @@ class SupabaseAuth {
         }
         
         try {
-            const response = await fetch('/api/supabase-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ endpoint, method, body })
-            });
+            const response = await fetch(`https://lpoaqliycyuhvdrwuyxj.supabase.co/rest/v1/${endpoint}`, {
+    method,
+    headers: {
+        'apikey': 'sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD',
+        'Authorization': 'Bearer sb_publishable_uxkhuA-ngwjNjfaZdHCs7Q_FXOQRrSD',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+    },
+    body: body ? JSON.stringify(body) : undefined
+});
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -598,16 +603,11 @@ class SupabaseAuth {
             const user = users[0];
             const passwordHash = this.hashPassword(newPassword);
             
-            await fetch('/api/supabase-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    endpoint: `users?id=eq.${user.id}`,
-                    method: 'PATCH',
-                    body: { password_hash: passwordHash },
-                    headers: { 'Prefer': 'return=representation' }
-                })
-            });
+            await this.supabaseRequest(
+    `users?id=eq.${user.id}`,
+    'PATCH',
+    { password_hash: passwordHash }
+);
             
             return { success: true, message: 'Пароль успешно изменен' };
         } catch (error) {
@@ -616,40 +616,29 @@ class SupabaseAuth {
         }
     }
             
-    async saveUserStats(stats) {
-        if (!this.currentUser?.id) {
-            console.error('Нет пользователя для сохранения');
-            return false;
+    async resetPassword(username, newPassword) {
+    try {
+        const users = await this.supabaseRequest(`users?username=eq.${encodeURIComponent(username)}`);
+        
+        if (!users?.length) {
+            return { success: false, message: 'Пользователь не найден' };
         }
         
-        try {
-            const statsJson = JSON.stringify(stats);
-
-            const response = await fetch('/api/supabase-proxy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    endpoint: `users?id=eq.${this.currentUser.id}`,
-                    method: 'PATCH',
-                    body: { stats: statsJson },
-                    headers: {
-                        'Prefer': 'return=representation',
-                        'Cache-Control': 'no-cache'
-                    }
-                })
-            });
-            
-            if (response.ok) {
-                this.currentUser.stats = stats;
-                this.cache.clear();
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Ошибка сохранения статистики:', error);
-            return false;
-        }
+        const user = users[0];
+        const passwordHash = this.hashPassword(newPassword);
+        
+        await this.supabaseRequest(
+            `users?id=eq.${user.id}`,
+            'PATCH',
+            { password_hash: passwordHash }
+        );
+        
+        return { success: true, message: 'Пароль успешно изменен' };
+    } catch (error) {
+        console.error('Ошибка сброса пароля:', error);
+        return { success: false, message: 'Ошибка изменения пароля' };
     }
+}
             
     async addTrainingSession(sessionData) {
         if (!this.currentUser) return false;
