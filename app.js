@@ -50,13 +50,21 @@ async function viewStudentSession(sessionIdOrData) {
             return;
         }
         
-        // ... остальной код функции без изменений
-    } catch (error) {
-        console.error('Ошибка:', error);
-        alert('Ошибка загрузки тренировки');
-    }
-
+        // Получаем данные для отображения
+        let messages = [];
+        if (session.messages) {
+            try {
+                messages = typeof session.messages === 'string' ? 
+                    JSON.parse(session.messages) : session.messages;
+            } catch (e) {
+                console.error('Ошибка парсинга сообщений:', e);
+                messages = [];
+            }
+        }
         
+        const clientType = session.clientType ? clientTypes[session.clientType] : null;
+        
+        // Создаем модальное окно
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.style.display = 'flex';
@@ -181,6 +189,7 @@ async function viewStudentSession(sessionIdOrData) {
                 </div>
             </div>
         `;
+        
         document.body.appendChild(modal);
         
         setTimeout(() => {
@@ -206,7 +215,7 @@ async function downloadMySession(sessionIdOrData) {
             return;
         }
         
-
+        // Определяем, что нам передали: ID или данные сессии
         if (typeof sessionIdOrData === 'string') {
             // Пробуем определить, является ли это JSON строкой
             if (sessionIdOrData.startsWith('{') || sessionIdOrData.startsWith('[')) {
@@ -221,8 +230,7 @@ async function downloadMySession(sessionIdOrData) {
                     } catch (e2) {
                         console.error('Ошибка парсинга сессии 2:', e2);
                     }
-                
-                
+                }
             } else {
                 // Это ID из базы данных
                 const sessions = await auth.supabaseRequest(`training_sessions?id=eq.${sessionIdOrData}&user_id=eq.${currentUserId}`);
@@ -244,13 +252,21 @@ async function downloadMySession(sessionIdOrData) {
             return;
         }
         
-        // ... остальной код функции без изменений
-    } catch (error) {
-        console.error('Ошибка генерации PDF:', error);
-        alert('Ошибка при создании PDF');
-    }
-}
+        // Получаем данные для PDF
+        let messages = [];
+        if (session.messages) {
+            try {
+                messages = typeof session.messages === 'string' ? 
+                    JSON.parse(session.messages) : session.messages;
+            } catch (e) {
+                console.error('Ошибка парсинга сообщений:', e);
+                messages = [];
+            }
+        }
         
+        const clientType = session.clientType ? clientTypes[session.clientType] : null;
+        
+        // Создаем PDF/печать
         const printWindow = window.open('', '_blank');
         const html = `
             <html>
@@ -343,6 +359,7 @@ async function downloadMySession(sessionIdOrData) {
         setTimeout(() => {
             printWindow.print();
         }, 500);
+        
     } catch (error) {
         console.error('Ошибка генерации PDF:', error);
         alert('Ошибка при создании PDF');
