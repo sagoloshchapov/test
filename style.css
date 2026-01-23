@@ -3151,3 +3151,38 @@ h4 { font-size: 1.125rem; }
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 15px;
 }
+.history-item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.view-chat-btn, .download-chat-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+}
+
+.view-chat-btn {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.view-chat-btn:hover {
+    background-color: #bbdefb;
+}
+
+.download-chat-btn {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.download-chat-btn:hover {
+    background-color: #c8e6c9;
+}
