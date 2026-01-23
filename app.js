@@ -183,18 +183,17 @@ async function viewStudentSession(sessionIdOrData) {
         `;
         document.body.appendChild(modal);
         
-        // Прокручиваем вниз
         setTimeout(() => {
-    const chatContainer = modal.querySelector('#studentChatMessages');
-    if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+            const chatContainer = modal.querySelector('#studentChatMessages');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка загрузки тренировки');
     }
-}, 100);
-    
-} catch (error) {
-    console.error('Ошибка:', error);
-    alert('Ошибка загрузки тренировки');
-}
 }
 
 async function downloadMySession(sessionIdOrData) {
