@@ -5350,8 +5350,7 @@ function searchSessions() {
             console.error('Ошибка поиска:', error);
         }
     }, 300);
-    // ===== ТРЕНЕРСКИЕ ФУНКЦИИ =====
-
+}
 
 async function viewTrainerSession(sessionId) {
     try {
