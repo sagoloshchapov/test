@@ -5362,7 +5362,6 @@ async function downloadSessionPDF(sessionId) {
         alert('Ошибка при создании PDF');
     }
 }
-    // ===== ФУНКЦИИ ДЛЯ УЧЕНИКОВ (ТОЛЬКО СВОИ ДИАЛОГИ) =====
 
 async function viewStudentSession(sessionIdOrData) {
     try {
