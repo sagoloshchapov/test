@@ -190,7 +190,8 @@ async function viewStudentSession(sessionIdOrData) {
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             }
         }, 100);
-    } catch (error) {
+    } 
+catch (error) {
         console.error('Ошибка:', error);
         alert('Ошибка загрузки тренировки');
     }
