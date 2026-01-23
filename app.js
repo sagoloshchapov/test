@@ -55,7 +55,7 @@ async function viewStudentSession(sessionIdOrData) {
         console.error('Ошибка:', error);
         alert('Ошибка загрузки тренировки');
     }
-}
+
         
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -206,7 +206,7 @@ async function downloadMySession(sessionIdOrData) {
             return;
         }
         
-        // Определяем, что нам передали: ID или данные сессии
+
         if (typeof sessionIdOrData === 'string') {
             // Пробуем определить, является ли это JSON строкой
             if (sessionIdOrData.startsWith('{') || sessionIdOrData.startsWith('[')) {
@@ -221,7 +221,8 @@ async function downloadMySession(sessionIdOrData) {
                     } catch (e2) {
                         console.error('Ошибка парсинга сессии 2:', e2);
                     }
-                }
+                
+                
             } else {
                 // Это ID из базы данных
                 const sessions = await auth.supabaseRequest(`training_sessions?id=eq.${sessionIdOrData}&user_id=eq.${currentUserId}`);
